@@ -159,6 +159,19 @@
   "08b8898cc3e1e502": "Estimando...",
   "08f1eb2217fda26d": "Recupera tus fondos si el servidor Ark no está disponible.",
   "093525749e66c3a5": "Iniciar salida seleccionada",
+  "0993664bac131307": {
+    "t": "Text",
+    "i": 1,
+    "c": [
+      "Los VTXOs de menos de ",
+      {
+        "i": 2,
+        "k": "_gt_value_2",
+        "v": "v"
+      },
+      " no pueden retirarse en cadena. Se excluyen de esta salida."
+    ]
+  },
   "09f8f50373dd1fc2": "Abre las opciones para copiar la solicitud unificada o un método de pago individual",
   "0a1ab3194d17d5de": "Pausado",
   "0a5ef267b7f39f43": "No hay una segunda mejor opción.",
@@ -1101,6 +1114,7 @@
     "t": "Text"
   },
   "5c79e5ae53ee50e2": "ID de copia de seguridad no válido",
+  "5c9588e000a73e61": "Por debajo del umbral de polvo",
   "5cdd5d68a6fd3164": {
     "c": "No se pudieron cargar las salidas",
     "i": 1,
@@ -1413,6 +1427,7 @@
   },
   "7e4dbcd193053f70": "Cada {count} días",
   "7e92bb1d68b40079": "Se interrumpió un pago a {recipient}. Revisa tu historial y luego reanuda el pago.",
+  "7ea59ebf22879843": "Todos los VTXOs elegibles",
   "7eb5379541cdb803": "Se requiere una dirección Lightning como destino del pago",
   "7f3f1617bd786b1a": {
     "c": "Ajustes",
@@ -1517,6 +1532,7 @@
     "i": 1,
     "t": "Text"
   },
+  "87803a9320ddb830": "Elige si quieres retirar todos los VTXOs elegibles o solo algunos.",
   "87d78fc358a0eca2": "Cargando billetera...",
   "87db4a7acd4f36d9": "Se requiere autenticación",
   "882828ee416984ca": {
@@ -1604,6 +1620,11 @@
     "i": 1,
     "t": "Text"
   },
+  "8fb4f60f63be6481": {
+    "t": "Text",
+    "i": 1,
+    "c": "No se puede retirar · importe inferior al umbral de polvo"
+  },
   "8fbe8ad1418455e6": "API de precios históricos",
   "8fcb7f1299759386": "Editar punto de acceso de la API de Esplora",
   "8fd377a87d4933df": {
@@ -1646,6 +1667,11 @@
   "91a35e3164b9dc9b": "Se volverá a intentar el pago recurrente",
   "91f104e73d4f2881": "Pagar desde",
   "91fd38f6b26e4b52": "Saldo en cadena",
+  "920bbd695a1b2146": {
+    "t": "Text",
+    "i": 1,
+    "c": "Ningún VTXO alcanza el umbral de polvo para salir."
+  },
   "92f3fb82a31fa89d": "Usar fondos confirmados en cadena",
   "9314145c13cdff15": "Necesario",
   "931a76227553195d": "Pagar a través de la red Lightning",

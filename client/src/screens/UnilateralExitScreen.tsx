@@ -39,7 +39,13 @@ import {
 import { useBalance } from "~/hooks/useWallet";
 import { useWalletStore } from "~/store/walletStore";
 import { useAlert } from "~/contexts/AlertProvider";
-import { exitReceiveAmount, exitFeeWarning, type ExitFeeReview } from "~/lib/exitFeeEstimate";
+import {
+  EXIT_DUST_LIMIT_SAT,
+  exitReceiveAmount,
+  exitFeeWarning,
+  isExitEligible,
+  type ExitFeeReview,
+} from "~/lib/exitFeeEstimate";
 import { APP_VARIANT } from "~/config";
 import { getMempoolTxUrl } from "~/constants";
 import {
@@ -408,26 +414,46 @@ const ExitCandidateVtxoRow = ({
   onPress: () => void;
 }) => {
   const formatBitcoinAmount = useBitcoinAmountFormatter();
+  const canExit = isExitEligible(vtxo);
 
   return (
     <Pressable
       onPress={onPress}
+      disabled={!canExit}
+      accessibilityRole="checkbox"
+      accessibilityState={{ disabled: !canExit, checked: isSelected }}
       className={cn(
         "mb-2 flex-row items-center rounded-lg border p-4",
-        isSelected ? "border-primary bg-primary/10" : "border-border bg-background",
+        !canExit
+          ? "border-border bg-muted/40"
+          : isSelected
+            ? "border-primary bg-primary/10"
+            : "border-border bg-background",
       )}
     >
       <View className="mr-4">
         <Icon
           name="cube-outline"
           size={22}
-          color={isSelected ? COLORS.BITCOIN_ORANGE : "#22c55e"}
+          color={!canExit ? "#8e8e93" : isSelected ? COLORS.BITCOIN_ORANGE : "#22c55e"}
         />
       </View>
       <View className="flex-1">
-        <Text className="text-base font-semibold text-foreground">
+        <Text
+          className={cn(
+            "text-base font-semibold",
+            canExit ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
           {formatBitcoinAmount(vtxo.amount)}
         </Text>
+        {!canExit ? (
+          <T>
+            <Text className="mt-1 text-sm text-muted-foreground">
+              Cannot exit · below dust limit
+            </Text>
+          </T>
+        ) : null}
         <T>
           <Text className="mt-1 text-sm text-muted-foreground" numberOfLines={1}>
             Expires at block <Var>{vtxo.expiry_height}</Var>
@@ -438,7 +464,9 @@ const ExitCandidateVtxoRow = ({
         </Text>
       </View>
       <Icon
-        name={isSelected ? "checkmark-circle" : "ellipse-outline"}
+        name={
+          !canExit ? "remove-circle-outline" : isSelected ? "checkmark-circle" : "ellipse-outline"
+        }
         size={26}
         color={isSelected ? "#22c55e" : "#8e8e93"}
       />
@@ -457,7 +485,7 @@ const ExitModePicker = ({
 }) => {
   const gt = useGT();
   const EXIT_MODE_OPTIONS = [
-    { label: gt("Entire wallet"), value: "wallet" },
+    { label: gt("All eligible VTXOs"), value: "wallet" },
     { label: gt("Selected VTXOs"), value: "selected" },
   ] as const satisfies readonly NativeNoahPickerOption<ExitStartMode>[];
   return (
@@ -481,7 +509,7 @@ function exitReviewDescription(
   const claimOnly = inputs.scope === "claim";
   const scope =
     inputs.scope === "wallet"
-      ? gt("Entire wallet (available VTXOs)")
+      ? gt("All eligible VTXOs")
       : claimOnly
         ? gt("Claimable exits")
         : gt("Selected VTXOs");
@@ -693,14 +721,17 @@ const StartExitPanel = ({
   const gt = useGT();
   const title = titleProp ?? gt("Start Emergency Exit");
   const description =
-    descriptionProp ?? gt("Choose whether to exit all available VTXOs or only specific ones.");
+    descriptionProp ?? gt("Choose whether to exit all eligible VTXOs or only specific ones.");
   const locale = useLocale();
   const formatBitcoinAmount = useBitcoinAmountFormatter();
+  const eligibleVtxos = spendableVtxos.filter(isExitEligible);
+  const eligibleAmount = eligibleVtxos.reduce((total, vtxo) => total + vtxo.amount, 0);
+  const belowDustVtxos = spendableVtxos.filter((vtxo) => !isExitEligible(vtxo));
   const hasSelection = selectedCount > 0;
   const startDisabled =
     isBusy ||
     quote.isLoading ||
-    spendableVtxos.length === 0 ||
+    eligibleVtxos.length === 0 ||
     (mode === "selected" && !hasSelection);
 
   return (
@@ -721,6 +752,22 @@ const StartExitPanel = ({
 
       <ExitModePicker value={mode} onChange={onModeChange} disabled={isBusy} />
 
+      {belowDustVtxos.length > 0 ? (
+        <View className="mt-4 gap-1">
+          <Text className="text-sm font-semibold text-foreground">
+            {gt("Below dust limit")} · {belowDustVtxos.length}{" "}
+            {belowDustVtxos.length === 1 ? gt("VTXO") : gt("VTXOs")} ·{" "}
+            {formatBitcoinAmount(belowDustVtxos.reduce((total, vtxo) => total + vtxo.amount, 0))}
+          </Text>
+          <T>
+            <Text className="text-sm leading-5 text-muted-foreground">
+              VTXOs below <Var>{formatBitcoinAmount(EXIT_DUST_LIMIT_SAT)}</Var> cannot exit onchain.
+              They are excluded from this exit.
+            </Text>
+          </T>
+        </View>
+      ) : null}
+
       {mode === "wallet" ? (
         <View className="mt-4 rounded-lg border border-border bg-background px-3 py-2">
           <View className="flex-row items-center justify-between py-2">
@@ -728,7 +775,7 @@ const StartExitPanel = ({
               <Text className="text-sm text-muted-foreground">Available VTXOs</Text>
             </T>
             <Text className="text-sm font-semibold text-foreground">
-              {spendableVtxos.length.toLocaleString(locale)}
+              {eligibleVtxos.length.toLocaleString(locale)}
             </Text>
           </View>
           <View className="h-px bg-border/70" />
@@ -737,7 +784,7 @@ const StartExitPanel = ({
               <Text className="text-sm text-muted-foreground">Available value</Text>
             </T>
             <Text className="text-sm font-semibold text-foreground">
-              {formatBitcoinAmount(spendableVtxos.reduce((total, vtxo) => total + vtxo.amount, 0))}
+              {formatBitcoinAmount(eligibleAmount)}
             </Text>
           </View>
         </View>
@@ -759,7 +806,9 @@ const StartExitPanel = ({
           <View className="mb-3 flex-row gap-2">
             <Pressable
               onPress={onSelectAll}
-              disabled={isBusy || spendableVtxos.length === 0}
+              disabled={isBusy || eligibleVtxos.length === 0}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isBusy || eligibleVtxos.length === 0 }}
               className="h-9 flex-1 items-center justify-center rounded-full bg-background px-3"
             >
               <T>
@@ -780,14 +829,20 @@ const StartExitPanel = ({
             <ExitCandidateVtxoRow
               key={vtxo.id}
               vtxo={vtxo}
-              isSelected={selectedVtxoIds.has(vtxo.id)}
+              isSelected={isExitEligible(vtxo) && selectedVtxoIds.has(vtxo.id)}
               onPress={() => onToggleVtxo(vtxo.id)}
             />
           ))}
         </View>
       )}
 
-      {mode === "selected" && !hasSelection ? (
+      {eligibleVtxos.length === 0 ? (
+        <T>
+          <Text className="mt-4 text-sm text-muted-foreground">
+            No VTXOs meet the exit dust limit.
+          </Text>
+        </T>
+      ) : mode === "selected" && !hasSelection ? (
         <T>
           <Text className="mt-4 text-sm text-muted-foreground">
             Select VTXOs to estimate exit fees.
@@ -796,11 +851,7 @@ const StartExitPanel = ({
       ) : (
         <ExitFeePreview
           quote={quote}
-          amountSat={
-            mode === "wallet"
-              ? spendableVtxos.reduce((total, vtxo) => total + vtxo.amount, 0)
-              : selectedAmount
-          }
+          amountSat={mode === "wallet" ? eligibleAmount : selectedAmount}
         />
       )}
       {quote.estimate && !quote.estimate.fundable ? (
@@ -846,7 +897,8 @@ const StartAnotherExitCard = ({
 }) => {
   const gt = useGT();
   const formatBitcoinAmount = useBitcoinAmountFormatter();
-  const spendableTotal = spendableVtxos.reduce((total, vtxo) => total + vtxo.amount, 0);
+  const eligibleVtxos = spendableVtxos.filter(isExitEligible);
+  const eligibleTotal = eligibleVtxos.reduce((total, vtxo) => total + vtxo.amount, 0);
 
   return (
     <View className="rounded-lg border border-border bg-card p-4">
@@ -864,7 +916,7 @@ const StartAnotherExitCard = ({
             <Text className="text-sm text-muted-foreground">Remaining available</Text>
           </T>
           <Text className="text-sm font-semibold text-foreground">
-            {spendableVtxos.length} {spendableVtxos.length === 1 ? gt("VTXO") : gt("VTXOs")}
+            {eligibleVtxos.length} {eligibleVtxos.length === 1 ? gt("VTXO") : gt("VTXOs")}
           </Text>
         </View>
         <View className="h-px bg-border/70" />
@@ -873,7 +925,7 @@ const StartAnotherExitCard = ({
             <Text className="text-sm text-muted-foreground">Value</Text>
           </T>
           <Text className="text-sm font-semibold text-foreground">
-            {formatBitcoinAmount(spendableTotal)}
+            {formatBitcoinAmount(eligibleTotal)}
           </Text>
         </View>
       </View>
@@ -947,7 +999,9 @@ const UnilateralExitScreen = () => {
   const overview = overviewQuery.data;
   const exits = overview?.exits ?? [];
   const spendableVtxos = overview?.spendableVtxos ?? [];
-  const selectedExitVtxos = spendableVtxos.filter((vtxo) => selectedExitVtxoIds.has(vtxo.id));
+  const eligibleExitVtxos = spendableVtxos.filter(isExitEligible);
+  const eligibleExitAmount = eligibleExitVtxos.reduce((total, vtxo) => total + vtxo.amount, 0);
+  const selectedExitVtxos = eligibleExitVtxos.filter((vtxo) => selectedExitVtxoIds.has(vtxo.id));
   const selectedExitVtxoIdList = selectedExitVtxos.map((vtxo) => vtxo.id);
   const selectedExitAmount = selectedExitVtxos.reduce((total, vtxo) => total + vtxo.amount, 0);
   const statuses = overview?.statuses ?? {};
@@ -1002,7 +1056,7 @@ const UnilateralExitScreen = () => {
   const btcValidation = trimmedDestination ? validateBitcoinAddress(trimmedDestination) : null;
   const isValidDestination =
     !!btcValidation?.valid && isNetworkMatch(btcValidation.network, "onchain");
-  const startVtxos = exitStartMode === "wallet" ? spendableVtxos : selectedExitVtxos;
+  const startVtxos = exitStartMode === "wallet" ? eligibleExitVtxos : selectedExitVtxos;
   const startAmount = startVtxos.reduce((total, vtxo) => total + vtxo.amount, 0);
   const revision = `${overviewQuery.dataUpdatedAt}:${balanceQuery.dataUpdatedAt}:${walletReady}`;
   const startQuote = useExitFeeEstimate(
@@ -1095,7 +1149,7 @@ const UnilateralExitScreen = () => {
   };
 
   const toggleExitVtxoSelection = (vtxoId: string) => {
-    if (isBusy) {
+    if (isBusy || !eligibleExitVtxos.some((vtxo) => vtxo.id === vtxoId)) {
       return;
     }
 
@@ -1111,7 +1165,7 @@ const UnilateralExitScreen = () => {
   };
 
   const selectAllExitVtxos = () => {
-    setSelectedExitVtxoIds(new Set(spendableVtxos.map((vtxo) => vtxo.id)));
+    setSelectedExitVtxoIds(new Set(eligibleExitVtxos.map((vtxo) => vtxo.id)));
   };
 
   const clearExitVtxoSelection = () => {
@@ -1253,13 +1307,13 @@ const UnilateralExitScreen = () => {
                     <View className="mt-4 flex-row gap-x-4">
                       <ExitSummaryItem
                         label={gt("Available")}
-                        value={`${overview?.spendableVtxoCount ?? 0} ${
-                          overview?.spendableVtxoCount === 1 ? "VTXO" : "VTXOs"
+                        value={`${eligibleExitVtxos.length} ${
+                          eligibleExitVtxos.length === 1 ? "VTXO" : "VTXOs"
                         }`}
                       />
                       <ExitSummaryItem
                         label={gt("Available Value")}
-                        value={formatBitcoinAmount(overview?.spendableVtxoTotal ?? 0)}
+                        value={formatBitcoinAmount(eligibleExitAmount)}
                       />
                     </View>
                   </View>

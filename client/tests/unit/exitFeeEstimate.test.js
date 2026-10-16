@@ -6,7 +6,25 @@ import {
   exitFeeWarning,
   exitReceiveAmount,
   isExitReviewCurrent,
+  isExitEligible,
 } from "../../src/lib/exitFeeEstimate";
+
+describe("emergency exit eligibility", () => {
+  test("excludes sub-dust amounts and accepts the exact 330 sat limit", () => {
+    for (const amount of [0, 1, 329]) {
+      expect(isExitEligible({ state: "Spendable", amount })).toBe(false);
+    }
+    for (const amount of [330, 331, 100_000]) {
+      expect(isExitEligible({ state: "Spendable", amount })).toBe(true);
+    }
+  });
+
+  test("excludes VTXOs that are no longer spendable", () => {
+    for (const state of ["Locked", "Spent", "Exited", "unknown"]) {
+      expect(isExitEligible({ state, amount: 10_000 })).toBe(false);
+    }
+  });
+});
 
 const estimate = {
   exit_broadcast_fee_sat: 12_000,
