@@ -20,9 +20,9 @@ const { getBackgroundMessages } = await import("../../src/lib/backgroundTranslat
 const { useErrorTranslation } = await import("../../src/hooks/useErrorTranslation");
 
 test("background translation keeps dynamic notification data local and intact", async () => {
-  const message = msg("You received {amount}", { amount: "₿ 1.234" });
+  const message = msg("You received {amount}", { amount: "₿ 1.234 (≈ US$1.23)" });
   const spanish = await getBackgroundMessages();
-  expect(spanish(message)).toBe("Has recibido ₿ 1.234");
+  expect(spanish(message)).toBe("Has recibido ₿ 1.234 (≈ US$1.23)");
   locale = "ja";
   const japanese = await getBackgroundMessages();
   expect(japanese(msg("You received {amount}", { amount: "₿ 1,234" }))).toBe(
@@ -30,7 +30,7 @@ test("background translation keeps dynamic notification data local and intact", 
   );
   locale = "en";
   const english = await getBackgroundMessages();
-  expect(english(message)).toBe("You received ₿ 1.234");
+  expect(english(message)).toBe("You received ₿ 1.234 (≈ US$1.23)");
 });
 
 test("only registered application errors enter the translation resolver", () => {

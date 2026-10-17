@@ -495,6 +495,9 @@ pub struct LightningClaimRequestNotification {
     pub payment_hash: String,
     #[ts(type = "number")]
     pub amount_sat: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub amount_usd: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, TS, Clone)]

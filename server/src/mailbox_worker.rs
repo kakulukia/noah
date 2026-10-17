@@ -30,7 +30,10 @@ use uuid::Uuid;
 use crate::{
     AppState,
     config::ARK_USER_AGENT,
-    db::mailbox_authorization_repo::{ActiveMailboxAuthorization, MailboxAuthorizationRepository},
+    db::{
+        fiat_rate_repo::{FiatRate, FiatRateRepository},
+        mailbox_authorization_repo::{ActiveMailboxAuthorization, MailboxAuthorizationRepository},
+    },
     errors::ApiError,
     push::{PushNotificationData, send_expo_push_notification, send_push_notification},
     types::{LightningClaimRequestNotification, NotificationData},
@@ -734,7 +737,9 @@ async fn process_mailbox_message(
         Some(Message::IncomingLightningPayment(lightning_payment)) if send_notifications => {
             let payment_hash = hex::encode(&lightning_payment.payment_hash);
             let amount_sat = lightning_payment.amount_msat / 1000;
-            let notification = build_lightning_claim_notification(payment_hash, amount_sat)?;
+            let usd_rate = load_notification_usd_rate(app_state).await;
+            let notification =
+                build_lightning_claim_notification(payment_hash, amount_sat, usd_rate.as_ref())?;
 
             tracing::info!(
                 service = "mailbox_worker",
@@ -763,8 +768,10 @@ async fn process_mailbox_message(
                 "mailbox arkoor message received"
             );
 
+            let usd_rate = load_notification_usd_rate(app_state).await;
             for raw_vtxo in &arkoor.vtxos {
-                let Some(notification) = build_receive_notification(raw_vtxo)? else {
+                let Some(notification) = build_receive_notification(raw_vtxo, usd_rate.as_ref())?
+                else {
                     continue;
                 };
                 let notification_kind = if notification.content_available
@@ -811,14 +818,45 @@ fn should_suppress_catchup_notifications(last_checkpoint: i64) -> bool {
     last_checkpoint == 0
 }
 
+async fn load_notification_usd_rate(app_state: &AppState) -> Option<FiatRate> {
+    match FiatRateRepository::new(&app_state.db_pool)
+        .get_latest_rates()
+        .await
+    {
+        Ok(rates) => rates.into_iter().find(|rate| rate.currency == "USD"),
+        Err(error) => {
+            tracing::warn!(%error, "Failed to load USD rate for receive notification");
+            None
+        }
+    }
+}
+
+fn notification_usd_amount(amount_sat: u64, usd_rate: Option<&FiatRate>) -> Option<String> {
+    let rate = usd_rate?;
+    let age = Utc::now().signed_duration_since(rate.observed_at);
+    // Allow missed five-minute refreshes without showing an outdated dollar estimate.
+    if age < chrono::TimeDelta::zero()
+        || age > chrono::TimeDelta::minutes(15)
+        || !rate.btc_price.is_finite()
+        || rate.btc_price <= 0.0
+    {
+        return None;
+    }
+
+    let amount = amount_sat as f64 / 100_000_000.0 * rate.btc_price;
+    amount.is_finite().then(|| format!("{amount:.2}"))
+}
+
 fn build_lightning_claim_notification(
     payment_hash: String,
     amount_sat: u64,
+    usd_rate: Option<&FiatRate>,
 ) -> Result<PushNotificationData, ApiError> {
     let data = serde_json::to_string(&NotificationData::LightningClaimRequest(
         LightningClaimRequestNotification {
             payment_hash,
             amount_sat,
+            amount_usd: notification_usd_amount(amount_sat, usd_rate),
         },
     ))
     .map_err(|e| ApiError::SerializeErr(e.to_string()))?;
@@ -832,17 +870,24 @@ fn build_lightning_claim_notification(
     })
 }
 
-fn build_receive_notification(raw_vtxo: &[u8]) -> Result<Option<PushNotificationData>, ApiError> {
+fn build_receive_notification(
+    raw_vtxo: &[u8],
+    usd_rate: Option<&FiatRate>,
+) -> Result<Option<PushNotificationData>, ApiError> {
     let mut cursor = std::io::Cursor::new(raw_vtxo);
     let vtxo: Vtxo<Full> = Vtxo::decode(&mut cursor)
         .map_err(|e| ApiError::Anyhow(anyhow::anyhow!("failed to decode mailbox vtxo: {}", e)))?;
 
     let amount_sats = vtxo.amount().to_sat();
+    let amount = match notification_usd_amount(amount_sats, usd_rate) {
+        Some(usd) => format!("{amount_sats} sats (≈ US${usd})"),
+        None => format!("{amount_sats} sats"),
+    };
 
     match vtxo.policy_type() {
         VtxoPolicyKind::Pubkey => Ok(Some(PushNotificationData {
             title: Some("Payment received".to_string()),
-            body: Some(format!("You received {} sats via Ark.", amount_sats)),
+            body: Some(format!("You received {amount} via Ark.")),
             data: "{}".to_string(),
             priority: Priority::High,
             content_available: false,
@@ -857,6 +902,43 @@ mod tests {
     use super::*;
     use anyhow::anyhow;
     use ark::test_util::VTXO_VECTORS;
+
+    fn usd_rate(btc_price: f64) -> FiatRate {
+        FiatRate {
+            currency: "USD".to_string(),
+            rate_date: Utc::now().date_naive(),
+            btc_price,
+            observed_at: Utc::now(),
+            source: "test".to_string(),
+        }
+    }
+
+    #[test]
+    fn notification_usd_amount_converts_sats_and_rounds_to_cents() {
+        let rate = usd_rate(123_456.78);
+        assert_eq!(
+            notification_usd_amount(8_000, Some(&rate)).as_deref(),
+            Some("9.88")
+        );
+        assert_eq!(
+            notification_usd_amount(0, Some(&rate)).as_deref(),
+            Some("0.00")
+        );
+    }
+
+    #[test]
+    fn notification_usd_amount_omits_missing_stale_and_invalid_rates() {
+        assert_eq!(notification_usd_amount(8_000, None), None);
+        let mut rate = usd_rate(100_000.0);
+        rate.observed_at -= chrono::TimeDelta::minutes(16);
+        assert_eq!(notification_usd_amount(8_000, Some(&rate)), None);
+        rate.observed_at = Utc::now() + chrono::TimeDelta::minutes(1);
+        assert_eq!(notification_usd_amount(8_000, Some(&rate)), None);
+
+        for price in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert_eq!(notification_usd_amount(8_000, Some(&usd_rate(price))), None);
+        }
+    }
 
     #[test]
     fn retry_delay_grows_and_caps() {
@@ -930,7 +1012,7 @@ mod tests {
     fn build_receive_notification_for_pubkey_vtxo() {
         let raw = VTXO_VECTORS.arkoor2_vtxo.serialize();
 
-        let notification = build_receive_notification(&raw)
+        let notification = build_receive_notification(&raw, None)
             .expect("pubkey vtxo should decode")
             .expect("pubkey vtxo should notify");
 
@@ -942,12 +1024,29 @@ mod tests {
     }
 
     #[test]
+    fn build_receive_notification_includes_usd_when_rate_is_fresh() {
+        let raw = VTXO_VECTORS.arkoor2_vtxo.serialize();
+        let notification = build_receive_notification(&raw, Some(&usd_rate(100_000.0)))
+            .expect("pubkey vtxo should decode")
+            .expect("pubkey vtxo should notify");
+
+        assert_eq!(
+            notification.body.as_deref(),
+            Some("You received 8000 sats (≈ US$8.00) via Ark.")
+        );
+    }
+
+    #[test]
     fn build_lightning_claim_notification_for_incoming_lightning_payment() {
         let payment_hash = "00".repeat(32);
         let amount_sat = 42_000;
 
-        let notification = build_lightning_claim_notification(payment_hash.clone(), amount_sat)
-            .expect("lightning claim notification should build");
+        let notification = build_lightning_claim_notification(
+            payment_hash.clone(),
+            amount_sat,
+            Some(&usd_rate(100_000.0)),
+        )
+        .expect("lightning claim notification should build");
 
         assert_eq!(notification.title, None);
         assert_eq!(notification.body, None);
@@ -961,7 +1060,25 @@ mod tests {
             NotificationData::LightningClaimRequest(LightningClaimRequestNotification {
                 payment_hash: hash,
                 amount_sat: amount,
-            }) if hash == payment_hash && amount == amount_sat
+                amount_usd,
+            }) if hash == payment_hash && amount == amount_sat && amount_usd.as_deref() == Some("42.00")
+        ));
+    }
+
+    #[test]
+    fn lightning_claim_notification_supports_missing_usd_amount() {
+        let notification = build_lightning_claim_notification("00".repeat(32), 42_000, None)
+            .expect("lightning claim notification should build without USD");
+        let payload: serde_json::Value = serde_json::from_str(&notification.data).unwrap();
+        assert!(payload.get("amount_usd").is_none());
+
+        let legacy: NotificationData = serde_json::from_value(payload).unwrap();
+        assert!(matches!(
+            legacy,
+            NotificationData::LightningClaimRequest(LightningClaimRequestNotification {
+                amount_usd: None,
+                ..
+            })
         ));
     }
 
@@ -970,7 +1087,7 @@ mod tests {
         let raw = VTXO_VECTORS.round2_vtxo.serialize();
 
         let notification =
-            build_receive_notification(&raw).expect("lightning receive vtxo should decode");
+            build_receive_notification(&raw, None).expect("lightning receive vtxo should decode");
 
         assert!(
             notification.is_none(),
@@ -983,7 +1100,7 @@ mod tests {
         let raw = VTXO_VECTORS.arkoor_htlc_out_vtxo.serialize();
 
         let notification =
-            build_receive_notification(&raw).expect("lightning send vtxo should decode");
+            build_receive_notification(&raw, None).expect("lightning send vtxo should decode");
 
         assert!(notification.is_none(), "lightning send should not notify");
     }
