@@ -60,18 +60,22 @@ async function ensureDefaultNotificationChannel() {
   });
 }
 
-async function scheduleLightningPaymentNotification(amountSat: number): Promise<string> {
+async function scheduleLightningPaymentNotification(
+  amountSat: number,
+  amountUsd?: string,
+): Promise<string> {
   await ensureDefaultNotificationChannel();
   const { bitcoinAmountUnit } = useProfileStore.getState();
   const m = await getBackgroundMessages();
   const locale = getLocale();
+  const bitcoinAmount = formatBitcoinAmount(amountSat, bitcoinAmountUnit, locale);
 
   return Notifications.scheduleNotificationAsync({
     content: {
       title: m(msg("Lightning Payment Received! ⚡")),
       body: m(
         msg("You received {amount}", {
-          amount: formatBitcoinAmount(amountSat, bitcoinAmountUnit, locale),
+          amount: amountUsd ? `${bitcoinAmount} (≈ US$${amountUsd})` : bitcoinAmount,
         }),
       ),
       sound: "default",
@@ -209,6 +213,7 @@ async function handleNotificationData(notificationData: NotificationData) {
 
       const notificationId = await scheduleLightningPaymentNotification(
         notificationData.amount_sat,
+        notificationData.amount_usd,
       );
       log.i("Local notification scheduled for lightning payment", [
         notificationId,

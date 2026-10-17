@@ -123,7 +123,7 @@ export type LightningAddressSuggestionsResponse = {
  */
 suggestions: Array<string>, };
 
-export type LightningClaimRequestNotification = { payment_hash: string, amount_sat: number, };
+export type LightningClaimRequestNotification = { payment_hash: string, amount_sat: number, amount_usd?: string, };
 
 /**
  * Represents a configured hosted Lightning identity.
