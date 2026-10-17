@@ -1,7 +1,13 @@
 import { sourceText, type Translate } from "~/lib/i18n";
-import type { ExitFeeEstimate } from "react-native-nitro-ark";
+import type { BarkVtxo, ExitFeeEstimate } from "react-native-nitro-ark";
 
 export const EXIT_ESTIMATE_MAX_AGE_MS = 30_000;
+// Match Bark's P2TR_DUST check for starting a unilateral exit.
+export const EXIT_DUST_LIMIT_SAT = 330;
+
+export function isExitEligible(vtxo: BarkVtxo): boolean {
+  return vtxo.state === "Spendable" && vtxo.amount >= EXIT_DUST_LIMIT_SAT;
+}
 
 export type ExitEstimateInputs = {
   walletId: string | null;

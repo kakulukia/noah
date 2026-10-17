@@ -34,6 +34,7 @@ import logger from "~/lib/log";
 import {
   exitEstimateKey,
   isExitReviewCurrent,
+  isExitEligible,
   EXIT_ESTIMATE_MAX_AGE_MS,
   type ExitEstimateInputs,
   type ExitFeeReview,
@@ -264,7 +265,7 @@ export function useStartVtxoExit() {
       log.i("User requested selected VTXO exit start", [{ vtxo_ids: vtxoIds }]);
       const available = new Set(
         readResult(await getVtxos())
-          .filter((vtxo) => vtxo.state === "Spendable")
+          .filter(isExitEligible)
           .map((vtxo) => vtxo.id),
       );
       if (vtxoIds.some((id) => !available.has(id))) {
