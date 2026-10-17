@@ -4,7 +4,7 @@
   "entries": [
     {
       "fileId": "879f3a5f954ee8b75bf1e91f4ea9916b41c933e5beba7eb6362647a637c9c66d",
-      "versionId": "d1203b1eb127c00bdc1256983b63fbffc3a0f416653ace4f29b42d3814e8db56",
+      "versionId": "3cac7e8882cc7ae9488badef2cd95ca53225ec28e93422d3ad69a07f346900c7",
       "translations": {
         "es": {
           "updatedAt": "2026-10-09T19:03:41.337Z",
@@ -15,6 +15,11 @@
           "updatedAt": "2026-10-10T16:05:19.788Z",
           "fileName": "src/_gt/ja.json",
           "postProcessHash": "8cc455d2af6d4a96870253df692ea9b9cc32592d3c17ae6a23c0997473ff84cb"
+        },
+        "ko": {
+          "updatedAt": "2026-10-17T01:15:24.855Z",
+          "fileName": "src/_gt/ko.json",
+          "postProcessHash": "402ae6bb3890fbcacce2b06479f3d6fea41659b915c1c3d4a4f0eb3ab7a9bfc3"
         }
       },
       "fileName": "__INTERNAL_GT_TEMPLATE_NAME__"
