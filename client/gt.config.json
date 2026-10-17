@@ -4,7 +4,8 @@
   "locales": [
     "es",
     "ja",
-    "ko"
+    "ko",
+    "sv"
   ],
   "src": [
     "src/**/*.{ts,tsx}"

@@ -35,3 +35,10 @@ test("Korean amount entry preserves fractional digits and won displays whole uni
   expect(formatNumber("0.05", "ko")).toBe("0.05");
   expect(formatFiatAmount("1234.5", "KRW", "ko")).toBe("₩1,235");
 });
+
+test("Swedish amount entry preserves fractional digits and uses a decimal comma", () => {
+  expect(formatNumber("12345.00", "sv")).toBe("12\u00a0345,00");
+  expect(formatNumber("0.", "sv")).toBe("0,");
+  expect(formatNumber("0.05", "sv")).toBe("0,05");
+  expect(formatFiatAmount("1234.5", "EUR", "sv")).toBe("1\u00a0234,50\u00a0€");
+});

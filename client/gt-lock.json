@@ -20,6 +20,11 @@
           "updatedAt": "2026-10-17T01:15:24.855Z",
           "fileName": "src/_gt/ko.json",
           "postProcessHash": "402ae6bb3890fbcacce2b06479f3d6fea41659b915c1c3d4a4f0eb3ab7a9bfc3"
+        },
+        "sv": {
+          "updatedAt": "2026-10-17T02:21:03.494Z",
+          "fileName": "src/_gt/sv.json",
+          "postProcessHash": "9144e9cd9831d2275738ce07dbfa11dcd5b57d59b85a9b0b4de08844a67533d3"
         }
       },
       "fileName": "__INTERNAL_GT_TEMPLATE_NAME__"
