@@ -3,7 +3,8 @@
   "defaultLocale": "en",
   "locales": [
     "es",
-    "ja"
+    "ja",
+    "ko"
   ],
   "src": [
     "src/**/*.{ts,tsx}"
@@ -14,5 +15,5 @@
     }
   },
   "projectId": "prj_rqmymh8xftristtvxx5exf7h",
-  "_versionId": "d1203b1eb127c00bdc1256983b63fbffc3a0f416653ace4f29b42d3814e8db56"
+  "_versionId": "3cac7e8882cc7ae9488badef2cd95ca53225ec28e93422d3ad69a07f346900c7"
 }

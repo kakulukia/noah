@@ -87,3 +87,9 @@ test("Japanese Bitcoin amounts use Japanese number formatting", async () => {
   expect(formatBitcoinAmount(1234567, "sats", "ja")).toBe("1,234,567 sats");
   expect(formatBitcoinAmount(1234567, "bip177", "ja")).toBe("₿\u00a01,234,567");
 });
+
+test("Korean Bitcoin amounts use Korean number formatting", async () => {
+  const { formatBitcoinAmount } = await import("../../src/lib/bitcoinAmount");
+  expect(formatBitcoinAmount(1234567, "sats", "ko")).toBe("1,234,567 sats");
+  expect(formatBitcoinAmount(1234567, "bip177", "ko")).toBe("₿\u00a01,234,567");
+});
