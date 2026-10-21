@@ -25,6 +25,7 @@ import {
 } from "~/lib/barkMovement";
 import {
   getBoardingMovementAmount,
+  getMovementPreimage,
   getMovementTransactionId,
   mergeBoardingWithOnchainTransactions,
   parseMovementMetadata,
@@ -246,6 +247,7 @@ const transformMovementToTransaction = async (
   return {
     id: `movement-${movement.id}`,
     txid,
+    preimage: getMovementPreimage(movement, metadata),
     amount,
     date: dateIso,
     sortTimestamp: new Date(dateIso).getTime(),
