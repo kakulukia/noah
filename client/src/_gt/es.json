@@ -86,6 +86,7 @@
   },
   "045741aa62df51f8": "Todos",
   "04bf554cc5495b67": "Cerrar editor de notas",
+  "04c614641bc1cb8d": "Ya hay un ingreso a Ark en curso. Espera a que termine.",
   "0639120d955dfdc7": "Won surcoreano",
   "0639195a5c40cdad": "El punto de acceso de Esplora corresponde a otra red Bitcoin.",
   "066306b5bf59de73": "Solicitud de pago de Bitcoin",
@@ -445,6 +446,7 @@
     "i": 1,
     "t": "Text"
   },
+  "20c32cfc12e013f5": "No se pudo preparar el ingreso automático a Ark. Inténtalo de nuevo más tarde.",
   "2139f3a924c1e3f9": {
     "c": "Cargando...",
     "i": 1,
@@ -671,6 +673,7 @@
   "2d97217c182ad45c": "Este correo electrónico ya está verificado.",
   "2dca8d9897070aa7": "No se pudo guardar la factura",
   "2e589421b5c9dfac": "Se requieren los parámetros para estimar la comisión",
+  "2e66b4441526bc23": "Los fondos disponibles ya no cubren el importe mínimo de ingreso, las comisiones y la reserva.",
   "2eb2241295140ec9": {
     "c": "Valor disponible",
     "i": 1,
@@ -986,6 +989,7 @@
     "t": "Text"
   },
   "508f3d714356b775": "Rupia india",
+  "5092b16c62cc66a3": "El importe del ingreso automático ha cambiado",
   "513e0e91ee2eb60d": "Copiar ID de la transacción de depósito",
   "5163ced4ac8f6d19": "Token de notificaciones push no válido",
   "51e742ddf2600dfc": "Los VTXOs son para Ark lo que los UTXOs son para Bitcoin",
