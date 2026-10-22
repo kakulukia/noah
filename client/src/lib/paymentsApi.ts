@@ -12,6 +12,7 @@ import {
   checkLightningPayment as checkLightningPaymentNitro,
   bolt11Invoice as bolt11InvoiceNitro,
   type ArkoorPaymentResult,
+  type OffboardResult,
   type OnchainPaymentResult,
   type LightningPayment,
   newAddress as newAddressNitro,
@@ -226,7 +227,7 @@ export const estimateBoardOffchainFee = async (
   });
 };
 
-export const offboardAllArk = async (address: string): Promise<Result<string, Error>> => {
+export const offboardAllArk = async (address: string): Promise<Result<OffboardResult, Error>> => {
   return ResultAsync.fromPromise(offboardAllNitro(address), (error) => {
     const e = new Error(
       `Failed to offboard funds: ${error instanceof Error ? error.message : String(error)}`,
@@ -369,7 +370,7 @@ export const sendOnchainFromOffchain = async ({
     );
 
     return e;
-  }).map((txid) => ({
+  }).map(({ txid }) => ({
     txid,
     amount_sat: amountSat,
     destination_address: destination,

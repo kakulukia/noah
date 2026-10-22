@@ -379,6 +379,7 @@ export const useSendScreen = () => {
   const isOnchainSend = finalDestinationType === "onchain";
   const onchainWalletBalance = balance?.onchain.confirmed ?? 0;
   const offchainWalletBalance = balance?.offchain.spendable ?? 0;
+  const needsRefreshBalance = balance?.offchain.needs_refresh ?? 0;
 
   const paymentRailOptions = useMemo<SendRail[]>(() => {
     if (destinationType === "bip321" && bip321Data) {
@@ -1335,6 +1336,7 @@ export const useSendScreen = () => {
       !lightningAddressPaymentRouteQuery.error,
     onchainWalletBalance,
     offchainWalletBalance,
+    needsRefreshBalance,
     showConfirmation,
     destinationType,
     showSuccess,
