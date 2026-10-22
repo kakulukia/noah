@@ -17,9 +17,9 @@ type IconName = ComponentProps<typeof Icon>["name"];
 
 const GroupRow = ({ color, label, amount }: { color: string; label: string; amount: string }) => (
   <View className="flex-row items-center justify-between gap-3">
-    <View className="flex-row items-center gap-2">
+    <View className="flex-1 flex-row items-center gap-2">
       <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-      <Text className="text-base text-foreground">{label}</Text>
+      <Text className="flex-1 text-base text-foreground">{label}</Text>
     </View>
     <Text className="text-base font-semibold text-foreground">{amount}</Text>
   </View>
@@ -29,9 +29,9 @@ const SubRow = ({ icon, label, amount }: { icon: IconName; label: string; amount
   const { mutedForeground } = useThemeColors();
   return (
     <View className="flex-row items-center justify-between gap-3 pl-5">
-      <View className="flex-row items-center gap-2">
+      <View className="flex-1 flex-row items-center gap-2">
         <Icon name={icon} size={14} color={mutedForeground} />
-        <Text className="text-sm text-muted-foreground">{label}</Text>
+        <Text className="flex-1 text-sm text-muted-foreground">{label}</Text>
       </View>
       <Text className="text-sm text-muted-foreground">{amount}</Text>
     </View>
@@ -75,7 +75,7 @@ export function BalanceSheet({
   ];
 
   return (
-    <AppBottomSheet isOpen={isOpen} onClose={onClose} detents={[0, "content"]}>
+    <AppBottomSheet isOpen={isOpen} onClose={onClose} detents={[0, "content"]} scrollable>
       <View className="gap-4 px-2 pb-2">
         <View className="flex-row items-center justify-between gap-3">
           <T>
@@ -83,15 +83,19 @@ export function BalanceSheet({
               Balance
             </Text>
           </T>
-          <View className="flex-row items-center gap-3">
-            <Text className="text-xl font-semibold text-foreground">
+          <View className="flex-1 flex-row items-center justify-end gap-3">
+            <Text
+              className="shrink text-xl font-semibold text-foreground"
+              adjustsFontSizeToFit
+              numberOfLines={1}
+            >
               {formatAmount(totalBalance)}
             </Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={gt("Close balance details")}
               onPress={onClose}
-              className="h-11 w-11 items-center justify-center rounded-full bg-muted/60"
+              className="h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted/60"
             >
               <Icon name="close" size={20} color={mutedForeground} />
             </Pressable>
@@ -187,7 +191,7 @@ export function BalanceSheet({
           <View className="gap-1">
             {rawFields.map(([key, value]) => (
               <View key={key} className="flex-row justify-between gap-3">
-                <Text className="font-mono text-xs text-muted-foreground">{key}</Text>
+                <Text className="flex-1 font-mono text-xs text-muted-foreground">{key}</Text>
                 <Text className="font-mono text-xs text-muted-foreground">
                   {formatAmount(value)}
                 </Text>
