@@ -1,6 +1,6 @@
 services:
   bitcoind:
-    image: bitcoin/bitcoin:30
+    image: bitcoin/bitcoin:31.1@sha256:da25cedc66b1daefff9f412ee196c901a899c3fa68a33b20849c3e08b5c40d63
     command:
       [
         "bitcoind",
@@ -74,7 +74,7 @@ services:
 
   # Local regtest intentionally runs without a watchman.
   captaind:
-    image: niteshbalusu/captaind:nightly-2026-09-04
+    image: niteshbalusu/captaind:nightly-2026-10-22@sha256:1edd39d4518f30c6a3e5bb005bfe2f374cf7a208ad69a0500b44d31a80dcd2e6
     volumes:
       - captaind:/data/captaind
       - ./captaind.toml:/data/captaind/captaind.toml
@@ -93,7 +93,7 @@ services:
         condition: service_healthy
 
   bark:
-    image: niteshbalusu/bark:nightly-2026-09-04
+    image: niteshbalusu/bark:nightly-2026-10-22@sha256:47f1b83beb8cd6d78a8d63e4147ee47c0b66438c39a04f877ccf0a145aa65ecc
     volumes:
       - bark:/root
     depends_on:
@@ -166,7 +166,7 @@ services:
         condition: service_started
 
   barkd:
-    image: ${BARKD_IMAGE:-niteshbalusu/noah-barkd:0.7.1}
+    image: ${BARKD_IMAGE:-niteshbalusu/noah-barkd:0.8.0}
     command: ["barkd", "--dangerously-allow-remote-no-auth"]
     restart: on-failure
     network_mode: "service:noah-server"
