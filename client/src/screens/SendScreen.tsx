@@ -158,7 +158,9 @@ const SendScreen = () => {
       value: "offchain",
       title: getOnchainSourceLabel("offchain", gt),
       subtitle: gt("Send on-chain by offboarding from Ark"),
-      detail: formatBitcoinAmount(offchainWalletBalance),
+      detail: formatBitcoinAmount(
+        isMaxSend ? offchainWalletBalance + needsRefreshBalance : offchainWalletBalance,
+      ),
       unavailableReason: onchainSourceOptions.includes("offchain")
         ? undefined
         : isMaxSend
