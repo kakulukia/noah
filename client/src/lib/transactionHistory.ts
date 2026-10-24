@@ -165,6 +165,10 @@ const getBaseTransactionDisplayLabel = (
     return gt("Ark Exit");
   }
 
+  if (transaction.movementKind === "refresh") {
+    return gt("VTXO Refresh");
+  }
+
   if (transaction.type === "Bolt11" || transaction.type === "Lnurl") {
     return gt("Lightning");
   }

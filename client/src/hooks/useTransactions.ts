@@ -55,6 +55,7 @@ const SUBSYSTEM_KIND_TO_MOVEMENT_KIND: Partial<Record<BarkSubsystemId, MovementK
   [`${BARK_SUBSYSTEM.EXIT_START.name}:${BARK_SUBSYSTEM.EXIT_START.kind}`]: "exit",
   [`${BARK_SUBSYSTEM.LIGHTNING_RECEIVE.name}:${BARK_SUBSYSTEM.LIGHTNING_RECEIVE.kind}`]:
     "lightning-receive",
+  [`${BARK_SUBSYSTEM.ROUND_REFRESH.name}:${BARK_SUBSYSTEM.ROUND_REFRESH.kind}`]: "refresh",
 };
 
 const OUTGOING_SUBSYSTEM_KEYS = new Set<BarkSubsystemId>([
@@ -164,7 +165,7 @@ const determineTransactionType = (
     return "Onchain";
   }
 
-  if (movementKind === "arkoor-receive") {
+  if (movementKind === "arkoor-receive" || movementKind === "refresh") {
     return "Arkoor";
   }
 
@@ -201,7 +202,7 @@ const determineTransactionType = (
   return "Onchain";
 };
 
-const transformMovementToTransaction = async (
+export const transformMovementToTransaction = async (
   movement: BarkMovement,
   currency: FiatCurrencyCode,
 ): Promise<Transaction> => {
@@ -393,7 +394,7 @@ const compareTransactions = (a: Transaction, b: Transaction): number => {
   return bSortTimestamp - aSortTimestamp;
 };
 
-const shouldIncludeMovement = (movement: BarkMovement): boolean => {
+export const shouldIncludeMovement = (movement: BarkMovement): boolean => {
   if (isBoardingHistoryMovement(movement)) {
     return true;
   }
