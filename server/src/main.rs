@@ -9,6 +9,8 @@ mod auth;
 mod barkd_client;
 mod cache;
 mod config;
+#[cfg(test)]
+mod openapi;
 mod routes;
 mod types;
 use bitcoin::Network;
@@ -78,6 +80,9 @@ const SUPPORT_TICKET_BODY_LIMIT_BYTES: usize = 8 * 1024 * 1024;
 
 #[derive(Clone)]
 pub struct AppStruct {
+    #[cfg(test)]
+    pub push_deliveries:
+        Option<tokio::sync::mpsc::UnboundedSender<(String, push::PushNotificationData)>>,
     pub config: Arc<Config>,
     pub lnurl_domain: String,
     pub ark_server_pubkey: Arc<tokio::sync::RwLock<Option<String>>>,
@@ -88,6 +93,16 @@ pub struct AppStruct {
     pub email_client: EmailClient,
     pub maintenance_store: MaintenanceStore,
     pub barkd_invoice_provider: Option<Arc<dyn ForwardingInvoiceProvider>>,
+}
+
+#[utoipa::path(get, path = "/", responses((status = 204, description = "Server reachable")))]
+async fn root() -> StatusCode {
+    StatusCode::NO_CONTENT
+}
+
+#[utoipa::path(get, path = "/health", responses((status = 200, description = "Server healthy")))]
+async fn health() -> StatusCode {
+    StatusCode::OK
 }
 
 fn lnurlp_router() -> Router<AppState> {
@@ -212,6 +227,8 @@ async fn start_server(config: Config) -> anyhow::Result<()> {
     let barkd_invoice_provider = build_forwarding_invoice_provider(&config)?;
 
     let app_state = Arc::new(AppStruct {
+        #[cfg(test)]
+        push_deliveries: None,
         config: Arc::new(config.clone()),
         lnurl_domain: config.lnurl_domain.clone(),
         ark_server_pubkey: Arc::new(tokio::sync::RwLock::new(None)),
@@ -380,8 +397,8 @@ async fn start_server(config: Config) -> anyhow::Result<()> {
     );
 
     let app = Router::new()
-        .route("/", get(|| async { StatusCode::NO_CONTENT }))
-        .route("/health", get(|| async { StatusCode::OK }))
+        .route("/", get(root))
+        .route("/health", get(health))
         .nest("/v0", v0_router)
         .merge(lnurl_router)
         .with_state(app_state.clone())

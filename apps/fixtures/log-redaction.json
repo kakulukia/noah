@@ -1,0 +1,740 @@
+{
+  "description": "Public BIP39 zero-entropy vectors and synthetic credentials only. Both native loggers must produce identical output.",
+  "cases": [
+    {
+      "name": "mnemonic-lower",
+      "input": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-upper",
+      "input": "ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABANDON ABOUT",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-mixed",
+      "input": "Abandon Abandon Abandon Abandon Abandon Abandon Abandon Abandon Abandon Abandon Abandon About",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-24",
+      "input": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-commas",
+      "input": "abandon,abandon,abandon,abandon,abandon,abandon,abandon,abandon,abandon,abandon,abandon,about",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-newlines",
+      "input": "abandon\nabandon\nabandon\nabandon\nabandon\nabandon\nabandon\nabandon\nabandon\nabandon\nabandon\nabout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-punctuation",
+      "input": "abandon / abandon / abandon / abandon / abandon / abandon / abandon / abandon / abandon / abandon / abandon / about",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "mnemonic-json",
+      "input": "[\"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"abandon\", \"about\"]",
+      "expected": "[\"[redacted]\"]"
+    },
+    {
+      "name": "mnemonic-json24",
+      "input": "[\"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ABANDON\", \"ART\"]",
+      "expected": "[\"[redacted]\"]"
+    },
+    {
+      "name": "label-mnemonic",
+      "input": "mnemonic=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-seed",
+      "input": "seed=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-private_key",
+      "input": "private_key=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-privkey",
+      "input": "privkey=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-key",
+      "input": "key=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-signature",
+      "input": "signature=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-raw_signature",
+      "input": "raw_signature=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-preimage",
+      "input": "preimage=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-access_token",
+      "input": "access_token=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-push_token",
+      "input": "push_token=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-token_suffix",
+      "input": "token_suffix=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-myTokenValue",
+      "input": "myTokenValue=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-client_secret",
+      "input": "client_secret=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-secretSuffix",
+      "input": "secretSuffix=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-authorization",
+      "input": "authorization=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-password",
+      "input": "password=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-X-Amz-Credential",
+      "input": "X-Amz-Credential=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-X-Amz-Signature",
+      "input": "X-Amz-Signature=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-Signature",
+      "input": "Signature=fake-value",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "multiline-secret",
+      "input": "secret_key: [1, 2,\n3, 4]",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-prefixed-authorization",
+      "input": "http_authorization_header=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "label-suffixed-password",
+      "input": "account_password_hash=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "json-token",
+      "input": "{\"access_token\":\"fake-value\"}",
+      "expected": "{\"[redacted]"
+    },
+    {
+      "name": "jwt-bearer",
+      "input": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIn0.ZmFrZS1zaWduYXR1cmU",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "jwt-bare",
+      "input": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJmYWtlIn0.ZmFrZS1zaWduYXR1cmU",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "jwt-alternate-header",
+      "input": "ewogImFsZyI6IkhTMjU2In0.eyJzdWIiOiJmYWtlIn0.ZmFrZS1zaWduYXR1cmU",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "bearer-opaque",
+      "input": "Bearer fake-credential",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-testnet-uncompressed",
+      "input": "9AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "expo",
+      "input": "ExponentPushToken[fake-token]",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "expo-new",
+      "input": "ExpoPushToken[fake-token]",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-xprv",
+      "input": "xprvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-tprv",
+      "input": "tprvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-K",
+      "input": "KAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-L",
+      "input": "LAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-5",
+      "input": "5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "private-c",
+      "input": "cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "hex-private",
+      "input": "private_key=abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "hex-signature",
+      "input": "raw_signature=cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "presigned",
+      "input": "backup https://bucket.invalid/archive?X-Amz-Credential=fake&X-Amz-Signature=fake",
+      "expected": "backup [redacted]"
+    },
+    {
+      "name": "presigned-signature",
+      "input": "https://bucket.invalid/archive?Signature=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "encoded-url",
+      "input": "https%3A%2F%2Fbucket.invalid%2Farchive%3FSignature%3Dfake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "address-email",
+      "input": "Verification code sent to alice@example.com",
+      "expected": "Verification code sent to [redacted]"
+    },
+    {
+      "name": "address-lightning",
+      "input": "Sending 1000 sat to lightning address alice@example.com",
+      "expected": "Sending 1000 sat to lightning address [redacted]"
+    },
+    {
+      "name": "address-mixed",
+      "input": "ALICE+wallet@sub.example.com",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "address-key-email",
+      "input": "email=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "address-key-user.email",
+      "input": "user.email=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "address-key-lightningAddress",
+      "input": "lightningAddress=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "address-key-lightning_address",
+      "input": "lightning_address=fake",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "negative-words",
+      "input": "wallet loaded in three seconds after a successful sync and all services are running normally",
+      "expected": "wallet loaded in three seconds after a successful sync and all services are running normally"
+    },
+    {
+      "name": "negative-amount",
+      "input": "Sending 1000 sat",
+      "expected": "Sending 1000 sat"
+    },
+    {
+      "name": "negative-txid",
+      "input": "txid=abababababababababababababababababababababababababababababababab",
+      "expected": "txid=abababababababababababababababababababababababababababababababab"
+    },
+    {
+      "name": "negative-bare-hash",
+      "input": "abababababababababababababababababababababababababababababababab",
+      "expected": "abababababababababababababababababababababababababababababababab"
+    },
+    {
+      "name": "negative-ark",
+      "input": "ark1qtestaddress000000000000000000000000000000000000000000000",
+      "expected": "ark1qtestaddress000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "negative-url",
+      "input": "https://example.com/status",
+      "expected": "https://example.com/status"
+    },
+    {
+      "name": "negative-short-bip39",
+      "input": "abandon about ability able above absent absorb abstract absurd abuse access",
+      "expected": "abandon about ability able above absent absorb abstract absurd abuse access"
+    },
+    {
+      "name": "negative-token-word",
+      "input": "token refresh complete",
+      "expected": "token refresh complete"
+    },
+    {
+      "name": "negative-key-word",
+      "input": "public key loaded",
+      "expected": "public key loaded"
+    },
+    {
+      "name": "negative-version",
+      "input": "version 1.2.3",
+      "expected": "version 1.2.3"
+    },
+    {
+      "name": "r2-label-payment_preimage",
+      "input": "SDK failure: payment_preimage: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-wallet_private_key",
+      "input": "SDK failure: wallet_private_key: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-priv_key",
+      "input": "SDK failure: priv_key: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-walletPreimageHex",
+      "input": "SDK failure: walletPreimageHex: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-backup-mnemonic-value",
+      "input": "SDK failure: backup-mnemonic-value: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-walletSeedBytes",
+      "input": "SDK failure: walletSeedBytes: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-walletPrivKeyValue",
+      "input": "SDK failure: walletPrivKeyValue: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-secret-key",
+      "input": "SDK failure: secret key: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-wallet-sig-raw",
+      "input": "SDK failure: wallet-sig-raw: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-label-rawSigValue",
+      "input": "SDK failure: rawSigValue: abababababababababababababababababababababababababababababababab; caused by invalid length",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-separator-77",
+      "input": "wallet_private_key=YWJjZGVmZ2hpamtsbW5vcA==",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-separator-78",
+      "input": "payment_preimage YWJjZGVmZ2hpamtsbW5vcA==",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-separator-79",
+      "input": "priv_key \"YWJjZGVmZ2hpamtsbW5vcA==",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-separator-80",
+      "input": "rawSig' 'YWJjZGVmZ2hpamtsbW5vcA==",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-separator-81",
+      "input": "wallet-secret-key\nYWJjZGVmZ2hpamtsbW5vcA==",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-json-prefixed-key",
+      "input": "{\"wallet_private_key\":\"abababababababababababababababababababababababababababababababab\"}",
+      "expected": "{\"[redacted]"
+    },
+    {
+      "name": "r2-base58-private",
+      "input": "wallet_priv_key AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-label-seed-phrase",
+      "input": "SDK failure: wallet_seed phrase: abababababababababababababababababababababababababababababababab",
+      "expected": "SDK failure: [redacted]"
+    },
+    {
+      "name": "r2-mnemonic-fullwidth",
+      "input": "failed to import: ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂａｎｄｏｎ ａｂｏｕｔ",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-mnemonic-mathematical",
+      "input": "failed to import: 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐚𝐧𝐝𝐨𝐧 𝐚𝐛𝐨𝐮𝐭",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-mnemonic-circled",
+      "input": "failed to import: ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓐⓝⓓⓞⓝ ⓐⓑⓞⓤⓣ",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-negative-cyrillic",
+      "input": "аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-negative-dotless",
+      "input": "abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty",
+      "expected": "abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty abılıty"
+    },
+    {
+      "name": "r2-negative-combining",
+      "input": "ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r2-userinfo-ipv4",
+      "input": "request https://alice:synthetic-password@127.0.0.1:3000/status",
+      "expected": "request https://[redacted]@127.0.0.1:3000/status"
+    },
+    {
+      "name": "r2-userinfo-ipv6",
+      "input": "request https://alice:synthetic-password@[::1]:3000/status",
+      "expected": "request https://[redacted]@[::1]:3000/status"
+    },
+    {
+      "name": "r2-userinfo-ftp",
+      "input": "request ftp://alice:fake-password@localhost/file",
+      "expected": "request ftp://[redacted]@localhost/file"
+    },
+    {
+      "name": "r2-userinfo-username",
+      "input": "request postgres://synthetic-token@localhost/db",
+      "expected": "request postgres://[redacted]@localhost/db"
+    },
+    {
+      "name": "r2-userinfo-domain",
+      "input": "request https://alice:fake-password@example.invalid/status",
+      "expected": "request https://[redacted]@example.invalid/status"
+    },
+    {
+      "name": "r2-negative-bitcoin",
+      "input": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+      "expected": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    },
+    {
+      "name": "r2-negative-ark",
+      "input": "ark1pwh9vsmezqqpjy9akejayl2vvcse6he97rn40g84xrlvrlnhayuuyefrp9nse2yspqqjl5wpy",
+      "expected": "ark1pwh9vsmezqqpjy9akejayl2vvcse6he97rn40g84xrlvrlnhayuuyefrp9nse2yspqqjl5wpy"
+    },
+    {
+      "name": "r2-negative-invoice",
+      "input": "lnbc1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvtgjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq50gw7z",
+      "expected": "lnbc1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvtgjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq50gw7z"
+    },
+    {
+      "name": "r3-escaped-probe-0",
+      "input": "paymentPreimage\\\" : \\\"abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-1",
+      "input": "paymentPreimage\\u0022:\\u0022abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-2",
+      "input": "PRIV-KEY\\\" : \\\"abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-3",
+      "input": "PRIV-KEY\\u0022:\\u0022abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-4",
+      "input": "preimage\\\" : \\\"abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-5",
+      "input": "preimage\\u0022:\\u0022abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-6",
+      "input": "wallet_private_key\\\" : \\\"abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-7",
+      "input": "wallet_private_key\\u0022:\\u0022abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-8",
+      "input": "priv_key\\\" : \\\"abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-9",
+      "input": "priv_key\\u0022:\\u0022abababababababababababababababababababababababababababababababab",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-probe-10",
+      "input": "\"{\\\"preimage\\\": \\\"abababababababababababababababababababababababababababababababab\\\"}\"",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-json-1",
+      "input": "\"{\\\"preimage\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}\"",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-json-2",
+      "input": "\"\\\"{\\\\\\\"preimage\\\\\\\":\\\\\\\"abababababababababababababababababababababababababababababababab\\\\\\\"}\\\"\"",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-json-3",
+      "input": "\"\\\"\\\\\\\"{\\\\\\\\\\\\\\\"preimage\\\\\\\\\\\\\\\":\\\\\\\\\\\\\\\"abababababababababababababababababababababababababababababababab\\\\\\\\\\\\\\\"}\\\\\\\"\\\"\"",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-preimage",
+      "input": "{\\\"\\u0070\\u0072\\u0065\\u0069\\u006d\\u0061\\u0067\\u0065\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-authorization",
+      "input": "{\\\"\\u0061\\u0075\\u0074\\u0068\\u006f\\u0072\\u0069\\u007a\\u0061\\u0074\\u0069\\u006f\\u006e\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-private_key",
+      "input": "{\\\"\\u0070\\u0072\\u0069\\u0076\\u0061\\u0074\\u0065\\u005f\\u006b\\u0065\\u0079\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-signature",
+      "input": "{\\\"\\u0073\\u0069\\u0067\\u006e\\u0061\\u0074\\u0075\\u0072\\u0065\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-access_token",
+      "input": "{\\\"\\u0061\\u0063\\u0063\\u0065\\u0073\\u0073\\u005f\\u0074\\u006f\\u006b\\u0065\\u006e\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-password",
+      "input": "{\\\"\\u0070\\u0061\\u0073\\u0073\\u0077\\u006f\\u0072\\u0064\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-mnemonic",
+      "input": "{\\\"\\u006d\\u006e\\u0065\\u006d\\u006f\\u006e\\u0069\\u0063\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-seed_phrase",
+      "input": "{\\\"\\u0073\\u0065\\u0065\\u0064\\u005f\\u0070\\u0068\\u0072\\u0061\\u0073\\u0065\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-email",
+      "input": "{\\\"\\u0065\\u006d\\u0061\\u0069\\u006c\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-lightning_address",
+      "input": "{\\\"\\u006c\\u0069\\u0067\\u0068\\u0074\\u006e\\u0069\\u006e\\u0067\\u005f\\u0061\\u0064\\u0064\\u0072\\u0065\\u0073\\u0073\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-unicode-x-amz-signature",
+      "input": "{\\\"\\u0078\\u002d\\u0061\\u006d\\u007a\\u002d\\u0073\\u0069\\u0067\\u006e\\u0061\\u0074\\u0075\\u0072\\u0065\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-escaped-negative-25",
+      "input": "path C:\\wallet\\cache",
+      "expected": "path C:\\wallet\\cache"
+    },
+    {
+      "name": "r3-escaped-negative-26",
+      "input": "\"{\\\"status\\\": \\\"synced\\\", \\\"amount\\\": 12345}\"",
+      "expected": "\"{\\\"status\\\": \\\"synced\\\", \\\"amount\\\": 12345}\""
+    },
+    {
+      "name": "r3-escaped-negative-27",
+      "input": "{\\\"txid\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}",
+      "expected": "{\\\"txid\\\":\\\"abababababababababababababababababababababababababababababababab\\\"}"
+    },
+    {
+      "name": "r3-skeleton-zwsp",
+      "input": "restore failed: a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​ba​ndon a​bout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-zwnj",
+      "input": "restore failed: a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌ba‌ndon a‌bout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-zwj",
+      "input": "restore failed: a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍ba‍ndon a‍bout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-word-joiner",
+      "input": "restore failed: a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠ba⁠ndon a⁠bout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-soft-hyphen",
+      "input": "restore failed: a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­ba­ndon a­bout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-acute",
+      "input": "restore failed: ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábándon ábout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-variation-selector",
+      "input": "restore failed: a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️ba️ndon a️bout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-cyrillic-a",
+      "input": "restore failed: аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbаndon аbout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-greek-alpha",
+      "input": "restore failed: αbαndon αbαndon αbαndon αbαndon αbαndon αbαndon αbαndon αbαndon αbαndon αbαndon αbαndon αbout",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-mixed",
+      "input": "аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬаոԁοո аЬουτ",
+      "expected": "[redacted]"
+    },
+    {
+      "name": "r3-skeleton-negative-10",
+      "input": "Обычный текст кошелька без секретов",
+      "expected": "Обычный текст кошелька без секретов"
+    },
+    {
+      "name": "r3-skeleton-negative-11",
+      "input": "Το πορτοφόλι συγχρονίστηκε κανονικά",
+      "expected": "Το πορτοφόλι συγχρονίστηκε κανονικά"
+    },
+    {
+      "name": "r3-skeleton-negative-12",
+      "input": "ウォレットの同期が完了しました",
+      "expected": "ウォレットの同期が完了しました"
+    },
+    {
+      "name": "r3-skeleton-negative-13",
+      "input": "钱包同步完成，余额为一千聪",
+      "expected": "钱包同步完成，余额为一千聪"
+    },
+    {
+      "name": "r3-skeleton-negative-14",
+      "input": "محفظة بيتكوين متزامنة",
+      "expected": "محفظة بيتكوين متزامنة"
+    },
+    {
+      "name": "r3-skeleton-negative-15",
+      "input": "café résumé naïve, balance 1000 sat",
+      "expected": "café résumé naïve, balance 1000 sat"
+    },
+    {
+      "name": "r3-skeleton-negative-16",
+      "input": "обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст",
+      "expected": "обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст обычный текст"
+    },
+    {
+      "name": "r3-skeleton-negative-17",
+      "input": "αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ",
+      "expected": "αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ αβγ δεζ"
+    },
+    {
+      "name": "r3-skeleton-negative-18",
+      "input": "a​bout 1000 sat",
+      "expected": "a​bout 1000 sat"
+    },
+    {
+      "name": "r3-skeleton-mixed-public-vector",
+      "input": "οzοnе drill grαb fibеr ϲurtαin grαϲе ρudding thαnk ϲruisе еldеr еight ρiϲniϲ",
+      "expected": "[redacted]"
+    }
+  ]
+}

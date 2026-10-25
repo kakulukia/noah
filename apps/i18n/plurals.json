@@ -1,0 +1,134 @@
+{
+  "{_gt_value_4} places{_gt_value_3}": {
+    "one": "One place{_gt_value_3}",
+    "other": "{_gt_value_4} places{_gt_value_3}"
+  },
+  "{_gt_value_4} exits are behind the current chain height. Use Progress to check the chain; this can also broadcast exit transactions.": {
+    "one": "One exit is behind the current chain height. Use Progress to check the chain; this can also broadcast exit transactions.",
+    "other": "{_gt_value_4} exits are behind the current chain height. Use Progress to check the chain; this can also broadcast exit transactions."
+  },
+  "Expires in {n} hours": {
+    "one": "Expires in {n} hour",
+    "other": "Expires in {n} hours"
+  },
+  "{n} payments as a CSV file.": {
+    "one": "{n} payment as a CSV file.",
+    "other": "{n} payments as a CSV file."
+  },
+  "{n} Lightning payments as a CSV file.": {
+    "one": "{n} Lightning payment as a CSV file.",
+    "other": "{n} Lightning payments as a CSV file."
+  },
+  "{n} Ark payments as a CSV file.": {
+    "one": "{n} Ark payment as a CSV file.",
+    "other": "{n} Ark payments as a CSV file."
+  },
+  "{n} on-chain payments as a CSV file.": {
+    "one": "{n} on-chain payment as a CSV file.",
+    "other": "{n} on-chain payments as a CSV file."
+  },
+  "Renewed {n} coins": {
+    "one": "Renewed {n} coin",
+    "other": "Renewed {n} coins"
+  },
+  "Expires in {n} days": {
+    "one": "Expires in {n} day",
+    "other": "Expires in {n} days"
+  },
+  "{n} hours": {
+    "one": "{n} hour",
+    "other": "{n} hours"
+  },
+  "{n} days": {
+    "one": "{n} day",
+    "other": "{n} days"
+  },
+  "In {n} VTXOs": {
+    "one": "In {n} VTXO",
+    "other": "In {n} VTXOs"
+  },
+  "{n} VTXOs expire within a day": {
+    "one": "{n} VTXO expires within a day",
+    "other": "{n} VTXOs expire within a day"
+  },
+  "After {n} payments": {
+    "one": "After {n} payment",
+    "other": "After {n} payments"
+  },
+  "{n} payments": {
+    "one": "{n} payment",
+    "other": "{n} payments"
+  },
+  "Renew {n} VTXOs": {
+    "one": "Renew {n} VTXO",
+    "other": "Renew {n} VTXOs"
+  },
+  "Every {n} weeks": {
+    "one": "Every {n} week",
+    "other": "Every {n} weeks"
+  },
+  "Every {n} months": {
+    "one": "Every {n} month",
+    "other": "Every {n} months"
+  },
+  "{n} transactions": {
+    "one": "{n} transaction",
+    "other": "{n} transactions"
+  },
+  "{n} VTXOs": {
+    "one": "{n} VTXO",
+    "other": "{n} VTXOs"
+  },
+  "Not in a block yet · {n} blocks": {
+    "one": "Not in a block yet · {n} block",
+    "other": "Not in a block yet · {n} blocks"
+  },
+  "{n} transactions to the chain": {
+    "one": "{n} transaction to the chain",
+    "other": "{n} transactions to the chain"
+  },
+  "Your bitcoin sits at the end of a path of {n} transactions in the round's tree. The round's own transaction is already on-chain.": {
+    "one": "Your bitcoin sits at the end of a path of one transaction in the round's tree. The round's own transaction is already on-chain.",
+    "other": "Your bitcoin sits at the end of a path of {n} transactions in the round's tree. The round's own transaction is already on-chain."
+  },
+  "{n} exits are behind the current chain height. Move any of them forward to catch up; this can also send exit transactions.": {
+    "one": "One exit is behind the current chain height. Move it forward to catch up; this can also send exit transactions.",
+    "other": "{n} exits are behind the current chain height. Move any of them forward to catch up; this can also send exit transactions."
+  },
+  "Your bitcoin sits at the end of a path of {n} transactions in the round’s tree. The round’s own transaction is already on-chain.": {
+    "one": "Your bitcoin sits at the end of a path of {n} transaction in the round’s tree. The round’s own transaction is already on-chain.",
+    "other": "Your bitcoin sits at the end of a path of {n} transactions in the round’s tree. The round’s own transaction is already on-chain."
+  },
+  "Your bitcoin is on-chain, locked for {n} blocks. The lock gives Ark time to stop a VTXO that was already spent.": {
+    "one": "Your bitcoin is on-chain, locked for {n} block. The lock gives Ark time to stop a VTXO that was already spent.",
+    "other": "Your bitcoin is on-chain, locked for {n} blocks. The lock gives Ark time to stop a VTXO that was already spent."
+  },
+  "Claimable in {n} blocks · {time}": {
+    "one": "Claimable in {n} block · {time}",
+    "other": "Claimable in {n} blocks · {time}"
+  },
+  "Waiting · {n} blocks · {time}": {
+    "one": "Waiting · {n} block · {time}",
+    "other": "Waiting · {n} blocks · {time}"
+  },
+  "{n} blocks · {time}": {
+    "one": "{n} block · {time}",
+    "other": "{n} blocks · {time}"
+  },
+  "One claim for {n} exits: {amount} received after a {fee} fee.": {
+    "one": "One claim for {n} exit: {amount} received after a {fee} fee.",
+    "other": "One claim for {n} exits: {amount} received after a {fee} fee."
+  },
+  "Couldn’t check the fees of {n} VTXOs, so All waits. Choose them one by one, or try again.": {
+    "one": "Couldn’t check the fees of {n} VTXO, so All waits. Choose it on its own, or try again.",
+    "other": "Couldn’t check the fees of {n} VTXOs, so All waits. Choose them one by one, or try again."
+  },
+  "{n} blocks": {
+    "one": "{n} block",
+    "other": "{n} blocks"
+  },
+  "This exit is behind the current chain height: last checked {n} blocks ago, at block {height}. Moving it forward can also send exit transactions.": {
+    "one": "This exit is behind the current chain height: last checked {n} block ago, at block {height}. Moving it forward can also send exit transactions.",
+    "other": "This exit is behind the current chain height: last checked {n} blocks ago, at block {height}. Moving it forward can also send exit transactions."
+  }
+}

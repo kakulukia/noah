@@ -1,0 +1,189 @@
+name: Native Android Telegram (signet and mainnet)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "apps/android/**"
+      - "apps/fixtures/**"
+      - ".github/workflows/native-telegram-android.yml"
+      - "!**/*.md"
+  workflow_dispatch:
+  # workflow_dispatch only works once this file is on master; until then, label a PR "send-to-telegram".
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+env:
+  NIX_CONFIG: |
+    post-build-hook =
+    extra-substituters =
+    substituters = https://cache.nixos.org/
+
+jobs:
+  build:
+    # Signing secrets: only this repo's own branches, never forks.
+    if: github.event_name != 'pull_request' || (github.event.label.name == 'send-to-telegram' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: blacksmith-8vcpu-ubuntu-2404
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - name: Restore Nix store
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-android-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
+          restore-prefixes-first-match: nix-android-${{ runner.os }}-${{ runner.arch }}-
+          save: false
+
+      # Restores what native-android.yml saved on master; release builds don't write it back.
+      - name: Cache Gradle
+        uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
+        with:
+          cache-read-only: true
+
+      - name: Locate Android SDK
+        id: sdk
+        run: echo "root=$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Android build SDK
+        id: sdk-cache
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          key: native-android-sdk-${{ runner.os }}-${{ runner.arch }}-37.0-37.0.0
+          path: |
+            ${{ steps.sdk.outputs.root }}/platforms/android-37.0
+            ${{ steps.sdk.outputs.root }}/build-tools/37.0.0
+
+      - name: Install Android build SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 3
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0"'
+
+      # Same keystore, alias and passwords as the RN signet distribution.
+      - name: Prepare release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          MYAPP_RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          MYAPP_RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          MYAPP_RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${KEYSTORE_BASE64:?Missing KEYSTORE_BASE64}"
+          : "${MYAPP_RELEASE_KEY_ALIAS:?Missing KEY_ALIAS}"
+          : "${MYAPP_RELEASE_STORE_PASSWORD:?Missing KEYSTORE_PASSWORD}"
+          : "${MYAPP_RELEASE_KEY_PASSWORD:?Missing KEY_PASSWORD}"
+          umask 077
+          signing_dir=$(mktemp -d "$RUNNER_TEMP/noah-signet-signing.XXXXXX")
+          echo "SIGNING_DIR=$signing_dir" >> "$GITHUB_ENV"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$signing_dir/release.keystore"
+          test -s "$signing_dir/release.keystore"
+          export MYAPP_RELEASE_STORE_FILE="$signing_dir/release.keystore"
+          python3 <<'PY'
+          import os
+          from pathlib import Path
+
+          keys = ("STORE_FILE", "KEY_ALIAS", "STORE_PASSWORD", "KEY_PASSWORD")
+          def escape(value):
+              return value.replace("\\", "\\\\").replace("\r", "\\r").replace("\n", "\\n").replace(" ", "\\ ")
+          Path("apps/android/local.properties").write_text("".join(
+              f"MYAPP_RELEASE_{key}={escape(os.environ[f'MYAPP_RELEASE_{key}'])}\n"
+              for key in keys
+          ), encoding="iso-8859-1")
+          PY
+
+      # Same keystore as the RN signet and mainnet releases. Only phones install these, so arm64 only.
+      - name: Build signed signet and mainnet release APKs
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: dunder-rn
+          SENTRY_PROJECT: react-native
+          CI_DEBUG_SIGNING: "false"
+        run: |
+          nix shell --inputs-from . nixpkgs#sentry-cli --command nix develop .#android-ci --command sh -c \
+            'cd apps/android && ./gradlew --build-cache --dependency-verification=strict -PnoahAbis=arm64-v8a :app:assembleSignetRelease :app:assembleMainnetRelease'
+
+      - name: Name APKs with commit
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          for flavor in signet mainnet; do
+            cp "apps/android/app/build/outputs/apk/$flavor/release/app-$flavor-release.apk" \
+              "noah-native-$flavor-${COMMIT_SHA}.apk"
+          done
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: noah-native-android-${{ github.sha }}
+          path: noah-native-*-${{ github.sha }}.apk
+          if-no-files-found: error
+
+      - name: Remove signing files
+        if: always()
+        run: |
+          rm -f apps/android/local.properties
+          if [[ -n "${SIGNING_DIR:-}" ]]; then
+            rm -rf "$SIGNING_DIR"
+          fi
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: noah-native-android-${{ github.sha }}
+
+      # RN also uses a local Bot API server to support APKs over Telegram's public upload limit.
+      - name: Start local Telegram Bot API server
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: |
+          docker run -d --name local-bot-api -p 127.0.0.1:8081:8081 \
+            -v "$GITHUB_WORKSPACE:/data" -e TELEGRAM_API_ID -e TELEGRAM_API_HASH \
+            aiogram/telegram-bot-api:latest --local
+          for attempt in {1..30}; do
+            if curl -s -o /dev/null http://localhost:8081/; then
+              exit 0
+            fi
+            echo "Waiting for Telegram Bot API ($attempt/30)..."
+            sleep 2
+          done
+          echo 'Telegram Bot API server did not start.' >&2
+          exit 1
+
+      - name: Post Native APKs to Telegram
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          BLIXT_CHAT_ID: ${{ secrets.BLIXT_CHAT_ID }}
+          BLIXT_TOPIC_ID: ${{ secrets.BLIXT_TOPIC_ID }}
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          # Same package and signing key as the RN app, so installing replaces it in place.
+          for flavor in Signet Mainnet; do
+            if [[ "$flavor" == Mainnet ]]; then
+              headline='⚠️ MAINNET · REAL FUNDS · Noah Native preview · not the React Native app'
+              warning='Installing replaces your React Native Noah mainnet app; going back needs a reinstall and wallet restore. Back up your recovery phrase first.'
+            else
+              headline='🧪 Noah Native preview (signet) · not the React Native app'
+              warning='Installing replaces your React Native Noah Signet app; going back needs a reinstall and wallet restore.'
+            fi
+            printf '%s\n%s\n\nAndroid APK\nBranch: %s\nCommit: %s\n' "$headline" "$warning" "$BRANCH" "$COMMIT_SHA" > caption.txt
+            curl -fsS -X POST "http://localhost:8081/bot${TELEGRAM_TOKEN}/sendDocument" \
+              -F "chat_id=$BLIXT_CHAT_ID" -F "message_thread_id=$BLIXT_TOPIC_ID" \
+              -F "document=@noah-native-$(tr '[:upper:]' '[:lower:]' <<< "$flavor")-${COMMIT_SHA}.apk" \
+              -F 'caption=<caption.txt' -o "$RUNNER_TEMP/telegram.json"
+            jq -e '.ok == true' "$RUNNER_TEMP/telegram.json" > /dev/null
+          done
+
+      - name: Stop local Telegram Bot API server
+        if: always()
+        run: docker rm -f local-bot-api

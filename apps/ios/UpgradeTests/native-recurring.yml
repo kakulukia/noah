@@ -1,0 +1,19 @@
+appId: com.noahwallet.regtest
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-settings-button"
+    timeout: 30000
+- assertVisible: "Show wallet balance|Visa plånbokens saldo"
+- tapOn:
+    id: "home-settings-button"
+- scrollUntilVisible:
+    element:
+      text: "Recurring Payments.*|Återkommande betalningar.*"
+    direction: DOWN
+- tapOn: "Recurring Payments.*|Återkommande betalningar.*"
+- extendedWaitUntil:
+    visible: "No recurring payments yet.*|Inga återkommande betalningar ännu.*"
+    timeout: 15000
+- assertNotVisible: "Upgrade safety rule"

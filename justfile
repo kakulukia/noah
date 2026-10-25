@@ -101,6 +101,26 @@ ios-clean:
 clean-all:
     bun client clean:all
 
+# Native iOS app (apps/ios). variant: Regtest | Signet | Mainnet
+ios-native-generate:
+    cd apps/ios && xcodegen generate
+
+ios-native-build variant="Regtest": ios-native-generate
+    cd apps/ios && xcodebuild -project Noah.xcodeproj -scheme {{ if variant == "Mainnet" { "Noah" } else { "Noah-" + variant } }} -destination "generic/platform=iOS Simulator" -derivedDataPath build/DerivedData build
+
+ios-native-test variant="Regtest" device="iPhone 17": ios-native-generate
+    cd apps/ios && xcodebuild -project Noah.xcodeproj -scheme {{ if variant == "Mainnet" { "Noah" } else { "Noah-" + variant } }} -destination "platform=iOS Simulator,name={{ device }}" -derivedDataPath build/DerivedData test
+
+# Native Android app (apps/android). variant: Regtest | Signet | Mainnet
+android-native-build variant="Regtest":
+    cd apps/android && ./gradlew :app:assemble{{ variant }}Debug
+
+android-native-install variant="Regtest":
+    cd apps/android && ./gradlew :app:install{{ variant }}Debug
+
+android-native-test:
+    cd apps/android && ./gradlew :app:testRegtestDebugUnitTest
+
 # Server commands
 server:
     bacon
@@ -113,6 +133,19 @@ server-test:
 
 server-check:
     cargo check
+
+# Regenerate api/openapi.json after an intentional API change
+generate-api:
+    UPDATE_OPENAPI=1 cargo test -p server --bin server openapi::export
+
+# Regenerate the iOS client in apps/ios/Noah/API/Generated from api/openapi.json
+generate-api-ios:
+    rm -rf apps/ios/Noah/API/Generated && mkdir -p apps/ios/Noah/API/Generated
+    swift run --package-path apps/ios/Tools/OpenAPIGenerator swift-openapi-generator generate --config apps/ios/Noah/API/openapi-generator-config.yaml --output-directory apps/ios/Noah/API/Generated api/openapi.json
+
+# Regenerate the Kotlin client with checksum-pinned Fabrikt
+generate-api-android:
+    python3 apps/android/tools/generate-api.py
 
 # Start ngrok tunnel to localhost:3000
 ngrok:

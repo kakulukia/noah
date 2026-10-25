@@ -1,0 +1,85 @@
+{
+  "description": "Product policy 2026-10-20. Seed and DB exist; missing/damaged settings use defaults and Home. Only explicit false resumes onboarding. Snapshot-only, one-time import.",
+  "cases": [
+    {
+      "name": "initialized upgrade",
+      "input": {
+        "wallet": "initialized"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": false
+      }
+    },
+    {
+      "name": "RN has no MMKV files",
+      "input": {
+        "wallet": "absent"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": false
+      }
+    },
+    {
+      "name": "empty RN MMKV",
+      "input": {
+        "wallet": "empty"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": true
+      }
+    },
+    {
+      "name": "cleared RN wallet settings",
+      "input": {
+        "wallet": "cleared"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": true
+      }
+    },
+    {
+      "name": "damaged RN snapshot",
+      "input": {
+        "wallet": "damaged"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": true
+      }
+    },
+    {
+      "name": "unreadable wallet envelope",
+      "input": {
+        "wallet": "undecodable"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": true
+      }
+    },
+    {
+      "name": "explicit unfinished RN onboarding",
+      "input": {
+        "wallet": "unfinished"
+      },
+      "expected": {
+        "outcome": "onboarding",
+        "settingsNotice": false
+      }
+    },
+    {
+      "name": "missing initialized field",
+      "input": {
+        "wallet": "missingFlag"
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "settingsNotice": false
+      }
+    }
+  ]
+}

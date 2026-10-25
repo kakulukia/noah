@@ -1,0 +1,344 @@
+[
+  {
+    "name": "colon prefix",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "peer:fake-r6-private.example:8443",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "wrapped URL",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "https://fake-r6-private.example/api/\nfakeR6PathSecret913/blocks/tip/height",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "separate record",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6PathSecret913/blocks/tip/height",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "public tail",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "https://mempool.space/api/fakeR6PathSecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "arbitrary prefix",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "xxfakeR6PathSecret913yy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "case",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "FAKER6PATHSECRET913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "host label",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "xxfake-r6-privateyy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "percent",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fake%52%36PathSecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "JSON",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path\\u0053ecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "HTML",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path&#83;ecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "fullwidth",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "ｆａｋｅＲ６ＰａｔｈＳｅｃｒｅｔ９１３",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "nested encoding",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path%26%2383%3Becret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "common routes",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "https://mempool.space/api/blocks/tip/height",
+    "expected": "https://mempool.space/api/blocks/tip/height"
+  },
+  {
+    "name": "port alone",
+    "endpoint": "https://fake-r7-port.example:18443/api",
+    "input": "HTTP 503: port 18443 failed",
+    "expected": "HTTP 503: port 18443 failed"
+  },
+  {
+    "name": "retired secret",
+    "endpoint": "https://fake-r7-retired.example/api/fakeR7RetiredSecret41",
+    "input": "fakeR7RetiredSecret41",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "query value",
+    "endpoint": "https://fakeR7Username62:fakeR7Password85@fake-r7-query.example/api?key=fakeR7QuerySecret761",
+    "input": "xxfakeR7QuerySecret761yy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "username",
+    "endpoint": "https://fakeR7Username62:fakeR7Password85@fake-r7-query.example/api?key=fakeR7QuerySecret761",
+    "input": "fakeR7Username62",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "password",
+    "endpoint": "https://fakeR7Username62:fakeR7Password85@fake-r7-query.example/api?key=fakeR7QuerySecret761",
+    "input": "FAKER7PASSWORD85",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "userinfo",
+    "endpoint": "https://fakeR7Username62:fakeR7Password85@fake-r7-query.example/api?key=fakeR7QuerySecret761",
+    "input": "fakeR7Username62:fakeR7Password85",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "decoded query",
+    "endpoint": "https://fakeR7Username62:fakeR7Password85@fake-r7-query.example/api?key=fakeR7QuerySecret761",
+    "input": "fakeR7Query%53ecret761",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "encoded registered segment",
+    "endpoint": "https://fake-r7-encoded.example/api/fakeR7Path%53ecret31",
+    "input": "FAKER7PATHSECRET31",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "compatibility registered segment",
+    "endpoint": "https://fake-r7-unicode.example/api/ｆａｋｅＲ７Ｓｅｃｒｅｔ６７",
+    "input": "fakeR7Secret67",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "unicode IDNA label",
+    "endpoint": "https://xn--bcher-kva.example/api",
+    "input": "xxBÜCHERyy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "compatibility percent escape",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path％５３ecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "escaped compatibility percent",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path\\uFF0553ecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "compatibility JSON escape",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path＼u0053ecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "compatibility entity",
+    "endpoint": "https://fake-r6-private.example/api/fakeR6PathSecret913",
+    "input": "fakeR6Path＆＃８３；ecret913",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "Unicode case expansion",
+    "endpoint": "https://fake-r7-fold.example/api/fakeStraßeSecret72",
+    "input": "FAKESTRASSESECRET72",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining acute raw",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaquésuffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining acute case",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixFAKEOPAQUÉsuffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining acute percent",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu%65́suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining acute JSON",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu\\u0065́suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining acute HTML",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu&#101;́suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining ring raw",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaque̊suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining ring case",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixFAKEOPAQUE̊suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining ring percent",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu%65̊suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining ring JSON",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu\\u0065̊suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining ring HTML",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu&#101;̊suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining cedilla raw",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaquȩsuffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining cedilla case",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixFAKEOPAQUȨsuffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining cedilla percent",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu%65̧suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining cedilla JSON",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu\\u0065̧suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining cedilla HTML",
+    "endpoint": "https://fake-r7-normalize.example/fakeOpaque",
+    "input": "prefixfakeOpaqu&#101;̧suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining registered raw",
+    "endpoint": "https://fake-r8-decomposed.example/fakeCafe%CC%81",
+    "input": "xxfakeCafȩ́yy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--strae-oqa host",
+    "endpoint": "https://xn--strae-oqa.example/api",
+    "input": "peer:straße.example",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--strae-oqa label",
+    "endpoint": "https://xn--strae-oqa.example/api",
+    "input": "xxstraßeyy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--fake-jodfa host",
+    "endpoint": "https://xn--fake-jodfa.example/api",
+    "input": "peer:fakeσσς.example",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--fake-jodfa label",
+    "endpoint": "https://xn--fake-jodfa.example/api",
+    "input": "xxfakeσσςyy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--fake-87i2qsf645q host",
+    "endpoint": "https://xn--fake-87i2qsf645q.example/api",
+    "input": "peer:fakeक्‍ष.example",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--fake-87i2qsf645q label",
+    "endpoint": "https://xn--fake-87i2qsf645q.example/api",
+    "input": "xxfakeक्‍षyy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--fake-87i2qsfy45q host",
+    "endpoint": "https://xn--fake-87i2qsfy45q.example/api",
+    "input": "peer:fakeक्‌ष.example",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "IDNA2008 xn--fake-87i2qsfy45q label",
+    "endpoint": "https://xn--fake-87i2qsfy45q.example/api",
+    "input": "xxfakeक्‌षyy",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining fullwidth acute",
+    "endpoint": "https://review-probe.example/fakeOpaque",
+    "input": "prefixｆａｋｅＯｐａｑｕｅ́suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining fullwidth ring",
+    "endpoint": "https://review-probe.example/fakeOpaque",
+    "input": "prefixＦＡＫＥＯＰＡＱＵＥ̊suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining compatibility ligature",
+    "endpoint": "https://review-probe.example/ffakeOpaque",
+    "input": "prefixﬀakeOpaquésuffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining fullwidth escaped acute",
+    "endpoint": "https://review-probe.example/fakeOpaque",
+    "input": "prefixｆａｋｅＯｐａｑｕｅ\\u0301suffix",
+    "expected": "[custom-esplora]"
+  },
+  {
+    "name": "combining fullwidth encoded acute",
+    "endpoint": "https://review-probe.example/fakeOpaque",
+    "input": "prefixｆａｋｅＯｐａｑｕｅ&#769;suffix",
+    "expected": "[custom-esplora]"
+  }
+]

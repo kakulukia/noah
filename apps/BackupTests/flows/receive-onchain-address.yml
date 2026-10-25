@@ -1,0 +1,4 @@
+appId: com.noahwallet.regtest
+---
+- tapOn:
+    id: "receive-copy-onchain"

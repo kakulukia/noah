@@ -1,0 +1,123 @@
+{
+  "description": "Source-level launch decisions; only public BIP39 test vectors. notChecked never grants wallet access. Settings never determine wallet existence (2026-10-20); see mmkv-launch-state.json for admission after settings import.",
+  "cases": [
+    {
+      "name": "existing wallet",
+      "input": {
+        "sources": [
+          {
+            "name": "rn",
+            "read": "found",
+            "raw": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          }
+        ],
+        "walletDatabaseExists": true,
+        "databaseFingerprint": "matchesSeed",
+        "multipleDatabases": false
+      },
+      "expected": {
+        "outcome": "existingWallet",
+        "reason": "none"
+      }
+    },
+    {
+      "name": "fresh install",
+      "input": {
+        "sources": [
+          {
+            "name": "rn",
+            "read": "absent"
+          },
+          {
+            "name": "native",
+            "read": "absent"
+          }
+        ],
+        "walletDatabaseExists": false,
+        "databaseFingerprint": "notChecked",
+        "multipleDatabases": false
+      },
+      "expected": {
+        "outcome": "onboarding",
+        "reason": "none"
+      }
+    },
+    {
+      "name": "seed survived data did not",
+      "input": {
+        "sources": [
+          {
+            "name": "rn",
+            "read": "found",
+            "raw": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          }
+        ],
+        "walletDatabaseExists": false,
+        "databaseFingerprint": "notChecked",
+        "multipleDatabases": false
+      },
+      "expected": {
+        "outcome": "seedWithoutWalletData",
+        "reason": "none"
+      }
+    },
+    {
+      "name": "database without any seed",
+      "input": {
+        "sources": [
+          {
+            "name": "rn",
+            "read": "absent"
+          },
+          {
+            "name": "native",
+            "read": "absent"
+          }
+        ],
+        "walletDatabaseExists": true,
+        "databaseFingerprint": "notChecked",
+        "multipleDatabases": false
+      },
+      "expected": {
+        "outcome": "walletDataWithoutSeed",
+        "reason": "none"
+      }
+    },
+    {
+      "name": "secure storage locked False",
+      "input": {
+        "sources": [
+          {
+            "name": "rn",
+            "read": "unavailable"
+          }
+        ],
+        "walletDatabaseExists": false,
+        "databaseFingerprint": "notChecked",
+        "multipleDatabases": false
+      },
+      "expected": {
+        "outcome": "secureStorageUnavailable",
+        "reason": "sourceUnavailable"
+      }
+    },
+    {
+      "name": "secure storage locked True",
+      "input": {
+        "sources": [
+          {
+            "name": "rn",
+            "read": "unavailable"
+          }
+        ],
+        "walletDatabaseExists": true,
+        "databaseFingerprint": "notChecked",
+        "multipleDatabases": false
+      },
+      "expected": {
+        "outcome": "secureStorageUnavailable",
+        "reason": "sourceUnavailable"
+      }
+    }
+  ]
+}

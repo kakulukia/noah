@@ -1,0 +1,23 @@
+appId: com.noahwallet.regtest
+---
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: onboarding-create
+    timeout: 60000
+- takeScreenshot: ${SHOTS}/welcome
+- tapOn:
+    id: onboarding-create
+- assertVisible: Before you start
+- tapOn:
+    id: onboarding-beta-confirm
+- extendedWaitUntil:
+    visible: Pick a name
+    timeout: 60000
+# An interrupted onboarding resumes at Name; the recovery phrase is no longer an onboarding step.
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible: Pick a name
+    timeout: 60000
+- assertNotVisible: Your Recovery Phrase
