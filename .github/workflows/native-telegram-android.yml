@@ -16,12 +16,6 @@ on:
 permissions:
   contents: read
 
-env:
-  NIX_CONFIG: |
-    post-build-hook =
-    extra-substituters =
-    substituters = https://cache.nixos.org/
-
 jobs:
   build:
     # Signing secrets: only this repo's own branches, never forks.
@@ -31,21 +25,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-
-      - name: Restore Nix store
-        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+      # No Nix: Gradle needs only JDK 17, and the Sentry mapping upload needs sentry-cli.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
         with:
-          primary-key: nix-android-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
-          restore-prefixes-first-match: nix-android-${{ runner.os }}-${{ runner.arch }}-
-          save: false
+          distribution: temurin
+          java-version: 17
 
-      # Restores what native-android.yml saved on master; release builds don't write it back.
+      # Pinned and checksum-checked: it runs with the Sentry token in a job that holds the signing keys.
+      - name: Install sentry-cli
+        env:
+          SENTRY_CLI_VERSION: 3.8.2
+          SENTRY_CLI_SHA256: c958865f9d4000183509ea21b1f04925d5390de6d8d87386b9e69f2b305070c3
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL -o "$RUNNER_TEMP/bin/sentry-cli" "https://github.com/getsentry/sentry-cli/releases/download/$SENTRY_CLI_VERSION/sentry-cli-Linux-x86_64"
+          echo "$SENTRY_CLI_SHA256  $RUNNER_TEMP/bin/sentry-cli" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/bin/sentry-cli"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/sentry-cli" --version
+
+      # Master writes the Gradle cache that Native Android CI restores on PRs.
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
         with:
-          cache-read-only: true
+          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
 
       - name: Locate Android SDK
         id: sdk
@@ -98,15 +102,17 @@ jobs:
           PY
 
       # Same keystore as the RN signet and mainnet releases. Only phones install these, so arm64 only.
+      # On master it also downloads the test libraries (without compiling) so the Gradle cache it saves covers PRs.
       - name: Build signed signet and mainnet release APKs
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: dunder-rn
           SENTRY_PROJECT: react-native
           CI_DEBUG_SIGNING: "false"
-        run: |
-          nix shell --inputs-from . nixpkgs#sentry-cli --command nix develop .#android-ci --command sh -c \
-            'cd apps/android && ./gradlew --build-cache --dependency-verification=strict -PnoahAbis=arm64-v8a :app:assembleSignetRelease :app:assembleMainnetRelease'
+          TEST_LIBRARIES: ${{ github.ref == 'refs/heads/master' && '--init-script scripts/resolve-test-dependencies.init.gradle :app:resolveTestDependencies' || '' }}
+        working-directory: apps/android
+        # TEST_LIBRARIES is unquoted on purpose: it's empty, or an init script and a task.
+        run: ./gradlew --build-cache --dependency-verification=strict -PnoahAbis=arm64-v8a :app:assembleSignetRelease :app:assembleMainnetRelease $TEST_LIBRARIES
 
       - name: Name APKs with commit
         env:

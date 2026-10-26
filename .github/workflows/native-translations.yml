@@ -26,22 +26,18 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NIX_CONFIG: |
-    post-build-hook =
-    extra-substituters =
-    substituters = https://cache.nixos.org/
   BOT_BRANCH: bot/native-translations
 
 jobs:
   translate:
     # Only master's copy is translated, even when dispatched from another branch.
     if: github.ref == 'refs/heads/master'
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    # It only runs JavaScript, so a free GitHub runner with Bun and Node is enough; jq and gh come with it.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
       run:
-        # The flake pins Bun, Node (which runs the GT CLI) and jq.
-        shell: nix develop .#android-ci --command bash --noprofile --norc -eo pipefail {0}
+        shell: bash --noprofile --norc -eo pipefail {0}
     steps:
       # The token stays out of .git/config while dependencies and GT run; only the last step pushes.
       # A rerun keeps its event's commit, so check out master's current tip: an older run must not close
@@ -51,15 +47,16 @@ jobs:
           ref: master
           persist-credentials: false
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-
-      - name: Restore Nix store
-        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+      # Latest Bun and Node; Node runs the GT CLI.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          primary-key: nix-android-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock') }}
-          restore-prefixes-first-match: nix-android-${{ runner.os }}-${{ runner.arch }}-
-          save: false
+          bun-version: latest
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: latest
 
       # No install scripts: the tool needs only the GT CLI, and husky must not add commit hooks.
       - name: Install locked Bun dependencies
@@ -97,6 +94,7 @@ jobs:
           echo "count=$(jq '[.missing[]] | add' "$RUNNER_TEMP/missing.json")" >> "$GITHUB_OUTPUT"
 
       # The GT CLI reads GT_API_KEY from the environment. GT_PROJECT_ID must match gt.config.json, or GT exits.
+      # The key needs GT's project file permissions (project:files:read included): the CLI reads branch data first.
       # GT requests time out after 60 s and each GT job wait after 15 min; the job timeout bounds the whole run.
       - name: Translate missing keys with GT
         if: steps.missing.outputs.count != '0'
@@ -111,11 +109,14 @@ jobs:
           bun apps/tools/translations.mjs translate
 
       # A failure here stops the run, so half-merged catalogs are never committed.
+      # The tool's tests guard what the bot commits, so they run only when there's something to commit.
       - name: Regenerate and check catalogs
         run: |
           bun apps/tools/translations.mjs
           bun apps/tools/translations.mjs --check
-          bun test apps/tools/translations.test.mjs
+          if [[ -n "$(git status --porcelain -- apps/i18n apps/ios/Noah/Resources apps/android/app/src/main/res apps/fixtures)" ]]; then
+            bun test apps/tools/translations.test.mjs
+          fi
 
       - name: Open or update the translations PR
         env:
