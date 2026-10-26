@@ -74,11 +74,11 @@ class StoredMnemonicTest {
             com.noahwallet.services.server.ServerClient.loginKey("regtest", original, derive)
             com.noahwallet.services.server.ServerClient.signChallenge("public test challenge", "regtest", original, derive)
             val sealed = com.noahwallet.services.backup.BackupCrypto.encrypt(byteArrayOf(1, 2, 3), original,
-                com.noahwallet.services.backup.BackupCrypto.Version.snapshot)
+                com.noahwallet.services.backup.BackupCrypto.Version.snapshot, testRounds)
             assertTrue(com.noahwallet.services.backup.BackupCrypto.decrypt(sealed, original,
-                com.noahwallet.services.backup.BackupCrypto.Version.snapshot).contentEquals(byteArrayOf(1, 2, 3)))
+                com.noahwallet.services.backup.BackupCrypto.Version.snapshot, testRounds).contentEquals(byteArrayOf(1, 2, 3)))
             assertTrue(runCatching { com.noahwallet.services.backup.BackupCrypto.decrypt(sealed, canonical,
-                com.noahwallet.services.backup.BackupCrypto.Version.snapshot) }.isFailure)
+                com.noahwallet.services.backup.BackupCrypto.Version.snapshot, testRounds) }.isFailure)
         }
     }
 

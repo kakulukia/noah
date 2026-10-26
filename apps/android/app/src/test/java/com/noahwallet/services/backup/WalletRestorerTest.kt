@@ -1,6 +1,7 @@
 package com.noahwallet.services.backup
 
 import com.noahwallet.services.storage.*
+import com.noahwallet.services.testRounds
 import com.noahwallet.services.wallet.*
 import com.noahwallet.services.server.ServerClient
 import io.github.niteshbalusu11.bark.*
@@ -65,7 +66,7 @@ class WalletRestorerTest {
             val source = File(root, "snapshot").apply { writeText("new wallet") }
             val encrypted = File(root, "backup")
             if (!encrypted.exists()) BackupArchive.seal(source,
-                BackupArchive.Manifest(2, "x", "sha", network, "abcd", null, null, 42), validSeed, encrypted, root) { complete, target -> Files.createLink(target.toPath(), complete.toPath()); Unit }
+                BackupArchive.Manifest(2, "x", "sha", network, "abcd", null, null, 42), validSeed, encrypted, root, testRounds) { complete, target -> Files.createLink(target.toPath(), complete.toPath()); Unit }
             val legacyFile = File(root, "legacy")
             if (legacy) {
                 val bytes = java.io.ByteArrayOutputStream()
@@ -74,7 +75,7 @@ class WalletRestorerTest {
                     zip.write("new wallet".toByteArray()); zip.closeEntry()
                 }
                 legacyFile.writeBytes(java.util.Base64.getEncoder().encode(
-                    BackupCrypto.encrypt(bytes.toByteArray(), validSeed, BackupCrypto.Version.legacyDirectory)))
+                    BackupCrypto.encrypt(bytes.toByteArray(), validSeed, BackupCrypto.Version.legacyDirectory, testRounds)))
             }
             val info = """{"backup_id":"b1","created_at":"x","encrypted_sha256":"${reportedHash ?: BackupArchive.sha256(encrypted)}","encrypted_size":${reportedSize ?: encrypted.length()},"format_version":2}"""
             return WalletRestorer("regtest", session, location, seed,
@@ -99,7 +100,7 @@ class WalletRestorerTest {
                     val file = if (url == "http://legacy") legacyFile else encrypted
                     if (file.length() > limit || url == "http://bad") throw WalletRestorer.Failure(WalletRestorer.Reason.downloadMismatch)
                     file.copyTo(destination)
-                }, beginOnboarding = { if (markerFails) throw Boom(); initialized = false })
+                }, beginOnboarding = { if (markerFails) throw Boom(); initialized = false }, rounds = testRounds)
         }
         fun previous() {
             assertEquals("old wallet", location.database.readText()); assertTrue("Previous seed differs", seed.value == "old seed")
@@ -116,22 +117,25 @@ class WalletRestorerTest {
         assertTrue(seed.value == validSeed); assertEquals("new wallet", location.database.readText())
     } }
     @Test fun restorePersistsUnfinishedOnboardingBeforeInstallingBackupOrPhrase() = runBlocking { world {
-        val restorer = restorer()
-        restorer.restore(validSeed, beforeInstall = {
+        var recorded: WalletRestorer.Outcome? = null
+        val result = restorer().restore(validSeed, beforeInstall = {
             assertEquals(false, initialized)
             assertEquals("old wallet", location.database.readText())
             assertTrue(seed.value == "old seed")
+            recorded = it
         }, progress = { step ->
             if (step == WalletRestorer.Step.loading || step == WalletRestorer.Step.finalizing) {
                 assertEquals(false, initialized)
             }
         })
+        // The completion receipt, written before installing, is the outcome the restore returns.
+        assertEquals(result, recorded)
         // A process ending before RestoreCompletion sees an explicit unfinished marker.
         assertEquals(false, initialized)
     } }
     private suspend fun world(block: suspend World.() -> Unit) {
         val world = World()
-        // Each restore runs PBKDF2 (600k iterations) to seal and open; 10 s timed out on a loaded machine.
+        // A hung restore fails rather than stalling the suite.
         try { withTimeout(60_000) { world.block() } } finally { world.root.deleteRecursively() }
     }
     @Test fun stagedDeletionUnlockRestoreAndDeleteUsesRealRestorePipeline() = runBlocking {
@@ -158,15 +162,6 @@ class WalletRestorerTest {
         }
     }
 
-    @Test fun completionReceiptIsWrittenBeforeInstallationAndItsFailureCannotCommit() = runBlocking { world {
-        var recorded: WalletRestorer.Outcome? = null
-        val result = restorer().restore(validSeed, beforeInstall = {
-            assertEquals("old wallet", location.database.readText())
-            assertTrue("Previous seed differs", seed.value == "old seed")
-            recorded = it
-        })
-        assertEquals(result, recorded)
-    } }
     @Test fun failedCompletionReceiptLeavesOriginalWalletUntouched() = runBlocking { world {
         assertTrue(runCatching { restorer().restore(validSeed, beforeInstall = { throw Boom() }) }.exceptionOrNull() is Boom)
         previous()
