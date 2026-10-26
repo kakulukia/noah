@@ -3,7 +3,9 @@ use std::{
     time::Duration,
 };
 
-use expo_push_notification_client::{Expo, ExpoClientOptions, ExpoPushMessage, Priority};
+use expo_push_notification_client::{
+    DetailsErrorType, Expo, ExpoClientOptions, ExpoPushMessage, ExpoPushTicket, Priority,
+};
 use futures_util::{StreamExt, stream};
 use reqwest::{Client, Url, redirect::Policy};
 use serde::Serialize;
@@ -223,7 +225,16 @@ pub async fn send_push_notification_with_unique_k1(
     let expo = Expo::new(ExpoClientOptions {
         access_token: Some(app_state.config.expo_access_token.clone()),
     });
+    send_unique_k1_notifications(expo, app_state, base_notification_data, pubkey).await
+}
 
+pub(crate) async fn send_unique_k1_notifications(
+    expo: Expo,
+    app_state: AppState,
+    base_notification_data: NotificationRequestData,
+    pubkey: Option<String>,
+) -> anyhow::Result<Vec<PushDispatchReceipt>, ApiError> {
+    let notification_type = base_notification_data.notification_type();
     let push_token_repo = PushTokenRepository::new(&app_state.db_pool);
 
     let push_targets = if let Some(pubkey) = pubkey {
@@ -241,6 +252,10 @@ pub async fn send_push_notification_with_unique_k1(
     };
 
     if push_targets.is_empty() {
+        tracing::debug!(
+            notification_type,
+            "send_push_notification_with_unique_k1: no push tokens found"
+        );
         return Ok(vec![]);
     }
 
@@ -267,15 +282,14 @@ pub async fn send_push_notification_with_unique_k1(
                     None
                 };
 
-                let notification_data = match base_data_clone
-                    .into_notification_data(notification_k1.clone())
-                {
-                    Ok(notification_data) => notification_data,
-                    Err(e) => {
-                        tracing::error!("Failed to build notification payload: {}", e);
-                        return None;
-                    }
-                };
+                let notification_data =
+                    match base_data_clone.into_notification_data(notification_k1.clone()) {
+                        Ok(notification_data) => notification_data,
+                        Err(e) => {
+                            tracing::error!("Failed to build notification payload: {}", e);
+                            return None;
+                        }
+                    };
 
                 let data_string = match serde_json::to_string(&notification_data) {
                     Ok(s) => s,
@@ -309,19 +323,33 @@ pub async fn send_push_notification_with_unique_k1(
                         }
                     };
 
-                    expo_clone
-                        .send_push_notifications(message)
-                        .await
-                        .map(|_| ())
-                        .map_err(|e| e.to_string())
+                    match expo_clone.send_push_notifications(message).await {
+                        Ok(tickets) => {
+                            log_expo_ticket_errors(
+                                notification_type,
+                                Some(&target.pubkey),
+                                1,
+                                &tickets,
+                            );
+                            Ok(())
+                        }
+                        Err(e) => Err(e.to_string()),
+                    }
                 } else {
                     send_unified_notification(&target.push_token, &data_string)
                         .await
                         .map_err(|e| e.to_string())
                 };
 
+                // Expo errors carry the HTTP status (e.g. "401 Unauthorized"), never the
+                // access token or the push token.
                 if let Err(e) = send_result {
-                    tracing::error!(pubkey = %target.pubkey, "Failed to send push notification: {}", e);
+                    tracing::error!(
+                        notification_type,
+                        pubkey = %target.pubkey,
+                        error = %e,
+                        "Failed to send push notification"
+                    );
                     return None;
                 }
 
@@ -351,12 +379,21 @@ async fn send_push_notification_internal(
     let expo = Expo::new(ExpoClientOptions {
         access_token: Some(app_state.config.expo_access_token.clone()),
     });
+    send_batched_notifications(expo, app_state, data, pubkey, allow_unified_push).await
+}
 
+pub(crate) async fn send_batched_notifications(
+    expo: Expo,
+    app_state: AppState,
+    data: PushNotificationData,
+    pubkey: Option<String>,
+    allow_unified_push: bool,
+) -> anyhow::Result<(), ApiError> {
     let push_token_repo = PushTokenRepository::new(&app_state.db_pool);
 
-    let push_tokens = if let Some(pubkey) = pubkey {
+    let push_tokens = if let Some(pubkey) = &pubkey {
         // A single token might not be found, which is not an error, so we handle the Option.
-        match push_token_repo.find_by_pubkey(&pubkey).await? {
+        match push_token_repo.find_by_pubkey(pubkey).await? {
             Some(token) => vec![token],
             None => vec![],
         }
@@ -419,11 +456,14 @@ async fn send_push_notification_internal(
             .map(|c| c.to_vec())
             .collect::<Vec<_>>();
 
+        let notification_type = notification_type.as_str();
+        let pubkey = pubkey.as_deref();
         stream::iter(chunks)
             .for_each_concurrent(None, |chunk| {
                 let expo_clone = expo.clone();
                 let data_clone = data.clone();
                 async move {
+                    let token_count = chunk.len();
                     let mut builder = ExpoPushMessage::builder(chunk);
                     if let Some(title) = &data_clone.title {
                         builder = builder.title(title.clone());
@@ -444,8 +484,13 @@ async fn send_push_notification_internal(
                         }
                     };
 
-                    if let Err(e) = expo_clone.send_push_notifications(message).await {
-                        tracing::error!("Failed to send push notification chunk: {}", e);
+                    match expo_clone.send_push_notifications(message).await {
+                        Ok(tickets) => {
+                            log_expo_ticket_errors(notification_type, pubkey, token_count, &tickets)
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to send push notification chunk: {}", e)
+                        }
                     }
                 }
             })
@@ -472,6 +517,56 @@ async fn send_push_notification_internal(
     );
 
     Ok(())
+}
+
+/// Logs the error tickets Expo returned for a send to `token_count` push tokens: one
+/// ticket per token, in send order. Tokens are kept even for `DeviceNotRegistered`; a
+/// device that is gone misses its heartbeats and gets deregistered. Expo's error message
+/// isn't logged because it can quote the push token.
+fn log_expo_ticket_errors(
+    notification_type: &str,
+    pubkey: Option<&str>,
+    token_count: usize,
+    tickets: &[ExpoPushTicket],
+) {
+    if tickets.len() != token_count {
+        tracing::warn!(
+            notification_type,
+            pubkey,
+            push_tokens = token_count,
+            tickets = tickets.len(),
+            "Expo returned a different number of tickets than push tokens; ignoring them"
+        );
+        return;
+    }
+
+    for ticket in tickets {
+        let ExpoPushTicket::Error(ticket) = ticket else {
+            continue;
+        };
+        match ticket
+            .details
+            .as_ref()
+            .and_then(|details| details.error.as_ref())
+        {
+            Some(DetailsErrorType::InvalidCredentials) => tracing::error!(
+                notification_type,
+                pubkey,
+                error_code = "InvalidCredentials",
+                "Expo rejected the push credentials"
+            ),
+            code => {
+                let error_code =
+                    code.map_or_else(|| "unknown".to_string(), |code| format!("{code:?}"));
+                tracing::warn!(
+                    notification_type,
+                    pubkey,
+                    error_code = error_code.as_str(),
+                    "Expo returned an error ticket"
+                )
+            }
+        }
+    }
 }
 
 async fn send_unified_notification(endpoint: &str, payload: &str) -> Result<(), ApiError> {

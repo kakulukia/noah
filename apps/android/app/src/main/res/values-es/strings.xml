@@ -3,7 +3,6 @@
 <resources>
   <string name="gt_8a6fa5252a4b7e05">"12 palabras"</string>
   <string name="gt_fae43771b7367b9c">"24 palabras"</string>
-  <string name="gt_0d1fa0dfcc9e3821">"Código de 6 dígitos"</string>
   <string name="gt_93308a413f52ce7d">"Llegó un bloque sin ella. Noah paga más cuando sube la tasa de comisión, para que entre en el siguiente."</string>
   <string name="gt_1ef4529eb54eae53">"Un servidor personalizado puede ver tus direcciones. Usa uno de confianza."</string>
   <string name="gt_51eedf36dc1a1749">"Ya hay un pago de %1$s sats en curso para esta solicitud de pago. No vuelvas a pagar."</string>
@@ -21,7 +20,6 @@
   <string name="gt_aa21f22bf633b009">"La acción falló. Revisa los datos y la conexión antes de volver a intentarlo."</string>
   <string name="gt_92340695899bd2d8">"Activo"</string>
   <string name="gt_38da1505ca837328">"Actividad"</string>
-  <string name="gt_c0a85ce487304e8b">"Comisión real"</string>
   <string name="gt_f7c8b432caa9e1b4">"Comisión real pendiente de determinar"</string>
   <string name="gt_a301e27dce0ce4cd">"Comisión real en cadena"</string>
   <string name="gt_9fd728c66c9a256b">"Añadir"</string>
@@ -194,7 +192,6 @@
   <string name="gt_70cc1886428b724b">"Estado en la cadena"</string>
   <string name="gt_028afe3eebb92266">"Cambiar importe"</string>
   <string name="gt_ff2ec2618b91b367">"Cambiar correo"</string>
-  <string name="gt_dd16e499335d3a53">"Cambiar dirección de correo electrónico"</string>
   <string name="gt_77a94e1521d6a8e8">"Chatea en Telegram"</string>
   <string name="gt_d0e3a822635c961f">"Revisa en Actividad el último intento de este pago y pregunta al destinatario si le llegó."</string>
   <string name="gt_fb7099ad8e818d42">"Volver a comprobar"</string>
@@ -251,7 +248,6 @@
   <string name="gt_bc1dbb36faac6cf7">"Próximamente en la aplicación nativa."</string>
   <string name="gt_22a970d2e5b1cc23">"Completado"</string>
   <string name="gt_eebdd24a77d9ad32">"Confirmar"</string>
-  <string name="gt_a55c4ed2db28a403">"Confirmar pago"</string>
   <string name="gt_5dfa99a6fa762317">"Confirmaciones"</string>
   <string name="gt_fe00b67b6dd1143f">"Confirmado"</string>
   <string name="gt_617a8f15d57215f3">"Confirmada en el bloque %1$s"</string>
@@ -378,9 +374,7 @@
   <string name="gt_6eea8608c452711b">"Correo (opcional)"</string>
   <string name="gt_09bf25ef30833633">"Dirección de correo electrónico"</string>
   <string name="gt_de101ec2a9081a8b">"Correo añadido"</string>
-  <string name="gt_50d8230c905d564f">"El correo es opcional. Noah solo lo usa para enviar avisos urgentes sobre la seguridad de tu billetera, por ejemplo, cuando tus VTXO están a punto de vencer y necesitas conectarte para renovarlos."</string>
   <string name="gt_bdfb1e4f00c73e98">"Correo verificado"</string>
-  <string name="gt_3a9f176a663d540d">"Correo de emergencia"</string>
   <string name="gt_b8eea92a324ae5b4">"Salida de emergencia"</string>
   <string name="gt_4f5556b1b428d358">"Solo para emergencias. Saca tus bitcoins de Ark sin el servidor de Ark."</string>
   <string name="gt_1cd009ba27e712a8">"Activar la autenticación de la billetera"</string>
@@ -761,6 +755,8 @@
   <string name="gt_c638d16576dfe156">"No se encontraron métodos de pago válidos"</string>
   <string name="gt_57c8529db3e2719a">"No, desactivar"</string>
   <string name="gt_678202b3c0c345ef">"Noah"</string>
+  <string name="gt_b5bdadc7e5c0579d">"Noah Balance"</string>
+  <string name="gt_2910b8ef5d4d95af">"Noah Wallet"</string>
   <string name="gt_51bf7dd8c85b84da">"Exportación de transacciones de la billetera Noah"</string>
   <string name="gt_518f6fc1d2bea961">"Noah puede recibir y renovar aunque esté cerrado."</string>
   <string name="gt_966bc2f318542271">"Noah aún no puede leer su almacenamiento seguro. Desbloquea tu dispositivo para continuar."</string>
@@ -875,7 +871,6 @@
   <string name="gt_a0145d18401ff94f">"Se paga con tu saldo de Ark."</string>
   <string name="gt_5dc01c1c6bc76383">"Pagadas con tus bitcoins en cadena."</string>
   <string name="gt_17cceb4191297e74">"Pagado por Lightning. Su secreto es tu prueba de pago."</string>
-  <string name="gt_aa7a72fd611ec542">"Pagado mediante"</string>
   <string name="gt_f3380f7b44bd70af">"Pegar"</string>
   <string name="gt_2b0c0a6b85adb58c">"Pega exactamente 12 o 24 palabras. No se ha sustituido el texto que has introducido."</string>
   <string name="gt_f012547b9f87dbeb">"Pegar solicitud de pago"</string>
@@ -887,7 +882,6 @@
   <string name="gt_046aa79048e8f8a5">"Pagando por Lightning"</string>
   <string name="gt_fef5813efef1e50a">"Pagando %1$s sat/vB · esperando el bloque %2$s"</string>
   <string name="gt_d9c9afd836811e5a">"ID del pago"</string>
-  <string name="gt_3450b635b99ae5ff">"Pago confirmado"</string>
   <string name="gt_17aadc092fe66088">"El pago falló"</string>
   <string name="gt_096045f8f17f3bad">"Hash del pago"</string>
   <string name="gt_21e360b26e1793bf">"Pago en curso"</string>
@@ -908,15 +902,14 @@
   <string name="gt_21682e0a58f5581b">"Retiro pendiente"</string>
   <string name="gt_779dd1993ab4b13c">"Rondas pendientes"</string>
   <string name="gt_5fb55a3f477aee2b">"Envío pendiente"</string>
+  <string name="gt_f41dbd7482670f0c">"Pending: %1$s"</string>
   <string name="gt_dbb6cf817820de0b">"Permiso necesario"</string>
   <string name="gt_cbf613fce96573ac">"Elige un nombre"</string>
   <string name="gt_46d931c1d03b0781">"Lugares visibles"</string>
   <string name="gt_436e61016e26fcb7">"Reproducir"</string>
   <string name="gt_c12ff673ae9836ca">"Posición de reproducción"</string>
-  <string name="gt_958e4ccf2953d747">"Introduce una dirección de correo electrónico válida."</string>
   <string name="gt_813f0164d8d31cd2">"Abre la configuración de tu dispositivo y permite que Noah se ejecute en segundo plano. Luego, continúa."</string>
   <string name="gt_de5aa7c10f561635">"Inténtalo de nuevo"</string>
-  <string name="gt_4660a983366f7101">"Espera…"</string>
   <string name="gt_2fc0c524431a9236">"Punto"</string>
   <string name="gt_89ff281050e4797e">"Apunta la cámara a un código QR de pago."</string>
   <string name="gt_5e4e164840885a18">"Posible pago relacionado en el historial"</string>
@@ -1022,7 +1015,6 @@
   <string name="gt_fae09a4a2a5c48bb">"Solicitando acceso a la cámara…"</string>
   <string name="gt_4850b174b713d88c">"Necesario"</string>
   <string name="gt_1f94843777aed851">"Reenviar"</string>
-  <string name="gt_8bbbb0b609c07e3f">"Reenviar código"</string>
   <string name="gt_538931fb28538397">"Reenviar código en %1$s"</string>
   <string name="gt_daee7606b339f3c3">"Restablecer"</string>
   <string name="gt_55d67318211dbda2">"Restablecer registro"</string>
@@ -1041,7 +1033,6 @@
   <string name="gt_a97d32ddb6baca01">"Reanudado"</string>
   <string name="gt_942087cc2d41e013">"Reintentar"</string>
   <string name="gt_ffcac3158ccc4063">"Detalles del reintento"</string>
-  <string name="gt_04048ff7f2687457">"Reintentar el registro"</string>
   <string name="gt_aff0766a5290e117">"Revisar"</string>
   <string name="gt_d4ea61c79c9b77d6">"Revisar de nuevo"</string>
   <string name="gt_25aa0f37b47607b3">"Revisar y pagar"</string>
@@ -1094,7 +1085,6 @@
   <string name="gt_70f58736b63e2c9e">"Seleccionar los visibles"</string>
   <string name="gt_3b18955703b2ebc3">"Captura de pantalla seleccionada"</string>
   <string name="gt_f6f4688ff23d50c6">"Enviar"</string>
-  <string name="gt_2bd7bfd7b3314b9b">"Enviar código de verificación"</string>
   <string name="gt_b3080e138c3a73a8">"Envía unos %1$s aquí. Las salidas lo usan cuando se confirma."</string>
   <string name="gt_66a5b4090d14cb41">"Enviar código"</string>
   <string name="gt_dad3741faaf71ced">"Enviar %1$s"</string>
@@ -1195,7 +1185,6 @@
   <string name="gt_0ac08a81559f95ee">"El punto de acceso de Esplora no puede incluir credenciales."</string>
   <string name="gt_96100ca2d23b8821">"El punto de acceso de Esplora corresponde a otra red Bitcoin."</string>
   <string name="gt_9dc2f0b60de257af">"No se pudo recibir el pago Lightning. Genera una nueva solicitud de pago e inténtalo de nuevo."</string>
-  <string name="gt_c58153172e51db2e">"La comisión real aún no está disponible. %1$s"</string>
   <string name="gt_f663d0d5c263a46c">"El importe que recibe Ark es inferior al mínimo requerido. Aumenta el importe del depósito."</string>
   <string name="gt_1f7124b49af4bb0c">"El importe o la comisión han cambiado. Revisa el pago de nuevo."</string>
   <string name="gt_d99fbad70ce6933e">"El importe necesario puede variar."</string>
@@ -1232,7 +1221,6 @@
   <string name="gt_c6e0499eb3d93af4">"No se pudo crear la transacción. No se envió ningún pago. Revisa el importe y la comisión."</string>
   <string name="gt_3fb33246ab2afa02">"No se pudo crear la transacción. No se difundió nada. Vuelve a revisarla."</string>
   <string name="gt_c6dfefbf1de6c02f">"Las transacciones que ya están en cadena se quedan ahí. Tu VTXO sigue en tu billetera y puede salir de nuevo."</string>
-  <string name="gt_78ddf8691d4b4f75">"El código de verificación caducará en 10 minutos."</string>
   <string name="gt_fd04d8103140aa83">"La billetera o las comisiones han cambiado, o la cotización ha caducado. Revisa los datos de nuevo antes de confirmar."</string>
   <string name="gt_be11c0d9d86f778e">"Las palabras que restauran tu billetera."</string>
   <string name="gt_d05e4b12e63fdf63">"Su recibo lo desbloquea"</string>
@@ -1300,7 +1288,6 @@
   <string name="gt_857d95d67fba62e3">"Total que sale de la billetera en cadena"</string>
   <string name="gt_34c9675f6162513f">"Touch ID"</string>
   <string name="gt_be8c6227042336e7">"ID de transacción"</string>
-  <string name="gt_321e1df45aa6a9a3">"Tamaño de la transacción"</string>
   <string name="gt_3e5136fd4b11c0dd">"Transacciones"</string>
   <string name="gt_1caf0748e40a818e">"Las transacciones que ya están en cadena se quedan ahí. Tu VTXO sigue en tu billetera y puede salir de nuevo."</string>
   <string name="gt_a6cab9282f16f215">"Transacciones, desde la raíz"</string>
@@ -1358,6 +1345,10 @@
   <string name="gt_94dcfd1ebf80512e">"Usando el predeterminado"</string>
   <string name="gt_b338094d31cf192f">"VTXO"</string>
   <string name="gt_ef3bb53fb52f49d8">"ID de VTXO"</string>
+  <plurals name="gt_1c5b6b6468f0c580">
+    <item quantity="one">"VTXO expires: %1$s block"</item>
+    <item quantity="other">"VTXO expires: %1$s blocks"</item>
+  </plurals>
   <string name="gt_a3d44a4fe18f60fb">"Valor hexadecimal o ID del VTXO"</string>
   <string name="gt_3e552e392aa7a2c8">"Vida útil de VTXO"</string>
   <string name="gt_00ca04b2d388077c">"VTXO eliminado"</string>
@@ -1368,11 +1359,13 @@
   <string name="gt_3ee75029c70e284c">"Código de verificación"</string>
   <string name="gt_4f7838402f37674e">"Verificado"</string>
   <string name="gt_87672f62ea3f7a51">"Verificado el %1$s"</string>
-  <string name="gt_9ae9fbbcb1c80ca9">"Verificar correo"</string>
   <string name="gt_dd167905de0defca">"Versión"</string>
   <string name="gt_a18745121bb8af6d">"Versión %1$s"</string>
   <string name="gt_2ed8b8066255f7d2">"Vía"</string>
   <string name="gt_970b300397b08223">"Ver en el explorador"</string>
+  <string name="gt_1275d2b1abd166af">"View your Bitcoin balance"</string>
+  <string name="gt_5c5fe5dc2e3dc1d5">"View your Bitcoin balance on regtest"</string>
+  <string name="gt_b39c9deaef6ea38e">"View your Bitcoin balance on signet"</string>
   <string name="gt_26407c9ad240b551">"Ver tu frase de recuperación"</string>
   <string name="gt_0c6da2b7449f5e54">"Espera a que termine la operación actual de la billetera antes de cambiar el punto de acceso."</string>
   <string name="gt_99c1ee35d68e7feb">"Espera a que la billetera esté lista y luego actualiza."</string>
@@ -1406,7 +1399,6 @@
   <string name="gt_d761927c2b2aeaf0">"Billetera suspendida o sustitución pendiente. Los envíos están detenidos."</string>
   <string name="gt_795e0058d0191f98">"Billetera suspendida. Reanuda tu billetera en Ajustes."</string>
   <string name="gt_6fb08948581619e7">"Formas de pagarte"</string>
-  <string name="gt_ebeb067bb53b2c70">"Enviamos un código de verificación de 6 dígitos a %1$s"</string>
   <string name="gt_b5a229ac8becc603">"Sitio web"</string>
   <string name="gt_2975132481a7a695">"Semanal"</string>
   <string name="gt_6621249514b7887c">"Hola de nuevo"</string>
@@ -1444,8 +1436,6 @@
     <item quantity="other">"Tus bitcoins están al final de un camino de %1$s transacciones en el árbol de la ronda. La transacción de la ronda ya está en cadena."</item>
   </plurals>
   <string name="gt_8074a7762dd1f578">"Tu correo actual se mantiene hasta que se verifique el nuevo."</string>
-  <string name="gt_7f359127750635a9">"Tu correo actual seguirá activo hasta que se verifique el nuevo correo."</string>
-  <string name="gt_28b86cda15decf55">"Tu correo actual, %1$s, seguirá activo hasta que se verifique el nuevo correo."</string>
   <string name="gt_886bc67a71fe0f83">"Tu correo es solo para alertas urgentes sobre tu billetera."</string>
   <string name="gt_2c6b2e253c01fb2e">"Tu nombre"</string>
   <string name="gt_d9a846242ed7a22f">"Tu frase de recuperación sigue guardada de forma segura en este dispositivo. Úsala para restaurar tu billetera desde su copia de seguridad."</string>
@@ -1578,4 +1568,10 @@
   <string name="home">"Inicio"</string>
   <string name="receive">"Recibir"</string>
   <string name="send">"Enviar"</string>
+  <string name="widget_title">"Noah Wallet"</string>
+  <string name="widget_onchain">"En la cadena"</string>
+  <string name="widget_offchain">"Fuera de la cadena"</string>
+  <string name="widget_mainnet_description">"View your Bitcoin balance"</string>
+  <string name="widget_signet_description">"View your Bitcoin balance on signet"</string>
+  <string name="widget_regtest_description">"View your Bitcoin balance on regtest"</string>
 </resources>

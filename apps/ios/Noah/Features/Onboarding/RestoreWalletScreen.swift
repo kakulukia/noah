@@ -1,8 +1,9 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
-/// The words being entered. Memory only: the flow clears it when the app
-/// leaves the foreground, when Restore leaves the screen, and before restoring.
+/// The words being entered. Memory only; they stay while the app is in the
+/// background, and the flow clears them when Restore leaves the screen and before restoring.
 struct RestoreDraft {
     var input = RecoveryPhraseInput()
     var focusedWord: Int?
@@ -13,6 +14,8 @@ struct RestoreDraft {
     var shakes = 0
     /// Bumped when every field is replaced at once (paste, 12/24); fields restart and stagger in.
     var generation = 0
+    /// Bumped by every edit to a word, which a paste still loading must not overwrite.
+    var edits = 0
 
     var allInList: Bool { input.words.allSatisfy { RecoveryPhraseInput.wordSet.contains($0) } }
     var canRestore: Bool { input.isComplete && allInList }
@@ -32,8 +35,9 @@ struct RestoreWalletScreen: View {
     @Binding var draft: RestoreDraft
     let issue: RestoreIssue?
     let haptics: OnboardingHaptics
-    /// A whole phrase was pasted; the flow's `RestorePasteboard` clears it from the clipboard.
-    let onPaste: (String) -> Void
+    /// A whole phrase was pasted from the pasteboard at that `changeCount`; the flow's `RestorePasteboard`
+    /// clears it from the clipboard.
+    let onPaste: (String, Int) -> Void
     let onRestore: () -> Void
     let onBack: () -> Void
 
@@ -155,19 +159,21 @@ struct RestoreWalletScreen: View {
 
     private func update(_ text: String, at index: Int) {
         let pasted = RecoveryPhraseInput.normalizedWords(text).count > 1
+        draft.edits += 1
         draft.input.update(text, at: index)
         draft.invalidPhrase = false
         draft.pasteRejected = false
-        if pasted && !draft.input.wrongWordCount { onPasted(text) }
+        // A field pastes synchronously, so the pasteboard still holds what it pasted.
+        if pasted && !draft.input.wrongWordCount { onPasted(text, change: UIPasteboard.general.changeCount) }
     }
 
     /// A whole phrase pasted into any field fills every word.
-    func onPasted(_ text: String) {
+    func onPasted(_ text: String, change: Int) {
         draft.focusedWord = nil
         draft.generation += 1
         haptics.play(.light)
         if draft.input.words.indices.contains(where: { draft.isInvalid($0) }) { haptics.play(.warning) }
-        onPaste(text)
+        onPaste(text, change)
     }
 
     private func acceptFirst(at index: Int) -> Bool {
@@ -177,6 +183,7 @@ struct RestoreWalletScreen: View {
     }
 
     private func accept(_ word: String, at index: Int) {
+        draft.edits += 1
         draft.input.update(word, at: index)
         draft.invalidPhrase = false
         draft.focusedWord = index < draft.input.words.count - 1 ? index + 1 : nil
@@ -227,11 +234,16 @@ struct RestoreWalletScreen: View {
         let layout = dynamicTypeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(spacing: NoahTokens.Space.s)) : AnyLayout(HStackLayout(spacing: NoahTokens.Space.m))
         return layout {
-            Button(action: paste) {
-                Label("Paste", systemImage: "doc.on.clipboard")
+            // The system paste control: tapping it is consent, so it reads without asking. A plain button's
+            // read returns nil unless pasting from other apps is allowed in Settings.
+            RestorePasteControl {
+                // The items load after the tap. Back, the 12/24 switch, Restore (the generation) or any edit to a word
+                // meanwhile drop the late text.
+                let generation = draft.generation, edits = draft.edits, change = UIPasteboard.general.changeCount
+                return { text in if draft.generation == generation && draft.edits == edits { paste(text, change: change) } }
             }
-            .buttonStyle(OnboardingSecondaryButtonStyle(height: NoahTokens.Size.button))
-            .accessibilityIdentifier("restore-paste")
+                .frame(maxWidth: .infinity, minHeight: NoahTokens.Size.button, maxHeight: NoahTokens.Size.button)
+                .accessibilityIdentifier("restore-paste")
             Button("Restore", action: onRestore)
                 .buttonStyle(OnboardingPrimaryButtonStyle())
                 .disabled(!draft.canRestore)
@@ -239,10 +251,8 @@ struct RestoreWalletScreen: View {
         }
     }
 
-    /// Reads the clipboard only on this explicit tap; `RestorePasteboard`
-    /// (in the flow) clears an accepted phrase from it.
-    private func paste() {
-        guard UIPasteboard.general.hasStrings, let text = UIPasteboard.general.string else { return }
+    /// What the paste control read; `RestorePasteboard` (in the flow) clears an accepted phrase from the clipboard.
+    private func paste(_ text: String, change: Int) {
         guard [12, 24].contains(RecoveryPhraseInput.normalizedWords(text).count) else {
             draft.pasteRejected = true
             haptics.play(.warning)
@@ -251,7 +261,72 @@ struct RestoreWalletScreen: View {
         draft.input.update(text, at: 0)
         draft.invalidPhrase = false
         draft.pasteRejected = false
-        onPasted(text)
+        onPasted(text, change: change)
+    }
+}
+
+/// `UIPasteControl` as the secondary capsule (the system draws it, so it can't be glass). Passes on
+/// every pasted string, one per line.
+struct RestorePasteControl: UIViewRepresentable {
+    /// Called as the control is tapped; what it returns gets the text once the items load, unless the control was
+    /// tapped again first.
+    let onPaste: () -> (String) -> Void
+
+    func makeCoordinator() -> Target { Target() }
+
+    func makeUIView(context: Context) -> UIPasteControl {
+        var configuration = UIPasteControl.Configuration()
+        configuration.displayMode = .iconAndLabel
+        configuration.cornerStyle = .capsule
+        configuration.baseBackgroundColor = UIColor(NoahTokens.Colors.soft)
+        configuration.baseForegroundColor = UIColor(NoahTokens.Colors.foreground)
+        let control = UIPasteControl(configuration: configuration)
+        control.target = context.coordinator
+        return control
+    }
+
+    func updateUIView(_ control: UIPasteControl, context: Context) {
+        context.coordinator.onPaste = onPaste
+    }
+
+    final class Target: UIResponder {
+        var onPaste: () -> (String) -> Void = { { _ in } }
+        private var latest = 0
+
+        override init() {
+            super.init()
+            // Plain text, or RTF alone (a text field accepts that too).
+            let configuration = UIPasteConfiguration(forAccepting: String.self)
+            configuration.addAcceptableTypeIdentifiers([UTType.rtf.identifier])
+            pasteConfiguration = configuration
+        }
+
+        override func paste(itemProviders: [NSItemProvider]) {
+            latest += 1
+            let request = latest, finish = onPaste()
+            Task {
+                var strings: [String] = []
+                for provider in itemProviders {
+                    if let text = await Self.text(provider) { strings.append(text) }
+                }
+                if request == latest { finish(strings.joined(separator: "\n")) }
+            }
+        }
+
+        private static func text(_ provider: NSItemProvider) async -> String? {
+            if provider.canLoadObject(ofClass: String.self) {
+                return await withCheckedContinuation { continuation in
+                    _ = provider.loadObject(ofClass: String.self) { text, _ in continuation.resume(returning: text) }
+                }
+            }
+            guard provider.hasItemConformingToTypeIdentifier(UTType.rtf.identifier) else { return nil }
+            return await withCheckedContinuation { continuation in
+                _ = provider.loadDataRepresentation(for: .rtf) { data, _ in
+                    let text = data.flatMap { try? NSAttributedString(data: $0, options: [.documentType: NSAttributedString.DocumentType.rtf], documentAttributes: nil) }
+                    continuation.resume(returning: text?.string)
+                }
+            }
+        }
     }
 }
 

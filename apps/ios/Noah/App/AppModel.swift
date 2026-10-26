@@ -78,6 +78,7 @@ final class AppModel {
     func setLanguage(_ code: String) {
         UserDefaults.standard.set(code, forKey: LegacyLocale.key)
         localeIdentifier = LegacyLocale.resolved()
+        WidgetDataWriter.publishLanguage(variant: variant)
     }
 
     /// Closing a session ends its streams, even when its wallet identity stays the same.
@@ -155,6 +156,8 @@ final class AppModel {
         guard !started, !starting else { return }
         starting = true
         defer { starting = false }
+        // An upgraded or suspended wallet may write no balance for a long time; the widget still needs the language.
+        WidgetDataWriter.publishLanguage(variant: variant)
         await session.waitForBackgroundAccess()
         started = true
         let initialState = readLaunchState()

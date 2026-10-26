@@ -141,7 +141,7 @@ export function nativeLiterals(code, swift) {
 // localized at call sites; identifiers, URLs, SF Symbols and persistence keys are not copy.
 export async function inventory(base = root) {
   const result = { ios: new Map(), android: new Map() };
-  for (const [platform, directory, ext] of [['ios', 'apps/ios/Noah', '.swift'], ['android', 'apps/android/app/src/main/java/com/noahwallet', '.kt']]) {
+  for (const [platform, directory, ext] of [['ios', 'apps/ios/Noah', '.swift'], ['ios', 'apps/ios/NoahWidget', '.swift'], ['android', 'apps/android/app/src/main/java/com/noahwallet', '.kt']]) {
     for (const file of await filesBelow(resolve(base, directory), ext)) {
       if (file.includes('/API/') || file.includes('/api/')) continue;
       const code = await readFile(file, 'utf8');
@@ -193,8 +193,10 @@ export function androidCatalog(all, locale) {
       lines.push('  </plurals>');
     } else lines.push(`  <string name="${name}">"${xml(format(entry.translations[locale].other, entry.names, 'android'))}"</string>`);
   }
-  // Existing static resource callers (tabs/launch gate) retain their IDs.
-  if (locale !== 'en') for (const [name, source] of Object.entries({ home: 'Home', receive: 'Receive', send: 'Send', history: 'History', launch_welcome: 'Welcome to Noah' })) {
+  // Existing static resource callers (tabs/launch gate, the widget's layout and picker descriptions) retain their IDs.
+  if (locale !== 'en') for (const [name, source] of Object.entries({ home: 'Home', receive: 'Receive', send: 'Send', history: 'History', launch_welcome: 'Welcome to Noah',
+    widget_title: 'Noah Wallet', widget_onchain: 'Onchain', widget_offchain: 'Offchain', widget_mainnet_description: 'View your Bitcoin balance',
+    widget_signet_description: 'View your Bitcoin balance on signet', widget_regtest_description: 'View your Bitcoin balance on regtest' })) {
     const entry = all.find(entry => entry.source === source);
     if (entry) lines.push(`  <string name="${name}">"${xml(entry.translations[locale].other)}"</string>`);
   }
@@ -362,11 +364,30 @@ export function missingGroups(english, catalogs) {
     return batches;
   });
 }
-export async function translate(base = root) {
-  const { all, english } = await extractFile(base);
+const writeLocales = (catalogs, base, only = locales.slice(1)) => outputFiles(new Map(only.map(locale => [`apps/i18n/${locale}/native.json`, json(sorted(catalogs[locale]))])), false, base);
+// CI reuses an open bot PR's translations (another apps/i18n under `other`) so GT never translates a key twice.
+// Plural form keys hash only the `other` text, so a key is reused only while its English is unchanged.
+export async function reuse(other, base = root) {
+  const { all, english } = await extract(base);
+  const catalogs = await localeFiles(base), previous = await localeFiles(other);
+  const previousEnglish = JSON.parse(await readFile(resolve(other, 'apps/i18n/en/native.json'), 'utf8'));
+  const reused = {};
+  for (const locale of locales.slice(1)) {
+    const keys = Object.keys(english).filter(key => !hasTranslation(catalogs[locale], key) && hasTranslation(previous[locale], key) && previousEnglish[key] === english[key]);
+    for (const key of keys) catalogs[locale][key] = previous[locale][key];
+    reused[locale] = keys.length;
+  }
+  readTranslations(all, catalogs);
+  await writeLocales(catalogs, base, locales.slice(1).filter(locale => reused[locale]));
+  return { reused };
+}
+export async function translate(base = root, { dryRun = false } = {}) {
+  const { all, english } = dryRun ? await extract(base) : await extractFile(base);
   const catalogs = await localeFiles(base);
   readTranslations(all, catalogs);
   const groups = missingGroups(english, catalogs);
+  // Reports what GT would be sent without writing files or contacting GT.
+  if (dryRun) return { missing: Object.fromEntries(locales.slice(1).map(locale => [locale, groups.filter(group => group.locales.includes(locale)).reduce((count, group) => count + Object.keys(group.source).length, 0)])), batches: groups.length };
   const temporary = await mkdtemp(resolve(tmpdir(), 'noah-gt-missing-'));
   try {
     const config = JSON.parse(await readFile(resolve(base, 'apps/i18n/gt.config.json'), 'utf8'));
@@ -388,7 +409,7 @@ export async function translate(base = root) {
       }
     }
     readTranslations(all, catalogs);
-    await outputFiles(new Map(locales.slice(1).map(locale => [`apps/i18n/${locale}/native.json`, json(sorted(catalogs[locale]))])), false, base);
+    await writeLocales(catalogs, base);
   } finally { await rm(temporary, { recursive: true, force: true }); }
   // The dashboard and committed lock describe the complete catalogs, including seeds.
   await runGT('upload', resolve(base, 'apps/i18n'), base);
@@ -399,7 +420,11 @@ if (import.meta.main) {
   if (command === '--check') console.log(JSON.stringify(await generate(true)));
   else if (command === 'extract') await extractFile();
   else if (command === 'seed') await seed(Bun.argv.includes('--force'));
-  else if (command === 'translate') console.log(JSON.stringify(await translate()));
+  else if (command === 'translate') console.log(JSON.stringify(await translate(root, { dryRun: Bun.argv.includes('--dry-run') })));
+  else if (command === 'reuse') {
+    if (!Bun.argv[3]) throw new Error('Usage: reuse <directory containing apps/i18n>');
+    console.log(JSON.stringify(await reuse(resolve(Bun.argv[3]))));
+  }
   else if (command === 'generate') console.log(JSON.stringify(await generate()));
   else throw new Error(`Unknown command: ${command}`);
 }

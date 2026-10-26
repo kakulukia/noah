@@ -18,6 +18,21 @@ enum WidgetDataWriter {
             values["closestExpiryBlocks"] = (defaults.dictionary(forKey: "widgetBalance")?["closestExpiryBlocks"] as? Double) ?? -999
         }
         defaults.set(values, forKey: "widgetBalance")
+        mirrorLanguage(defaults)
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Copies Settings' language choice where the widget can read it (it can't read the app's
+    /// own defaults), redrawing the widget only when it changed.
+    static func publishLanguage(variant: AppVariant) {
+        guard let defaults = UserDefaults(suiteName: variant.appGroup), mirrorLanguage(defaults) else { return }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    @discardableResult private static func mirrorLanguage(_ defaults: UserDefaults) -> Bool {
+        let language = LegacyLocale.read()
+        guard defaults.string(forKey: LegacyLocale.key) != language else { return false }
+        defaults.set(language, forKey: LegacyLocale.key)
+        return true
     }
 }

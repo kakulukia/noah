@@ -3,7 +3,6 @@
 <resources>
   <string name="gt_8a6fa5252a4b7e05">"12語"</string>
   <string name="gt_fae43771b7367b9c">"24語"</string>
-  <string name="gt_0d1fa0dfcc9e3821">"6桁のコード"</string>
   <string name="gt_93308a413f52ce7d">"このトランザクションを含まないブロックが来ました。手数料率が上がるとNoahはより多く支払い、次のブロックに入るようにします。"</string>
   <string name="gt_1ef4529eb54eae53">"カスタムサーバーにはあなたのアドレスが見えます。信頼できるサーバーを使ってください。"</string>
   <string name="gt_51eedf36dc1a1749">"この請求書への%1$s satsの支払いはすでに処理中です。再度支払わないでください。"</string>
@@ -21,7 +20,6 @@
   <string name="gt_aa21f22bf633b009">"操作に失敗しました。入力内容と接続状況を確認してから再試行してください。"</string>
   <string name="gt_92340695899bd2d8">"有効"</string>
   <string name="gt_38da1505ca837328">"アクティビティ"</string>
-  <string name="gt_c0a85ce487304e8b">"実際の手数料"</string>
   <string name="gt_f7c8b432caa9e1b4">"実際の手数料は未確定"</string>
   <string name="gt_a301e27dce0ce4cd">"実際のオンチェーン手数料"</string>
   <string name="gt_9fd728c66c9a256b">"追加"</string>
@@ -194,7 +192,6 @@
   <string name="gt_70cc1886428b724b">"チェーンの状態"</string>
   <string name="gt_028afe3eebb92266">"金額を変更"</string>
   <string name="gt_ff2ec2618b91b367">"メールアドレスを変更"</string>
-  <string name="gt_dd16e499335d3a53">"メールアドレスを変更"</string>
   <string name="gt_77a94e1521d6a8e8">"Telegramでチャット"</string>
   <string name="gt_d0e3a822635c961f">"アクティビティでこの支払いの最後の試行を確認し、受取人に届いたかどうか確認してください。"</string>
   <string name="gt_fb7099ad8e818d42">"もう一度確認"</string>
@@ -251,7 +248,6 @@
   <string name="gt_bc1dbb36faac6cf7">"ネイティブアプリで近日公開予定。"</string>
   <string name="gt_22a970d2e5b1cc23">"完了"</string>
   <string name="gt_eebdd24a77d9ad32">"確定"</string>
-  <string name="gt_a55c4ed2db28a403">"支払いを確定"</string>
   <string name="gt_5dfa99a6fa762317">"承認数"</string>
   <string name="gt_fe00b67b6dd1143f">"確認済み"</string>
   <string name="gt_617a8f15d57215f3">"ブロック%1$sで確認済み"</string>
@@ -378,9 +374,7 @@
   <string name="gt_6eea8608c452711b">"メールアドレス（任意）"</string>
   <string name="gt_09bf25ef30833633">"メールアドレス"</string>
   <string name="gt_de101ec2a9081a8b">"メールアドレスを追加しました"</string>
-  <string name="gt_50d8230c905d564f">"メールアドレスの登録は任意です。Noahは、ウォレットの安全に関する緊急連絡にのみ使用します。たとえば、VTXOがまもなく期限切れになり、オンラインで更新する必要がある場合にお知らせします。"</string>
   <string name="gt_bdfb1e4f00c73e98">"メールアドレスを確認しました"</string>
-  <string name="gt_3a9f176a663d540d">"緊急連絡用メールアドレス"</string>
   <string name="gt_b8eea92a324ae5b4">"緊急出金"</string>
   <string name="gt_4f5556b1b428d358">"緊急時専用です。Arkのサーバーなしで、ビットコインをArkから出金します。"</string>
   <string name="gt_1cd009ba27e712a8">"ウォレット認証を有効にする"</string>
@@ -761,6 +755,8 @@
   <string name="gt_c638d16576dfe156">"有効な支払い方法が見つかりません"</string>
   <string name="gt_57c8529db3e2719a">"いいえ、無効にする"</string>
   <string name="gt_678202b3c0c345ef">"Noah"</string>
+  <string name="gt_b5bdadc7e5c0579d">"Noah Balance"</string>
+  <string name="gt_2910b8ef5d4d95af">"Noah Wallet"</string>
   <string name="gt_51bf7dd8c85b84da">"Noahウォレットの取引エクスポート"</string>
   <string name="gt_518f6fc1d2bea961">"Noahを閉じていても受け取りと更新ができます。"</string>
   <string name="gt_966bc2f318542271">"Noahはまだセキュアストレージを読み取れません。続行するには端末のロックを解除してください。"</string>
@@ -875,7 +871,6 @@
   <string name="gt_a0145d18401ff94f">"Ark残高から支払われます。"</string>
   <string name="gt_5dc01c1c6bc76383">"オンチェーンのビットコインから支払います。"</string>
   <string name="gt_17cceb4191297e74">"Lightningで支払いました。相手のシークレットが支払いの証明になります。"</string>
-  <string name="gt_aa7a72fd611ec542">"支払い方法"</string>
   <string name="gt_f3380f7b44bd70af">"貼り付け"</string>
   <string name="gt_2b0c0a6b85adb58c">"12語または24語ちょうどを貼り付けてください。入力内容は変更されていません。"</string>
   <string name="gt_f012547b9f87dbeb">"支払いリクエストを貼り付け"</string>
@@ -887,7 +882,6 @@
   <string name="gt_046aa79048e8f8a5">"Lightningで支払い中"</string>
   <string name="gt_fef5813efef1e50a">"%1$s sat/vBで支払い中 · ブロック %2$s を待っています"</string>
   <string name="gt_d9c9afd836811e5a">"支払いID"</string>
-  <string name="gt_3450b635b99ae5ff">"支払い確認済み"</string>
   <string name="gt_17aadc092fe66088">"支払いに失敗しました"</string>
   <string name="gt_096045f8f17f3bad">"支払いハッシュ"</string>
   <string name="gt_21e360b26e1793bf">"支払い処理中"</string>
@@ -908,15 +902,14 @@
   <string name="gt_21682e0a58f5581b">"オフボード待ち"</string>
   <string name="gt_779dd1993ab4b13c">"保留中のラウンド"</string>
   <string name="gt_5fb55a3f477aee2b">"送金待ち"</string>
+  <string name="gt_f41dbd7482670f0c">"Pending: %1$s"</string>
   <string name="gt_dbb6cf817820de0b">"権限が必要です"</string>
   <string name="gt_cbf613fce96573ac">"名前を決める"</string>
   <string name="gt_46d931c1d03b0781">"表示範囲内の場所"</string>
   <string name="gt_436e61016e26fcb7">"再生"</string>
   <string name="gt_c12ff673ae9836ca">"再生位置"</string>
-  <string name="gt_958e4ccf2953d747">"有効なメールアドレスを入力してください。"</string>
   <string name="gt_813f0164d8d31cd2">"端末の設定を開き、Noahのバックグラウンド動作を許可してから続行してください。"</string>
   <string name="gt_de5aa7c10f561635">"もう一度お試しください"</string>
-  <string name="gt_4660a983366f7101">"お待ちください…"</string>
   <string name="gt_2fc0c524431a9236">"地点"</string>
   <string name="gt_89ff281050e4797e">"支払い用QRコードにカメラを向けてください。"</string>
   <string name="gt_5e4e164840885a18">"履歴に関連する可能性のある支払いがあります"</string>
@@ -1022,7 +1015,6 @@
   <string name="gt_fae09a4a2a5c48bb">"カメラへのアクセスをリクエスト中…"</string>
   <string name="gt_4850b174b713d88c">"必要"</string>
   <string name="gt_1f94843777aed851">"再送信"</string>
-  <string name="gt_8bbbb0b609c07e3f">"コードを再送信"</string>
   <string name="gt_538931fb28538397">"%1$s 後にコードを再送信できます"</string>
   <string name="gt_daee7606b339f3c3">"リセット"</string>
   <string name="gt_55d67318211dbda2">"登録をリセット"</string>
@@ -1041,7 +1033,6 @@
   <string name="gt_a97d32ddb6baca01">"再開しました"</string>
   <string name="gt_942087cc2d41e013">"再試行"</string>
   <string name="gt_ffcac3158ccc4063">"再試行の詳細"</string>
-  <string name="gt_04048ff7f2687457">"登録を再試行"</string>
   <string name="gt_aff0766a5290e117">"確認"</string>
   <string name="gt_d4ea61c79c9b77d6">"もう一度確認"</string>
   <string name="gt_25aa0f37b47607b3">"確認して支払う"</string>
@@ -1094,7 +1085,6 @@
   <string name="gt_70f58736b63e2c9e">"表示中のものを選択"</string>
   <string name="gt_3b18955703b2ebc3">"選択したスクリーンショット"</string>
   <string name="gt_f6f4688ff23d50c6">"送る"</string>
-  <string name="gt_2bd7bfd7b3314b9b">"確認コードを送信"</string>
   <string name="gt_b3080e138c3a73a8">"ここに約%1$sを送金してください。承認されると出金に使われます。"</string>
   <string name="gt_66a5b4090d14cb41">"コードを送信"</string>
   <string name="gt_dad3741faaf71ced">"%1$s を送る"</string>
@@ -1195,7 +1185,6 @@
   <string name="gt_0ac08a81559f95ee">"Esploraエンドポイントに認証情報は含められません。"</string>
   <string name="gt_96100ca2d23b8821">"Esploraエンドポイントが別のBitcoinネットワーク用です。"</string>
   <string name="gt_9dc2f0b60de257af">"Lightning支払いを受け取れませんでした。新しい支払いリクエストを作成して再試行してください。"</string>
-  <string name="gt_c58153172e51db2e">"実際の手数料はまだ確認できません。%1$s"</string>
   <string name="gt_f663d0d5c263a46c">"Arkが受け取る金額が最低額を下回っています。Arkへの入金額を増やしてください。"</string>
   <string name="gt_1f7124b49af4bb0c">"金額または手数料が変更されました。支払い内容を再確認してください。"</string>
   <string name="gt_d99fbad70ce6933e">"必要額は変動する場合があります。"</string>
@@ -1232,7 +1221,6 @@
   <string name="gt_c6e0499eb3d93af4">"取引を作成できませんでした。支払いは送信されていません。金額と手数料を確認してください。"</string>
   <string name="gt_3fb33246ab2afa02">"トランザクションを作成できませんでした。何もブロードキャストされていません。内容をもう一度確認してください。"</string>
   <string name="gt_c6dfefbf1de6c02f">"すでにオンチェーンにあるトランザクションはそのまま残ります。VTXOはウォレットに残り、再び出金できます。"</string>
-  <string name="gt_78ddf8691d4b4f75">"確認コードの有効期限は10分です。"</string>
   <string name="gt_fd04d8103140aa83">"ウォレットや手数料が変更されたか、見積もりの有効期限が切れました。確定する前に、もう一度確認してください。"</string>
   <string name="gt_be11c0d9d86f778e">"ウォレットを復元するための単語です。"</string>
   <string name="gt_d05e4b12e63fdf63">"相手の受領証明でロック解除"</string>
@@ -1300,7 +1288,6 @@
   <string name="gt_857d95d67fba62e3">"オンチェーンウォレットからの出金合計"</string>
   <string name="gt_34c9675f6162513f">"Touch ID"</string>
   <string name="gt_be8c6227042336e7">"取引ID"</string>
-  <string name="gt_321e1df45aa6a9a3">"トランザクションのサイズ"</string>
   <string name="gt_3e5136fd4b11c0dd">"トランザクション"</string>
   <string name="gt_1caf0748e40a818e">"すでにオンチェーンにあるトランザクションはそのまま残ります。VTXOはウォレットに残り、再び出金できます。"</string>
   <string name="gt_a6cab9282f16f215">"トランザクション (ルートから)"</string>
@@ -1358,6 +1345,10 @@
   <string name="gt_94dcfd1ebf80512e">"デフォルトを使用中"</string>
   <string name="gt_b338094d31cf192f">"VTXO"</string>
   <string name="gt_ef3bb53fb52f49d8">"VTXO ID"</string>
+  <plurals name="gt_1c5b6b6468f0c580">
+    <item quantity="one">"VTXO expires: %1$s block"</item>
+    <item quantity="other">"VTXO expires: %1$s blocks"</item>
+  </plurals>
   <string name="gt_a3d44a4fe18f60fb">"VTXOの16進数表記またはID"</string>
   <string name="gt_3e552e392aa7a2c8">"VTXOの有効期間"</string>
   <string name="gt_00ca04b2d388077c">"VTXOを削除しました"</string>
@@ -1368,11 +1359,13 @@
   <string name="gt_3ee75029c70e284c">"確認コード"</string>
   <string name="gt_4f7838402f37674e">"検証済み"</string>
   <string name="gt_87672f62ea3f7a51">"確認済み：%1$s"</string>
-  <string name="gt_9ae9fbbcb1c80ca9">"メールアドレスを確認"</string>
   <string name="gt_dd167905de0defca">"バージョン"</string>
   <string name="gt_a18745121bb8af6d">"バージョン %1$s"</string>
   <string name="gt_2ed8b8066255f7d2">"方法"</string>
   <string name="gt_970b300397b08223">"エクスプローラーで確認"</string>
+  <string name="gt_1275d2b1abd166af">"View your Bitcoin balance"</string>
+  <string name="gt_5c5fe5dc2e3dc1d5">"View your Bitcoin balance on regtest"</string>
+  <string name="gt_b39c9deaef6ea38e">"View your Bitcoin balance on signet"</string>
   <string name="gt_26407c9ad240b551">"シードフレーズを表示"</string>
   <string name="gt_0c6da2b7449f5e54">"現在のウォレット操作が完了してからエンドポイントを変更してください。"</string>
   <string name="gt_99c1ee35d68e7feb">"ウォレットの準備ができるまで待ってから更新してください。"</string>
@@ -1406,7 +1399,6 @@
   <string name="gt_d761927c2b2aeaf0">"ウォレットは一時停止中、または置き換え待ちです。送金は停止しています。"</string>
   <string name="gt_795e0058d0191f98">"ウォレットは一時停止中です。設定でウォレットを再開してください。"</string>
   <string name="gt_6fb08948581619e7">"支払い方法"</string>
-  <string name="gt_ebeb067bb53b2c70">"%1$s に6桁の確認コードを送信しました"</string>
   <string name="gt_b5a229ac8becc603">"ウェブサイト"</string>
   <string name="gt_2975132481a7a695">"毎週"</string>
   <string name="gt_6621249514b7887c">"おかえりなさい"</string>
@@ -1444,8 +1436,6 @@
     <item quantity="other">"ビットコインは、ラウンドのツリー内の%1$s個のトランザクションからなる経路の先にあります。ラウンド自体のトランザクションはすでにオンチェーンです。"</item>
   </plurals>
   <string name="gt_8074a7762dd1f578">"新しいメールアドレスが確認されるまでは、現在のアドレスが使われます。"</string>
-  <string name="gt_7f359127750635a9">"新しいメールアドレスの確認が完了するまで、現在のメールアドレスが引き続き有効です。"</string>
-  <string name="gt_28b86cda15decf55">"新しいメールアドレスの確認が完了するまで、現在のメールアドレス %1$s が引き続き有効です。"</string>
   <string name="gt_886bc67a71fe0f83">"メールアドレスはウォレットに関する緊急の通知にのみ使います。"</string>
   <string name="gt_2c6b2e253c01fb2e">"お名前"</string>
   <string name="gt_d9a846242ed7a22f">"復元フレーズは引き続きこの端末に安全に保存されています。このフレーズを使って、バックアップからウォレットを復元してください。"</string>
@@ -1578,4 +1568,10 @@
   <string name="home">"ホーム"</string>
   <string name="receive">"受け取る"</string>
   <string name="send">"送る"</string>
+  <string name="widget_title">"Noah Wallet"</string>
+  <string name="widget_onchain">"オンチェーン"</string>
+  <string name="widget_offchain">"オフチェーン"</string>
+  <string name="widget_mainnet_description">"View your Bitcoin balance"</string>
+  <string name="widget_signet_description">"View your Bitcoin balance on signet"</string>
+  <string name="widget_regtest_description">"View your Bitcoin balance on regtest"</string>
 </resources>

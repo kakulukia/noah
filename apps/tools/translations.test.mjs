@@ -2,7 +2,7 @@ import { test, expect } from 'bun:test';
 import { mkdtemp, mkdir, readFile, writeFile, rm, copyFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, dirname } from 'node:path';
-import { flatten, format, entries, iosCatalog, androidCatalog, resourceName, locales, sourceEntries, translationJSON, readTranslations, seedTranslations, extract, generate, root, translate, missingGroups, platformOnly } from './translations.mjs';
+import { flatten, format, entries, iosCatalog, androidCatalog, resourceName, locales, sourceEntries, translationJSON, readTranslations, seedTranslations, extract, generate, root, translate, reuse, missingGroups, platformOnly } from './translations.mjs';
 
 const text = { t: 'Text', c: ['Hello ', { t: 'strong', c: { v: 'v', k: 'name' } }, '!'] };
 test('rich text keeps text and variables in reading order', () => {
@@ -100,12 +100,20 @@ async function fixture(run) {
   const put = async (path, content) => { await mkdir(dirname(resolve(base, path)), { recursive: true }); await writeFile(resolve(base, path), content); };
   try {
     await put('apps/ios/Noah/Features/Example.swift', 'Text("Hello {name}")\nText("Native only")');
+    await put('apps/ios/NoahWidget/Example.swift', '');
     await put('apps/android/app/src/main/java/com/noahwallet/ui/Example.kt', 'Text(tr("Send"))');
     await put('apps/i18n/plurals.json', '{}');
     await put('apps/i18n/platform-only.json', JSON.stringify({ ios: { 'Hello {name}': 'fixture', 'Native only': 'fixture' }, android: { Send: 'fixture' } }));
     await run(base, put);
   } finally { await rm(base, { recursive: true, force: true }); }
 }
+
+test('the iOS widget extension is inventoried with the app', async () => {
+  await fixture(async (base, put) => {
+    await put('apps/ios/NoahWidget/Example.swift', 'Text(L10n.text("Native only", locale: language))');
+    expect([...(await extract(base)).used.ios.get('Native only')]).toEqual(['apps/ios/Noah/Features/Example.swift', 'apps/ios/NoahWidget/Example.swift']);
+  });
+});
 
 test('stale checks detect English edits, code additions/removals, locale edits and compiled resource drift', async () => {
   await fixture(async (base, put) => {
@@ -129,14 +137,14 @@ test('stale checks detect English edits, code additions/removals, locale edits a
   });
 });
 
-test('extract, generate and --check run without RN, dependencies, credentials, or invoking GT', async () => {
+test('extract, generate, --check and translate --dry-run run without RN, dependencies, credentials, or invoking GT', async () => {
   await fixture(async (base, put) => {
     await mkdir(resolve(base, 'apps/tools'), { recursive: true });
     await copyFile(resolve(root, 'apps/tools/translations.mjs'), resolve(base, 'apps/tools/translations.mjs'));
     await put('node_modules/.bin/gt', '#!/bin/sh\necho "GT must stay offline" >&2\nexit 97\n');
     await chmod(resolve(base, 'node_modules/.bin/gt'), 0o755);
-    for (const command of ['extract', 'generate', '--check']) {
-      const process = Bun.spawn([Bun.argv[0], 'apps/tools/translations.mjs', command], { cwd: base, env: { PATH: '/usr/bin:/bin' }, stdout: 'pipe', stderr: 'pipe' });
+    for (const command of [['extract'], ['generate'], ['--check'], ['translate', '--dry-run']]) {
+      const process = Bun.spawn([Bun.argv[0], 'apps/tools/translations.mjs', ...command], { cwd: base, env: { PATH: '/usr/bin:/bin' }, stdout: 'pipe', stderr: 'pipe' });
       const stderr = await new Response(process.stderr).text();
       expect(stderr).toBe('');
       expect(await process.exited).toBe(0);
@@ -162,6 +170,9 @@ if (process.argv[2] === 'translate') for (const locale of config.locales) {
 }
 `);
     await chmod(resolve(base, 'node_modules/.bin/gt'), 0o755);
+    expect(await translate(base, { dryRun: true })).toEqual({ missing: { es: 2, ja: 3, ko: 3, sv: 3 }, batches: 2 });
+    expect(await readFile(trace, 'utf8').catch(() => 'no calls')).toBe('no calls');
+    expect(await readFile(resolve(base, 'apps/i18n/en/native.json'), 'utf8').catch(() => 'not written')).toBe('not written');
     await translate(base);
     const calls = (await readFile(trace, 'utf8')).trim().split('\n').map(line => JSON.parse(line));
     expect(calls).toHaveLength(3);
@@ -174,10 +185,154 @@ if (process.argv[2] === 'translate') for (const locale of config.locales) {
     expect(actual[seedKey]).toBe('Hola {{name}}\n100%');
     expect(actual[resourceName('Send')]).toBe('GT Send');
     await generate(true, base);
+    expect(await translate(base, { dryRun: true })).toEqual({ missing: { es: 0, ja: 0, ko: 0, sv: 0 }, batches: 0 });
     await translate(base);
     expect((await readFile(trace, 'utf8')).trim().split('\n')).toHaveLength(4); // Complete catalogs only upload.
   });
 });
+
+test('reuse fills only missing keys still in English from another catalog, validated, never overwriting', async () => {
+  await fixture(async (base, put) => {
+    const [hello, send] = [resourceName('Hello {name}'), resourceName('Send')];
+    await put('apps/i18n/es/native.json', JSON.stringify({ [hello]: 'Hola {{name}}' }));
+    const other = resolve(base, 'bot');
+    await expect(reuse(other, base)).rejects.toThrow('en/native.json');
+    await put('bot/apps/i18n/en/native.json', JSON.stringify({ [hello]: 'Hello {{name}}', [send]: 'Send' }));
+    await put('bot/apps/i18n/es/native.json', JSON.stringify({ [hello]: 'Otro {{name}}', [send]: 'Enviar' }));
+    await put('bot/apps/i18n/ja/native.json', JSON.stringify({ [send]: '送信', gt_obsolete: 'Old' }));
+    expect(await reuse(other, base)).toEqual({ reused: { es: 1, ja: 1, ko: 0, sv: 0 } });
+    expect(JSON.parse(await readFile(resolve(base, 'apps/i18n/es/native.json'), 'utf8'))).toEqual({ [hello]: 'Hola {{name}}', [send]: 'Enviar' });
+    expect(JSON.parse(await readFile(resolve(base, 'apps/i18n/ja/native.json'), 'utf8'))).toEqual({ [send]: '送信' });
+    expect((await translate(base, { dryRun: true })).missing).toEqual({ es: 1, ja: 2, ko: 3, sv: 3 });
+    await put('bot/apps/i18n/ko/native.json', JSON.stringify({ [hello]: '{{wrong}}' }));
+    await expect(reuse(other, base)).rejects.toThrow('Placeholder drift');
+    expect(await readFile(resolve(base, 'apps/i18n/ko/native.json'), 'utf8').catch(() => 'not written')).toBe('not written');
+  });
+});
+
+test('reuse skips a plural form whose English changed while its key did not', async () => {
+  await fixture(async (base, put) => {
+    const source = '{count} withdrawals', id = resourceName(source);
+    await put('apps/ios/Noah/Features/Example.swift', `L10n.plural("${source}", count)`);
+    await put('apps/i18n/plurals.json', JSON.stringify({ [source]: { one: 'One pending withdrawal', other: source } }));
+    await put('bot/apps/i18n/en/native.json', JSON.stringify({ [`${id}_one`]: 'One withdrawal', [`${id}_other`]: '{{count}} withdrawals' }));
+    await put('bot/apps/i18n/es/native.json', JSON.stringify({ [`${id}_one`]: 'Un retiro', [`${id}_other`]: '{{count}} retiros' }));
+    expect(await reuse(resolve(base, 'bot'), base)).toEqual({ reused: { es: 1, ja: 0, ko: 0, sv: 0 } });
+    expect(JSON.parse(await readFile(resolve(base, 'apps/i18n/es/native.json'), 'utf8'))).toEqual({ [`${id}_other`]: '{{count}} retiros' });
+    expect((await translate(base, { dryRun: true })).missing.es).toBe(2); // The changed singular and "Send".
+  });
+});
+
+// GitHub keeps one pending run per concurrency group and replaces it with any newer one, so a dispatch on
+// another branch (whose job is then skipped) must not share master's group and drop a queued merge.
+test('bot runs queue per ref, so a dispatch on another branch cannot replace master\'s pending run', async () => {
+  const workflow = Bun.YAML.parse(await readFile(resolve(root, '.github/workflows/native-translations.yml'), 'utf8'));
+  const group = ref => workflow.concurrency.group.replace(/\$\{\{\s*github\.(workflow|ref)\s*\}\}/g, (_, key) => ({ workflow: workflow.name, ref })[key]);
+  expect(group('refs/heads/master')).not.toContain('${{');
+  expect(group('refs/heads/master')).toBe(group('refs/heads/master'));
+  expect(group('refs/heads/bot/native-translations')).not.toBe(group('refs/heads/master'));
+  expect(workflow.concurrency['cancel-in-progress']).toBe(false);
+  expect(workflow.jobs.translate.if).toBe("github.ref == 'refs/heads/master'");
+});
+
+// Runs the bot workflow's own step scripts against a scratch repo, a local origin and a stub gh that applies --jq.
+async function botRepo(run) {
+  const workflow = Bun.YAML.parse(await readFile(resolve(root, '.github/workflows/native-translations.yml'), 'utf8'));
+  const temporary = await mkdtemp(resolve(tmpdir(), 'noah-i18n-bot-'));
+  try {
+    await fixture(async (base, put) => {
+      await mkdir(resolve(base, 'apps/tools'), { recursive: true });
+      await copyFile(resolve(root, 'apps/tools/translations.mjs'), resolve(base, 'apps/tools/translations.mjs'));
+      for (const locale of locales.slice(1)) await put(`apps/i18n/${locale}/native.json`, '{}');
+      await put('apps/i18n/gt-lock.json', '{}');
+      const [origin, log, stubs] = ['origin.git', 'gh.log', 'bin'].map(name => resolve(temporary, name));
+      await mkdir(stubs);
+      await writeFile(resolve(stubs, 'gh'), `#!/bin/bash
+printf '%s\\n' "$*" >> "$STUB_LOG"
+case "$1 $2" in
+  "pr list") while [[ $# -gt 0 && "$1" != --jq ]]; do shift; done; jq -r "$2" <<< "$STUB_PRS" ;;
+  "api -H") path="\${4#repos/*/contents/}"; git -C "$STUB_ORIGIN" show "\${4#*\\?ref=}:\${path%%\\?*}" ;;
+esac
+`);
+      await chmod(resolve(stubs, 'gh'), 0o755);
+      const env = { ...process.env, ...workflow.env, PATH: `${stubs}:${process.env.PATH}`, HOME: temporary, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+        STUB_LOG: log, STUB_ORIGIN: origin, GH_TOKEN: 'stub', GITHUB_REPOSITORY: 'smolcars/noah', RUN_URL: 'https://example.invalid/run', RUNNER_TEMP: temporary, GITHUB_STEP_SUMMARY: resolve(temporary, 'summary.md') };
+      const sh = (command, extra = {}) => {
+        const result = Bun.spawnSync(command, { cwd: base, env: { ...env, ...extra }, stdout: 'pipe', stderr: 'pipe' });
+        if (result.exitCode) throw new Error(`${command.join(' ')}:\n${result.stdout}${result.stderr}`);
+        return result.stdout.toString();
+      };
+      const git = (...args) => sh(['git', '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', ...args]);
+      git('init', '-q', '-b', 'master'); sh(['git', 'init', '-q', '--bare', origin]); git('remote', 'add', 'origin', origin);
+      await run({
+        base, put, git, workflow, temporary, bot: workflow.env.BOT_BRANCH,
+        open: JSON.stringify([{ number: 7, isCrossRepository: true }, { number: 42, isCrossRepository: false }]),
+        // Regenerates, commits everything and pushes it as master; returns the commit.
+        commit: async message => { await generate(false, base); git('add', '.'); git('commit', '-qm', message); git('push', '-q', 'origin', 'HEAD:refs/heads/master'); return git('rev-parse', 'HEAD').trim(); },
+        // As actions/checkout: an explicit ref checks out that branch's current tip, otherwise the event's commit.
+        checkout: sha => { const ref = workflow.jobs.translate.steps.find(step => step.uses?.startsWith('actions/checkout')).with?.ref; git('fetch', '-q', 'origin'); git('checkout', '-q', ref ? `origin/${ref}` : sha); },
+        step: (name, prs, sha = git('rev-parse', 'HEAD').trim()) => sh(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', workflow.jobs.translate.steps.find(step => step.name === name).run], { STUB_PRS: prs, GITHUB_SHA: sha }),
+        calls: async () => (await readFile(log, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean),
+        prCalls: async () => (await readFile(log, 'utf8').catch(() => '')).split('\n').filter(call => /^pr (create|edit|close)/.test(call)),
+        clearCalls: () => writeFile(log, ''),
+      });
+    });
+  } finally { await rm(temporary, { recursive: true, force: true }); }
+}
+
+test('the bot workflow reuses its open PR, updates it, and closes it once master needs nothing', async () => {
+  await botRepo(async ({ base, put, git, bot, open, commit, step, calls, prCalls, clearCalls, temporary }) => {
+    await put('apps/i18n/es/native.json', JSON.stringify({ [resourceName('Send')]: 'Enviar' }));
+    await commit('master');
+    // The open bot PR already has Japanese "Send".
+    await put('apps/i18n/ja/native.json', JSON.stringify({ [resourceName('Send')]: '送信' }));
+    git('commit', '-qam', 'bot'); git('push', '-q', 'origin', `HEAD:refs/heads/${bot}`); git('reset', '-q', '--hard', 'HEAD~');
+
+    step('Reuse translations from the open bot PR', open);
+    expect((await calls()).filter(call => call.startsWith('api')).map(call => call.match(/i18n\/(\w+)\//)[1])).toEqual(locales);
+    await generate(false, base);
+    step('Open or update the translations PR', open);
+    expect((await prCalls()).map(call => call.split(' --')[0])).toEqual(['pr edit 42']);
+    expect(git('show', `origin/${bot}:apps/i18n/ja/native.json`)).toContain('送信');
+    expect(await readFile(resolve(temporary, 'body.md'), 'utf8')).toContain('| ja | 1 |');
+
+    // Master now has every key the bot PR added, so the PR would only conflict: close it and delete its branch.
+    await clearCalls();
+    step('Open or update the translations PR', open);
+    expect(await prCalls()).toEqual([expect.stringMatching(/^pr close 42 --delete-branch --comment Superseded/)]);
+    await clearCalls();
+    expect(step('Open or update the translations PR', '[]')).toContain('Nothing to translate.');
+    expect(await prCalls()).toEqual([]);
+  });
+}, 30_000);
+
+// A fully translated older run would close the PR; one still missing a key would push a bot branch on the older master.
+test.each([['fully translated'], ['missing a key']])('a rerun of an older run (%s) works on the current master and keeps the bot PR', async older => {
+  await botRepo(async ({ base, put, git, bot, open, commit, checkout, step, prCalls, temporary }) => {
+    const translateAll = async (skip = '') => {
+      const english = JSON.parse(await readFile(resolve(base, 'apps/i18n/en/native.json'), 'utf8'));
+      for (const locale of locales.slice(1)) await put(`apps/i18n/${locale}/native.json`, JSON.stringify(Object.fromEntries(Object.entries(english).filter(([key]) => key !== skip).map(([key, text]) => [key, `${locale} ${text}`]))));
+    };
+    await generate(false, base); await translateAll(older === 'missing a key' ? resourceName('Native only') : '');
+    const a = await commit('A');
+    await put('apps/ios/Noah/Features/Example.swift', 'Text("Hello {name}")\nText("Native only")\nText("Receive")');
+    await put('apps/android/app/src/main/java/com/noahwallet/ui/Example.kt', 'Text(tr("Send"))\nText(tr("Receive"))');
+    const newer = await commit('B: adds Receive');
+    // The open bot PR translates everything still missing on B.
+    await translateAll();
+    git('commit', '-qam', 'bot'); git('push', '-q', 'origin', `HEAD:refs/heads/${bot}`);
+
+    // Rerunning A's run keeps A as the event commit.
+    checkout(a);
+    step('Reuse translations from the open bot PR', open, a);
+    await generate(false, base);
+    step('Open or update the translations PR', open, a);
+    expect((await prCalls()).map(call => call.split(' --')[0])).toEqual(['pr edit 42']);
+    expect(git('rev-parse', `origin/${bot}~`).trim()).toBe(newer);
+    expect(git('show', `origin/${bot}:apps/i18n/ja/native.json`)).toContain(`ja Receive`);
+    expect(await readFile(resolve(temporary, 'body.md'), 'utf8')).toContain(`at ${newer.slice(0, 9)}.`);
+  });
+}, 30_000);
 
 test('failed GT runs leave seeded files intact', async () => {
   await fixture(async (base, put) => {

@@ -3,7 +3,6 @@
 <resources>
   <string name="gt_8a6fa5252a4b7e05">"12 ord"</string>
   <string name="gt_fae43771b7367b9c">"24 ord"</string>
-  <string name="gt_0d1fa0dfcc9e3821">"6-siffrig kod"</string>
   <string name="gt_93308a413f52ce7d">"Ett block kom utan den. Noah betalar mer när avgiftsnivån stiger, så att den kommer med i nästa."</string>
   <string name="gt_1ef4529eb54eae53">"En anpassad server kan se dina adresser. Använd en du litar på."</string>
   <string name="gt_51eedf36dc1a1749">"En betalning på %1$s sats för den här betalningsbegäran pågår redan. Betala inte igen."</string>
@@ -21,7 +20,6 @@
   <string name="gt_aa21f22bf633b009">"Åtgärden misslyckades. Kontrollera dina uppgifter och anslutningen innan du försöker igen."</string>
   <string name="gt_92340695899bd2d8">"Aktiv"</string>
   <string name="gt_38da1505ca837328">"Aktivitet"</string>
-  <string name="gt_c0a85ce487304e8b">"Faktisk avgift"</string>
   <string name="gt_f7c8b432caa9e1b4">"Väntar på faktisk avgift"</string>
   <string name="gt_a301e27dce0ce4cd">"Faktisk avgift på blockkedjan"</string>
   <string name="gt_9fd728c66c9a256b">"Lägg till"</string>
@@ -194,7 +192,6 @@
   <string name="gt_70cc1886428b724b">"Blockkedjestatus"</string>
   <string name="gt_028afe3eebb92266">"Ändra belopp"</string>
   <string name="gt_ff2ec2618b91b367">"Ändra e-post"</string>
-  <string name="gt_dd16e499335d3a53">"Ändra e-postadress"</string>
   <string name="gt_77a94e1521d6a8e8">"Chatta på Telegram"</string>
   <string name="gt_d0e3a822635c961f">"Kolla det senaste försöket för den här betalningen under Aktivitet och fråga mottagaren om den kom fram."</string>
   <string name="gt_fb7099ad8e818d42">"Kontrollera igen"</string>
@@ -251,7 +248,6 @@
   <string name="gt_bc1dbb36faac6cf7">"Kommer snart i den enhetsspecifika appen."</string>
   <string name="gt_22a970d2e5b1cc23">"Slutförd"</string>
   <string name="gt_eebdd24a77d9ad32">"Bekräfta"</string>
-  <string name="gt_a55c4ed2db28a403">"Bekräfta betalning"</string>
   <string name="gt_5dfa99a6fa762317">"Bekräftelser"</string>
   <string name="gt_fe00b67b6dd1143f">"Bekräftad"</string>
   <string name="gt_617a8f15d57215f3">"Bekräftad i block %1$s"</string>
@@ -378,9 +374,7 @@
   <string name="gt_6eea8608c452711b">"E-post (valfritt)"</string>
   <string name="gt_09bf25ef30833633">"E-postadress"</string>
   <string name="gt_de101ec2a9081a8b">"E-post tillagd"</string>
-  <string name="gt_50d8230c905d564f">"Det är valfritt att ange en e-postadress. Noah använder den bara för brådskande meddelanden om plånbokens säkerhet, till exempel när dina VTXO:er löper snart ut och du behöver ansluta till internet för att förnya dem."</string>
   <string name="gt_bdfb1e4f00c73e98">"E-post verifierad"</string>
-  <string name="gt_3a9f176a663d540d">"E-postadress för nödfall"</string>
   <string name="gt_b8eea92a324ae5b4">"Nöduttag"</string>
   <string name="gt_4f5556b1b428d358">"Endast i nödfall. Det tar ut dina bitcoin ur Ark utan Arks server."</string>
   <string name="gt_1cd009ba27e712a8">"Aktivera autentisering för plånboken"</string>
@@ -761,6 +755,8 @@
   <string name="gt_c638d16576dfe156">"Inga giltiga betalningsmetoder hittades"</string>
   <string name="gt_57c8529db3e2719a">"Nej, stäng av"</string>
   <string name="gt_678202b3c0c345ef">"Noah"</string>
+  <string name="gt_b5bdadc7e5c0579d">"Noah Balance"</string>
+  <string name="gt_2910b8ef5d4d95af">"Noah Wallet"</string>
   <string name="gt_51bf7dd8c85b84da">"Transaktionsexport från Noah-plånboken"</string>
   <string name="gt_518f6fc1d2bea961">"Noah kan ta emot och förnya även när appen är stängd."</string>
   <string name="gt_966bc2f318542271">"Noah kan inte läsa sin säkra lagring ännu. Lås upp enheten för att fortsätta."</string>
@@ -875,7 +871,6 @@
   <string name="gt_a0145d18401ff94f">"Betalas från ditt Ark-saldo."</string>
   <string name="gt_5dc01c1c6bc76383">"Betalas med dina bitcoin på blockkedjan."</string>
   <string name="gt_17cceb4191297e74">"Betald via Lightning. Deras hemlighet är ditt betalningsbevis."</string>
-  <string name="gt_aa7a72fd611ec542">"Betald via"</string>
   <string name="gt_f3380f7b44bd70af">"Klistra in"</string>
   <string name="gt_2b0c0a6b85adb58c">"Klistra in exakt 12 eller 24 ord. Det du har angett har inte ersatts."</string>
   <string name="gt_f012547b9f87dbeb">"Klistra in betalningsbegäran"</string>
@@ -887,7 +882,6 @@
   <string name="gt_046aa79048e8f8a5">"Betalar via Lightning"</string>
   <string name="gt_fef5813efef1e50a">"Betalar %1$s sat/vB · väntar på block %2$s"</string>
   <string name="gt_d9c9afd836811e5a">"Betalnings-ID"</string>
-  <string name="gt_3450b635b99ae5ff">"Betalning bekräftad"</string>
   <string name="gt_17aadc092fe66088">"Betalningen misslyckades"</string>
   <string name="gt_096045f8f17f3bad">"Betalningshash"</string>
   <string name="gt_21e360b26e1793bf">"Betalning pågår"</string>
@@ -908,15 +902,14 @@
   <string name="gt_21682e0a58f5581b">"Väntande uttag"</string>
   <string name="gt_779dd1993ab4b13c">"Väntande omgångar"</string>
   <string name="gt_5fb55a3f477aee2b">"Väntande överföring"</string>
+  <string name="gt_f41dbd7482670f0c">"Pending: %1$s"</string>
   <string name="gt_dbb6cf817820de0b">"Behörighet krävs"</string>
   <string name="gt_cbf613fce96573ac">"Välj ett namn"</string>
   <string name="gt_46d931c1d03b0781">"Platser i vyn"</string>
   <string name="gt_436e61016e26fcb7">"Spela"</string>
   <string name="gt_c12ff673ae9836ca">"Uppspelningsposition"</string>
-  <string name="gt_958e4ccf2953d747">"Ange en giltig e-postadress."</string>
   <string name="gt_813f0164d8d31cd2">"Öppna enhetens inställningar och tillåt Noah att köras i bakgrunden. Fortsätt sedan."</string>
   <string name="gt_de5aa7c10f561635">"Försök igen"</string>
-  <string name="gt_4660a983366f7101">"Vänta…"</string>
   <string name="gt_2fc0c524431a9236">"Punkt"</string>
   <string name="gt_89ff281050e4797e">"Rikta kameran mot en QR-kod för betalning."</string>
   <string name="gt_5e4e164840885a18">"Möjligen relaterad betalning i Historik"</string>
@@ -1022,7 +1015,6 @@
   <string name="gt_fae09a4a2a5c48bb">"Begär åtkomst till kameran…"</string>
   <string name="gt_4850b174b713d88c">"Krävs"</string>
   <string name="gt_1f94843777aed851">"Skicka igen"</string>
-  <string name="gt_8bbbb0b609c07e3f">"Skicka koden igen"</string>
   <string name="gt_538931fb28538397">"Skicka koden igen om %1$s"</string>
   <string name="gt_daee7606b339f3c3">"Återställ"</string>
   <string name="gt_55d67318211dbda2">"Återställ registrering"</string>
@@ -1041,7 +1033,6 @@
   <string name="gt_a97d32ddb6baca01">"Återupptagen"</string>
   <string name="gt_942087cc2d41e013">"Försök igen"</string>
   <string name="gt_ffcac3158ccc4063">"Försök läsa in detaljer igen"</string>
-  <string name="gt_04048ff7f2687457">"Försök registrera igen"</string>
   <string name="gt_aff0766a5290e117">"Granska"</string>
   <string name="gt_d4ea61c79c9b77d6">"Granska igen"</string>
   <string name="gt_25aa0f37b47607b3">"Granska och betala"</string>
@@ -1094,7 +1085,6 @@
   <string name="gt_70f58736b63e2c9e">"Välj synliga"</string>
   <string name="gt_3b18955703b2ebc3">"Vald skärmbild"</string>
   <string name="gt_f6f4688ff23d50c6">"Skicka"</string>
-  <string name="gt_2bd7bfd7b3314b9b">"Skicka verifieringskod"</string>
   <string name="gt_b3080e138c3a73a8">"Skicka ungefär %1$s hit. Uttag använder det när det har bekräftats."</string>
   <string name="gt_66a5b4090d14cb41">"Skicka kod"</string>
   <string name="gt_dad3741faaf71ced">"Skicka %1$s"</string>
@@ -1195,7 +1185,6 @@
   <string name="gt_0ac08a81559f95ee">"Esplora-slutpunkten får inte innehålla inloggningsuppgifter."</string>
   <string name="gt_96100ca2d23b8821">"Esplora-slutpunkten är avsedd för ett annat Bitcoin-nätverk."</string>
   <string name="gt_9dc2f0b60de257af">"Lightning-betalningen kunde inte tas emot. Skapa en ny betalningsbegäran och försök igen."</string>
-  <string name="gt_c58153172e51db2e">"Den faktiska avgiften är inte tillgänglig än. %1$s"</string>
   <string name="gt_f663d0d5c263a46c">"Beloppet som Ark tar emot är lägre än minimibeloppet. Öka insättningsbeloppet."</string>
   <string name="gt_1f7124b49af4bb0c">"Beloppet eller avgiften har ändrats. Granska betalningen igen."</string>
   <string name="gt_d99fbad70ce6933e">"Beloppet som krävs kan variera."</string>
@@ -1232,7 +1221,6 @@
   <string name="gt_c6e0499eb3d93af4">"Transaktionen kunde inte skapas. Ingen betalning skickades. Granska beloppet och avgiften."</string>
   <string name="gt_3fb33246ab2afa02">"Transaktionen kunde inte skapas. Inget sändes. Granska igen."</string>
   <string name="gt_c6dfefbf1de6c02f">"Transaktionerna som redan finns på blockkedjan blir kvar där. Din VTXO stannar i din plånbok och kan tas ut igen."</string>
-  <string name="gt_78ddf8691d4b4f75">"Verifieringskoden upphör att gälla om 10 minuter."</string>
   <string name="gt_fd04d8103140aa83">"Plånboken eller avgifterna har ändrats, eller så har prisuppgiften upphört att gälla. Granska uppgifterna igen innan du bekräftar."</string>
   <string name="gt_be11c0d9d86f778e">"Orden som återställer din plånbok."</string>
   <string name="gt_d05e4b12e63fdf63">"Deras kvitto låser upp den"</string>
@@ -1300,7 +1288,6 @@
   <string name="gt_857d95d67fba62e3">"Totalt uttag från plånboken på blockkedjan"</string>
   <string name="gt_34c9675f6162513f">"Touch ID"</string>
   <string name="gt_be8c6227042336e7">"Transaktions-ID"</string>
-  <string name="gt_321e1df45aa6a9a3">"Transaktionsstorlek"</string>
   <string name="gt_3e5136fd4b11c0dd">"Transaktioner"</string>
   <string name="gt_1caf0748e40a818e">"Transaktioner som redan finns på blockkedjan blir kvar där. Din VTXO stannar i din plånbok och kan tas ut igen."</string>
   <string name="gt_a6cab9282f16f215">"Transaktioner, från roten"</string>
@@ -1358,6 +1345,10 @@
   <string name="gt_94dcfd1ebf80512e">"Använder standard"</string>
   <string name="gt_b338094d31cf192f">"VTXO"</string>
   <string name="gt_ef3bb53fb52f49d8">"VTXO-ID"</string>
+  <plurals name="gt_1c5b6b6468f0c580">
+    <item quantity="one">"VTXO expires: %1$s block"</item>
+    <item quantity="other">"VTXO expires: %1$s blocks"</item>
+  </plurals>
   <string name="gt_a3d44a4fe18f60fb">"VTXO i hexformat eller ID"</string>
   <string name="gt_3e552e392aa7a2c8">"VTXO-livslängd"</string>
   <string name="gt_00ca04b2d388077c">"VTXO borttagen"</string>
@@ -1368,11 +1359,13 @@
   <string name="gt_3ee75029c70e284c">"Verifieringskod"</string>
   <string name="gt_4f7838402f37674e">"Verifierad"</string>
   <string name="gt_87672f62ea3f7a51">"Verifierad %1$s"</string>
-  <string name="gt_9ae9fbbcb1c80ca9">"Verifiera e-postadress"</string>
   <string name="gt_dd167905de0defca">"Version"</string>
   <string name="gt_a18745121bb8af6d">"Version %1$s"</string>
   <string name="gt_2ed8b8066255f7d2">"Via"</string>
   <string name="gt_970b300397b08223">"Visa i blockutforskaren"</string>
+  <string name="gt_1275d2b1abd166af">"View your Bitcoin balance"</string>
+  <string name="gt_5c5fe5dc2e3dc1d5">"View your Bitcoin balance on regtest"</string>
+  <string name="gt_b39c9deaef6ea38e">"View your Bitcoin balance on signet"</string>
   <string name="gt_26407c9ad240b551">"Visa din återställningsfras"</string>
   <string name="gt_0c6da2b7449f5e54">"Vänta tills den pågående plånboksåtgärden är klar innan du ändrar slutpunkten."</string>
   <string name="gt_99c1ee35d68e7feb">"Vänta tills plånboken är redo och uppdatera sedan."</string>
@@ -1406,7 +1399,6 @@
   <string name="gt_d761927c2b2aeaf0">"Plånboken är pausad eller väntar på att ersättas. Det går inte att skicka betalningar."</string>
   <string name="gt_795e0058d0191f98">"Plånboken är pausad. Återuppta den under Inställningar."</string>
   <string name="gt_6fb08948581619e7">"Sätt att betala dig"</string>
-  <string name="gt_ebeb067bb53b2c70">"Vi skickade en sexsiffrig verifieringskod till %1$s"</string>
   <string name="gt_b5a229ac8becc603">"Webbplats"</string>
   <string name="gt_2975132481a7a695">"Varje vecka"</string>
   <string name="gt_6621249514b7887c">"Välkommen tillbaka"</string>
@@ -1444,8 +1436,6 @@
     <item quantity="other">"Dina bitcoin ligger i slutet av en väg med %1$s transaktioner i rundans träd. Rundans egen transaktion finns redan på blockkedjan."</item>
   </plurals>
   <string name="gt_8074a7762dd1f578">"Din nuvarande e-post gäller tills den nya är verifierad."</string>
-  <string name="gt_7f359127750635a9">"Din nuvarande e-postadress är aktiv tills den nya e-postadressen har verifierats."</string>
-  <string name="gt_28b86cda15decf55">"Din nuvarande e-postadress, %1$s, är aktiv tills den nya e-postadressen har verifierats."</string>
   <string name="gt_886bc67a71fe0f83">"Din e-post används bara för brådskande varningar om din plånbok."</string>
   <string name="gt_2c6b2e253c01fb2e">"Ditt namn"</string>
   <string name="gt_d9a846242ed7a22f">"Din återställningsfras är fortfarande säkert lagrad på den här enheten. Använd den för att återställa plånboken från säkerhetskopian."</string>
@@ -1578,4 +1568,10 @@
   <string name="home">"Hem"</string>
   <string name="receive">"Ta emot"</string>
   <string name="send">"Skicka"</string>
+  <string name="widget_title">"Noah Wallet"</string>
+  <string name="widget_onchain">"På blockkedjan"</string>
+  <string name="widget_offchain">"Utanför blockkedjan"</string>
+  <string name="widget_mainnet_description">"View your Bitcoin balance"</string>
+  <string name="widget_signet_description">"View your Bitcoin balance on signet"</string>
+  <string name="widget_regtest_description">"View your Bitcoin balance on regtest"</string>
 </resources>

@@ -78,6 +78,7 @@ class BalanceProvider: TimelineProvider {
 
 struct NoahBalanceWidgetView: View {
     var entry: BalanceEntry
+    var language: String
     var variantName: String?
     var variantColor: Color?
     @Environment(\.widgetFamily) var family
@@ -129,7 +130,7 @@ struct NoahBalanceWidgetView: View {
     private var smallWidgetLayout: some View {
         VStack(alignment: .leading, spacing: shouldUseCompactSmallLayout ? 4 : 6) {
             HStack(alignment: .top) {
-                Text("Noah Wallet")
+                Text(L10n.text("Noah Wallet", locale: language))
                     .font(.caption2)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
@@ -157,7 +158,7 @@ struct NoahBalanceWidgetView: View {
                     .lineLimit(1)
 
                 if entry.pendingBalance > 0 {
-                    Text("Pending: ₿\u{00A0}\(formatSatsCompact(entry.pendingBalance))")
+                    Text(L10n.text("Pending: {amount}", "₿\u{00A0}\(formatSatsCompact(entry.pendingBalance))", locale: language))
                         .font(.caption2)
                         .foregroundColor(.yellow)
                         .lineLimit(1)
@@ -171,7 +172,7 @@ struct NoahBalanceWidgetView: View {
                         Image(systemName: expiryStatus.icon)
                             .font(.system(size: 10))
                             .foregroundColor(expiryStatus.color)
-                        Text("Expires: \(Int(entry.closestExpiryBlocks))b")
+                        Text(L10n.plural("{n} blocks", count: Int(entry.closestExpiryBlocks), locale: language))
                             .font(.caption2)
                             .foregroundColor(expiryStatus.color)
                             .lineLimit(1)
@@ -182,42 +183,38 @@ struct NoahBalanceWidgetView: View {
 
             Spacer(minLength: shouldUseCompactSmallLayout ? 2 : 6)
 
-            HStack(spacing: shouldUseCompactSmallLayout ? 6 : 8) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("On")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                    Text("\(formatSatsCompact(entry.onchainBalance))")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 4)
-
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text("Off")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                    Text("\(formatSatsCompact(entry.offchainBalance))")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.white)
-                        .minimumScaleFactor(0.8)
-                        .lineLimit(1)
-                }
+            // One row each, so a translated label gets the widget's width.
+            VStack(spacing: 1) {
+                smallBalanceRow(L10n.text("Onchain", locale: language), entry.onchainBalance)
+                smallBalanceRow(L10n.text("Offchain", locale: language), entry.offchainBalance)
             }
         }
         .padding(.horizontal, shouldUseCompactSmallLayout ? 10 : 12)
         .padding(.vertical, shouldUseCompactSmallLayout ? 10 : 12)
     }
 
+    private func smallBalanceRow(_ label: String, _ value: Double) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.gray)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Spacer(minLength: 0)
+            Text("\(formatSatsCompact(value))")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+                .minimumScaleFactor(0.8)
+                .lineLimit(1)
+                .layoutPriority(1)
+        }
+    }
+
     private var mediumWidgetLayout: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Noah Wallet")
+                Text(L10n.text("Noah Wallet", locale: language))
                     .font(.caption)
                     .fontWeight(.semibold)
                     .foregroundColor(.white)
@@ -243,7 +240,7 @@ struct NoahBalanceWidgetView: View {
                     .foregroundColor(.white)
 
                 if entry.pendingBalance > 0 {
-                    Text("Pending: ₿\u{00A0}\(formatSats(entry.pendingBalance))")
+                    Text(L10n.text("Pending: {amount}", "₿\u{00A0}\(formatSats(entry.pendingBalance))", locale: language))
                         .font(.caption2)
                         .foregroundColor(.yellow)
                         .lineLimit(1)
@@ -257,7 +254,7 @@ struct NoahBalanceWidgetView: View {
                         Image(systemName: expiryStatus.icon)
                             .font(.system(size: 12))
                             .foregroundColor(expiryStatus.color)
-                        Text("VTXO expires: \(Int(entry.closestExpiryBlocks)) blocks")
+                        Text(L10n.plural("VTXO expires: {n} blocks", count: Int(entry.closestExpiryBlocks), locale: language))
                             .font(.caption)
                             .foregroundColor(expiryStatus.color)
                     }
@@ -268,7 +265,7 @@ struct NoahBalanceWidgetView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Onchain")
+                    Text(L10n.text("Onchain", locale: language))
                         .font(.caption2)
                         .foregroundColor(.gray)
                     Text("\(formatSats(entry.onchainBalance))")
@@ -279,7 +276,7 @@ struct NoahBalanceWidgetView: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("Offchain")
+                    Text(L10n.text("Offchain", locale: language))
                         .font(.caption2)
                         .foregroundColor(.gray)
                     Text("\(formatSats(entry.offchainBalance))")

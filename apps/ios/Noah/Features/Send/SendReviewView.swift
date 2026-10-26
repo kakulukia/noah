@@ -47,8 +47,9 @@ struct SendConfirmation: View {
         .task(id: quote.prepared?.id) {
             // A signed transaction expires; review again for a fresh fee rate.
             guard let prepared = quote.prepared else { return }
-            let remaining = max(0, SendPreparedTransaction.reviewLifetime - Date().timeIntervalSince(prepared.createdAt))
-            do { try await Task.sleep(for: .seconds(remaining)) } catch { return }
+            let remaining = Duration.seconds(SendPreparedTransaction.reviewLifetime)
+                - ReviewClock.elapsed(since: prepared.reviewedAt, createdAt: prepared.createdAt)
+            do { try await Task.sleep(for: max(.zero, remaining)) } catch { return }
             if !controller.locked { cancel() }
         }
     }
@@ -115,22 +116,23 @@ struct SendConfirmation: View {
 
     @ViewBuilder private var rows: some View {
         let estimated = quote.approximate || quote.recipientIsEstimated
+        // Every row stacks its label above its value when large text won't fit them on one line.
         VStack(spacing: 0) {
-            SendDetailRow("Via", text: SendOutcomeView.railName(rail), glyph: SendOutcomeView.railGlyph(rail))
+            SendDetailRow("Via", text: SendOutcomeView.railName(rail), glyph: SendOutcomeView.railGlyph(rail), wraps: true)
             if let source = payment.source {
-                SendDetailRow("From", text: source.label)
+                SendDetailRow("From", text: source.label, wraps: true)
             }
             SendDetailRow("Arrives", text: Self.arrives(rail, required: WalletConfiguration.base(for: .current).roundTxRequiredConfirmations,
                                                         locale: locale.identifier), verbatim: true, wraps: true)
             if quote.fee == 0 && rail == .ark {
-                SendDetailRow(estimated ? "Estimated fee" : "Fee", text: "Free")
+                SendDetailRow(estimated ? "Estimated fee" : "Fee", text: "Free", wraps: true)
             } else {
-                SendDetailRow(estimated ? "Estimated fee" : "Fee", number: format(quote.fee))
+                SendDetailRow(estimated ? "Estimated fee" : "Fee", number: format(quote.fee), wraps: true)
             }
             SendDetailRow(quote.recipientIsEstimated ? "Total (reviewed coins)" : quote.approximate ? "Estimated total" : "Total",
-                          number: format(quote.total), last: payment.comment.isEmpty)
+                          number: format(quote.total), last: payment.comment.isEmpty, wraps: true)
             if !payment.comment.isEmpty {
-                SendDetailRow("Note", text: payment.comment, verbatim: true, last: true)
+                SendDetailRow("Note", text: payment.comment, verbatim: true, last: true, wraps: true)
             }
         }
         .accessibilityIdentifier("send-review-rows")

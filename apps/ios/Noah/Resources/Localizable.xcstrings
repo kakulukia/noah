@@ -73,42 +73,6 @@
         }
       }
     },
-    "6-digit code": {
-      "comment": "GT gt_0d1fa0dfcc9e3821; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "6-digit code"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Código de 6 dígitos"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "6桁のコード"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "6자리 코드"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "6-siffrig kod"
-          }
-        }
-      }
-    },
     "A block came without it. Noah pays more when the fee rate rises, so it gets into the next one.": {
       "comment": "GT gt_93308a413f52ce7d; arguments: none",
       "extractionState": "manual",
@@ -717,42 +681,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aktivitet"
-          }
-        }
-      }
-    },
-    "Actual fee": {
-      "comment": "GT gt_c0a85ce487304e8b; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Actual fee"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comisión real"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "実際の手数料"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "실제 수수료"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Faktisk avgift"
           }
         }
       }
@@ -6901,42 +6829,6 @@
         }
       }
     },
-    "Change email address": {
-      "comment": "GT gt_dd16e499335d3a53; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change email address"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cambiar dirección de correo electrónico"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "メールアドレスを変更"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이메일 주소 변경"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ändra e-postadress"
-          }
-        }
-      }
-    },
     "Chat on Telegram": {
       "comment": "GT gt_77a94e1521d6a8e8; arguments: none",
       "extractionState": "manual",
@@ -8901,42 +8793,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bekräfta"
-          }
-        }
-      }
-    },
-    "Confirm payment": {
-      "comment": "GT gt_a55c4ed2db28a403; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm payment"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirmar pago"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "支払いを確定"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "결제 확인"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bekräfta betalning"
           }
         }
       }
@@ -13429,42 +13285,6 @@
         }
       }
     },
-    "Email is optional. Noah uses it only for urgent wallet safety messages, such as when your VTXOs are close to expiring and you need to come online to refresh them.": {
-      "comment": "GT gt_50d8230c905d564f; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Email is optional. Noah uses it only for urgent wallet safety messages, such as when your VTXOs are close to expiring and you need to come online to refresh them."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El correo es opcional. Noah solo lo usa para enviar avisos urgentes sobre la seguridad de tu billetera, por ejemplo, cuando tus VTXO están a punto de vencer y necesitas conectarte para renovarlos."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "メールアドレスの登録は任意です。Noahは、ウォレットの安全に関する緊急連絡にのみ使用します。たとえば、VTXOがまもなく期限切れになり、オンラインで更新する必要がある場合にお知らせします。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이메일 등록은 선택 사항입니다. Noah는 VTXO가 만료 임박 상태여서 온라인에 접속해 갱신해야 하는 경우 등 지갑 안전과 관련된 긴급 안내에만 이메일을 사용합니다."
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Det är valfritt att ange en e-postadress. Noah använder den bara för brådskande meddelanden om plånbokens säkerhet, till exempel när dina VTXO:er löper snart ut och du behöver ansluta till internet för att förnya dem."
-          }
-        }
-      }
-    },
     "Email verified": {
       "comment": "GT gt_bdfb1e4f00c73e98; arguments: none",
       "extractionState": "manual",
@@ -13497,42 +13317,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "E-post verifierad"
-          }
-        }
-      }
-    },
-    "Emergency Email": {
-      "comment": "GT gt_3a9f176a663d540d; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Emergency Email"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Correo de emergencia"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "緊急連絡用メールアドレス"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "긴급 연락용 이메일"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "E-postadress för nödfall"
           }
         }
       }
@@ -26977,6 +26761,78 @@
         }
       }
     },
+    "Noah Balance": {
+      "comment": "GT gt_b5bdadc7e5c0579d; arguments: none",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Balance"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Balance"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Balance"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Balance"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Balance"
+          }
+        }
+      }
+    },
+    "Noah Wallet": {
+      "comment": "GT gt_2910b8ef5d4d95af; arguments: none",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Wallet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Wallet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Wallet"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Wallet"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noah Wallet"
+          }
+        }
+      }
+    },
     "Noah Wallet Transaction Export": {
       "comment": "GT gt_51bf7dd8c85b84da; arguments: none",
       "extractionState": "manual",
@@ -30985,42 +30841,6 @@
         }
       }
     },
-    "Paid via": {
-      "comment": "GT gt_aa7a72fd611ec542; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paid via"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pagado mediante"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "支払い方法"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "결제 방식"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Betald via"
-          }
-        }
-      }
-    },
     "Paste": {
       "comment": "GT gt_f3380f7b44bd70af; arguments: none",
       "extractionState": "manual",
@@ -31413,42 +31233,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Betalnings-ID"
-          }
-        }
-      }
-    },
-    "Payment confirmed": {
-      "comment": "GT gt_3450b635b99ae5ff; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Payment confirmed"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pago confirmado"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "支払い確認済み"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "결제 확정됨"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Betalning bekräftad"
           }
         }
       }
@@ -32173,6 +31957,42 @@
         }
       }
     },
+    "Pending: {amount}": {
+      "comment": "GT gt_f41dbd7482670f0c; arguments: amount",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending: %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending: %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending: %1$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending: %1$@"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending: %1$@"
+          }
+        }
+      }
+    },
     "Permission required": {
       "comment": "GT gt_dbb6cf817820de0b; arguments: none",
       "extractionState": "manual",
@@ -32353,42 +32173,6 @@
         }
       }
     },
-    "Please enter a valid email address.": {
-      "comment": "GT gt_958e4ccf2953d747; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Please enter a valid email address."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Introduce una dirección de correo electrónico válida."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "有効なメールアドレスを入力してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "유효한 이메일 주소를 입력해 주세요."
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ange en giltig e-postadress."
-          }
-        }
-      }
-    },
     "Please open your device settings and allow Noah to run in the background, then continue.": {
       "comment": "GT gt_813f0164d8d31cd2; arguments: none",
       "extractionState": "manual",
@@ -32457,42 +32241,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Försök igen"
-          }
-        }
-      }
-    },
-    "Please wait…": {
-      "comment": "GT gt_4660a983366f7101; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Please wait…"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Espera…"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "お待ちください…"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "잠시 기다려 주세요…"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vänta…"
           }
         }
       }
@@ -36181,42 +35929,6 @@
         }
       }
     },
-    "Resend Code": {
-      "comment": "GT gt_8bbbb0b609c07e3f; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Resend Code"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reenviar código"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コードを再送信"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "코드 다시 보내기"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skicka koden igen"
-          }
-        }
-      }
-    },
     "Resend code in {time}": {
       "comment": "GT gt_538931fb28538397; arguments: time",
       "extractionState": "manual",
@@ -36861,42 +36573,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Försök läsa in detaljer igen"
-          }
-        }
-      }
-    },
-    "Retry registration": {
-      "comment": "GT gt_04048ff7f2687457; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Retry registration"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Reintentar el registro"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "登録を再試行"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "등록 재시도"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Försök registrera igen"
           }
         }
       }
@@ -38769,42 +38445,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skicka"
-          }
-        }
-      }
-    },
-    "Send Verification Code": {
-      "comment": "GT gt_2bd7bfd7b3314b9b; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send Verification Code"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enviar código de verificación"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "確認コードを送信"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "인증 코드 보내기"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skicka verifieringskod"
           }
         }
       }
@@ -42409,42 +42049,6 @@
         }
       }
     },
-    "The actual fee is not yet available. {nativeValue1}": {
-      "comment": "GT gt_c58153172e51db2e; arguments: nativeValue1",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The actual fee is not yet available. %1$@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La comisión real aún no está disponible. %1$@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "実際の手数料はまだ確認できません。%1$@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "실제 수수료는 아직 확인할 수 없습니다. %1$@"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Den faktiska avgiften är inte tillgänglig än. %1$@"
-          }
-        }
-      }
-    },
     "The amount Ark receives is below its minimum. Increase the boarding amount.": {
       "comment": "GT gt_f663d0d5c263a46c; arguments: none",
       "extractionState": "manual",
@@ -43737,42 +43341,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transaktionerna som redan finns på blockkedjan blir kvar där. Din VTXO stannar i din plånbok och kan tas ut igen."
-          }
-        }
-      }
-    },
-    "The verification code will expire in 10 minutes.": {
-      "comment": "GT gt_78ddf8691d4b4f75; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The verification code will expire in 10 minutes."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El código de verificación caducará en 10 minutos."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "確認コードの有効期限は10分です。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "인증 코드는 10분 후에 만료됩니다."
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verifieringskoden upphör att gälla om 10 minuter."
           }
         }
       }
@@ -46141,42 +45709,6 @@
         }
       }
     },
-    "Transaction size": {
-      "comment": "GT gt_321e1df45aa6a9a3; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transaction size"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tamaño de la transacción"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "トランザクションのサイズ"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "거래 크기"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transaktionsstorlek"
-          }
-        }
-      }
-    },
     "Transactions": {
       "comment": "GT gt_3e5136fd4b11c0dd; arguments: none",
       "extractionState": "manual",
@@ -48229,6 +47761,102 @@
         }
       }
     },
+    "VTXO expires: {n} blocks": {
+      "comment": "GT gt_1c5b6b6468f0c580; arguments: n",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld block"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld blocks"
+                }
+              }
+            }
+          }
+        },
+        "es": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld block"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld blocks"
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld block"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld blocks"
+                }
+              }
+            }
+          }
+        },
+        "ko": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld block"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld blocks"
+                }
+              }
+            }
+          }
+        },
+        "sv": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld block"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "VTXO expires: %1$lld blocks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "VTXO hex or ID": {
       "comment": "GT gt_a3d44a4fe18f60fb; arguments: none",
       "extractionState": "manual",
@@ -48589,42 +48217,6 @@
         }
       }
     },
-    "Verify Email": {
-      "comment": "GT gt_9ae9fbbcb1c80ca9; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verify Email"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verificar correo"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "メールアドレスを確認"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이메일 인증"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Verifiera e-postadress"
-          }
-        }
-      }
-    },
     "Version": {
       "comment": "GT gt_dd167905de0defca; arguments: none",
       "extractionState": "manual",
@@ -48765,6 +48357,114 @@
           "stringUnit": {
             "state": "translated",
             "value": "Visa i blockutforskaren"
+          }
+        }
+      }
+    },
+    "View your Bitcoin balance": {
+      "comment": "GT gt_1275d2b1abd166af; arguments: none",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance"
+          }
+        }
+      }
+    },
+    "View your Bitcoin balance on regtest": {
+      "comment": "GT gt_5c5fe5dc2e3dc1d5; arguments: none",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on regtest"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on regtest"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on regtest"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on regtest"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on regtest"
+          }
+        }
+      }
+    },
+    "View your Bitcoin balance on signet": {
+      "comment": "GT gt_b39c9deaef6ea38e; arguments: none",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on signet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on signet"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on signet"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on signet"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View your Bitcoin balance on signet"
           }
         }
       }
@@ -49905,42 +49605,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sätt att betala dig"
-          }
-        }
-      }
-    },
-    "We sent a 6-digit verification code to {nativeValue1}": {
-      "comment": "GT gt_ebeb067bb53b2c70; arguments: nativeValue1",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "We sent a 6-digit verification code to %1$@"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enviamos un código de verificación de 6 dígitos a %1$@"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ に6桁の確認コードを送信しました"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ 주소로 6자리 인증 코드를 보냈습니다"
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vi skickade en sexsiffrig verifieringskod till %1$@"
           }
         }
       }
@@ -51177,78 +50841,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Din nuvarande e-post gäller tills den nya är verifierad."
-          }
-        }
-      }
-    },
-    "Your current email will stay active until the new email is verified.": {
-      "comment": "GT gt_7f359127750635a9; arguments: none",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your current email will stay active until the new email is verified."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu correo actual seguirá activo hasta que se verifique el nuevo correo."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しいメールアドレスの確認が完了するまで、現在のメールアドレスが引き続き有効です。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "새 이메일 인증이 완료될 때까지 기존 이메일이 계속 사용됩니다."
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Din nuvarande e-postadress är aktiv tills den nya e-postadressen har verifierats."
-          }
-        }
-      }
-    },
-    "Your current email, {email}, will stay active until the new email is verified.": {
-      "comment": "GT gt_28b86cda15decf55; arguments: email",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your current email, %1$@, will stay active until the new email is verified."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tu correo actual, %1$@, seguirá activo hasta que se verifique el nuevo correo."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "新しいメールアドレスの確認が完了するまで、現在のメールアドレス %1$@ が引き続き有効です。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "새 이메일 인증이 완료될 때까지 기존 이메일(%1$@)이 계속 사용됩니다."
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Din nuvarande e-postadress, %1$@, är aktiv tills den nya e-postadressen har verifierats."
           }
         }
       }
