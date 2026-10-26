@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.*
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noahwallet.R
@@ -37,6 +36,7 @@ import com.noahwallet.ui.onboarding.LocalPose
 import com.noahwallet.ui.onboarding.OnboardingPose
 import com.noahwallet.ui.onboarding.rememberHaptics
 import com.noahwallet.ui.send.SendPill
+import com.noahwallet.ui.send.WrappingLabel
 import com.noahwallet.ui.settings.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -99,6 +99,51 @@ internal fun ExitBig(text: String, modifier: Modifier = Modifier) {
         autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 24.sp, maxFontSize = ActivityType.big.fontSize))
 }
 
+/**
+ * A row that never truncates (exit-v2-notes.md, Layout): the value beside its label when both fit, else under it,
+ * right-aligned; at accessibility sizes the two stack, left-aligned. A [note] is a separate wrapping line under the value
+ * (the fee split, what's short). [trailing] holds Details' copy and explorer buttons.
+ */
+@Composable
+internal fun ExitValueRow(label: String, value: String, kind: ValueKind = ValueKind.text, note: String? = null, failed: Boolean = false,
+                          small: Boolean = false, last: Boolean = false, modifier: Modifier = Modifier, trailing: (@Composable RowScope.() -> Unit)? = null) {
+    val palette = LocalPalette.current
+    val stacked = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f
+    val style = when (kind) { ValueKind.text -> ActivityType.value; ValueKind.number -> ActivityType.number; ValueKind.mono -> ActivityType.mono }
+        .let { if (small) it.copy(fontSize = if (kind == ValueKind.mono) 13.5.sp else 15.sp) else it }
+    val end = if (stacked) androidx.compose.ui.text.style.TextAlign.Start else androidx.compose.ui.text.style.TextAlign.End
+    Column(modifier.fillMaxWidth().heightIn(min = if (small) 44.dp else 48.dp).drawBehind {
+        if (!last) drawRect(palette.hairline, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx()))
+    }.padding(vertical = 10.dp).semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.Center) {
+        androidx.compose.ui.layout.Layout({
+            Text(label, style = ActivityType.label.let { if (small) it.copy(fontSize = 15.sp) else it }, color = palette.muted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(value, Modifier.weight(1f, fill = false), style = style, color = if (failed) palette.failure else palette.foreground, textAlign = end)
+                trailing?.invoke(this)
+            }
+        }) { measurables, constraints ->
+            val gap = 18.dp.roundToPx()
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val title = measurables[0]; val content = measurables[1]
+            val labelWidth = title.maxIntrinsicWidth(Int.MAX_VALUE); val valueWidth = content.maxIntrinsicWidth(Int.MAX_VALUE)
+            val beside = !stacked && labelWidth + gap + valueWidth <= constraints.maxWidth
+            if (beside) {
+                val a = title.measure(loose); val b = content.measure(loose)
+                val height = maxOf(a.height, b.height)
+                layout(constraints.maxWidth, height) {
+                    a.place(0, (height - a.height) / 2); b.place(constraints.maxWidth - b.width, (height - b.height) / 2)
+                }
+            } else {
+                val a = title.measure(loose); val b = content.measure(loose)
+                layout(constraints.maxWidth, a.height + b.height + 2.dp.roundToPx()) {
+                    a.place(0, 0); b.place(if (stacked) 0 else constraints.maxWidth - b.width, a.height + 2.dp.roundToPx())
+                }
+            }
+        }
+        note?.let { Text(it, Modifier.fillMaxWidth().padding(top = 2.dp), style = HomeType.small, color = palette.muted, textAlign = end) }
+    }
+}
+
 /** The picture's size: 300 dp in a column (prototype `.stage`), the rest of the leading pane when split. */
 @Composable
 internal fun ColumnScope.exitPicture(): Modifier =
@@ -122,8 +167,9 @@ private fun rememberSampleCost(app: AppModel, vtxos: List<VtxoModel>): ExitCosts
 }
 
 /**
- * The warning (prototype `SCR.warn`), Settings → Emergency exit: one line, exits under way, four facts with the real
- * exit delta and per-VTXO fee, and Choose VTXOs. Reading it and estimating never broadcasts anything.
+ * The warning (prototype `SCR.warn`), Settings → Emergency exit: one line; with no exits, the explainer tree (it grows once
+ * as the page opens); with one, its row; with more, an Exits row and their counts; then four facts with the real exit
+ * delta and per-VTXO fee, and Choose VTXOs. Reading it and estimating never broadcasts anything.
  */
 @Composable
 internal fun ExitWarningPage(app: AppModel, nav: SettingsNav) {
@@ -142,17 +188,22 @@ internal fun ExitWarningContent(exits: List<ExitModel>, tip: Long, delta: Long?,
                                 status: @Composable () -> Unit = {}) {
     val palette = LocalPalette.current
     ExitFrame(tr("Emergency exit"), back, foot = {
-        FootPill(tr("Choose VTXOs"), Modifier.testTag("exit-choose"), enabled = !suspended, onClick = choose)
+        FootPill(tr("Choose VTXOs"), Modifier.testTag("exit-choose"), wrap = true, enabled = !suspended, onClick = choose)
     }, leading = {
         Text(tr("Emergency use only. It takes your bitcoin out of Ark without Ark’s server."), Modifier.padding(top = 8.dp),
             style = HomeType.line.copy(fontSize = 17.sp, lineHeight = 22.sp), color = palette.muted)
-        val live = exits.filter { it.state !in ExitTimeline.terminal }
-        if (exits.isNotEmpty()) Column(Modifier.padding(top = 14.dp)) {
-            live.take(3).forEach { exit -> ExitRow(exit, tip, money, divider = true, needsFunds = exit.id in needsFunds) { open(exit.id) } }
-            SettingsRow(tr("All exits"), SettingsIcons.exit, value = if (live.isEmpty()) null else tr("{n} in progress", live.size.toString()),
-                divider = false, modifier = Modifier.testTag("exit-all"), onClick = all)
+        val stages = exits.associate { it.id to ExitStages.of(it, tip, it.id in needsFunds) }
+        when (exits.size) {
+            0 -> ExitPicture(ExitScene.sample(), tr("Your VTXO’s path to the chain"), Modifier.padding(top = 14.dp).fillMaxWidth().height(268.dp).testTag("exit-warn-picture"))
+            1 -> Column(Modifier.padding(top = 10.dp)) {
+                Text(if (stages.getValue(exits[0].id).live) tr("In progress") else tr("Finished"), Modifier.padding(top = 8.dp, bottom = 2.dp).semantics { heading() },
+                    style = HomeType.header, color = palette.muted)
+                ExitListRow(exits[0], stages.getValue(exits[0].id), tip, money, divider = false) { open(exits[0].id) }
+            }
+            else -> Column(Modifier.padding(top = 14.dp)) {
+                SettingsRow(tr("Exits"), SettingsIcons.exit, sub = exitCounts(stages.values), divider = false, modifier = Modifier.testTag("exit-all"), onClick = all)
+            }
         }
-        ExitPicture(ExitPose.sample(tip = tip), tr("Your VTXO’s path to the chain"), Modifier.padding(top = 14.dp).fillMaxWidth().height(236.dp).testTag("exit-warn-picture"))
     }) {
         if (suspended) FinePrint(tr("Wallet suspended. Resume your wallet in Settings."))
         Column(Modifier.padding(top = 20.dp)) {
@@ -184,34 +235,13 @@ private fun Fact(icon: Int, title: String, line: String, divider: Boolean = true
     }
 }
 
-/** One exit in a list: the coin, its amount and its phase in a line. The full row arrives with the exits list. */
+/** Your coin as a list avatar (prototype `.av.coin`): a soft circle in an orange ring. */
 @Composable
-internal fun ExitRow(exit: ExitModel, tip: Long, money: (Long) -> String, divider: Boolean, needsFunds: Boolean = false, onClick: () -> Unit) {
-    val palette = LocalPalette.current
-    val stage = ExitStages.of(exit, tip, needsFunds)
-    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).drawBehind {
-        if (divider) drawRect(palette.hairline, Offset(54.dp.toPx(), size.height - 1.dp.toPx()), Size(size.width - 54.dp.toPx(), 1.dp.toPx()))
-    }.clickable(role = Role.Button, onClick = onClick).semantics(mergeDescendants = true) {}.testTag("exit-row-${exit.id.take(12)}"),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        ExitCoin(40.dp, pending = stage.live, badge = needsFunds)
-        Column(Modifier.weight(1f)) {
-            Text(money(exit.amount), style = HomeType.amount, color = palette.foreground, maxLines = 1)
-            Text(exitStatusWord(stage), style = HomeType.small, color = if (needsFunds) palette.failure else palette.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-/** Your coin as a list avatar (prototype `.av.coin`): a soft circle in an orange ring; [pending] adds the turning dashes. */
-@Composable
-internal fun ExitCoin(size: androidx.compose.ui.unit.Dp, pending: Boolean = false, badge: Boolean = false, done: Boolean = false) {
+internal fun ExitCoin(size: androidx.compose.ui.unit.Dp) {
     val palette = LocalPalette.current
     Box {
-        SettingsAvatar(size, pending = pending, badge = badge)
+        SettingsAvatar(size)
         Box(Modifier.size(size).drawBehind { drawCircle(palette.orange, this.size.minDimension / 2 - 1.25.dp.toPx(), style = androidx.compose.ui.graphics.drawscope.Stroke(2.5.dp.toPx())) })
-        if (done) Box(Modifier.align(Alignment.BottomEnd).offset(3.dp, 3.dp).size(19.dp).background(palette.background, CircleShape).padding(2.dp)
-            .background(palette.foreground, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(painterResource(SettingsIcons.check), null, Modifier.size(11.dp), tint = palette.background)
-        }
     }
 }
 
@@ -277,7 +307,6 @@ internal fun ExitChooseContent(all: List<VtxoModel>, costs: Map<String, ExitCost
                                excluded: Set<String> = emptySet(), status: @Composable () -> Unit = {}) {
     val palette = LocalPalette.current
     val haptics = rememberHaptics()
-    val toasts = LocalSettingsToasts.current
     var everything by rememberSaveable { mutableStateOf(initial == null) }
     var picked by rememberSaveable { mutableStateOf(initial.orEmpty()) }
     val vtxos = all.sortedByDescending { it.amount }
@@ -303,7 +332,7 @@ internal fun ExitChooseContent(all: List<VtxoModel>, costs: Map<String, ExitCost
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
             if (!everything) Text(if (chosen.isEmpty()) tr("Choose the VTXOs to exit") else fees?.chainFee?.let { tr("{amount} · fees ~{fee}", money(value), money(it)) }
                 ?: money(value), Modifier.padding(bottom = 8.dp), style = HomeType.amount.copy(fontSize = 15.sp), color = palette.foreground)
-            SendPill(tr("Review exit"), Modifier.fillMaxWidth().testTag("exit-review"), height = 56.dp,
+            SendPill(tr("Review exit"), Modifier.fillMaxWidth().testTag("exit-review"), height = 56.dp, wrap = true,
                 enabled = chosen.isNotEmpty() && !busy && !suspended && (!everything || classified)) { haptics.light(); review(ids) }
         }
     }, leading = {
@@ -324,10 +353,10 @@ internal fun ExitChooseContent(all: List<VtxoModel>, costs: Map<String, ExitCost
     }) {
         if (vtxos.isEmpty()) { status(); return@ExitFrame }
         Column(Modifier.padding(top = 18.dp)) {
-            DetailRow(tr("VTXOs"), fees?.transactions?.let { "${chosen.size} · " + trPlural("{n} transactions", it) } ?: chosen.size.toString(),
-                ValueKind.number, toasts = toasts)
-            DetailRow(tr("Network fees"), fees?.chainFee?.let { "~" + money(it) } ?: "—", ValueKind.number, toasts = toasts)
-            DetailRow(tr("Claim fee"), fees?.fee?.let { "~" + money(it) } ?: "—", ValueKind.number, toasts = toasts, last = true)
+            ExitValueRow(tr("VTXOs"), fees?.transactions?.let { "${chosen.size} · " + trPlural("{n} transactions", it) } ?: chosen.size.toString(),
+                ValueKind.number)
+            ExitValueRow(tr("Network fees"), fees?.chainFee?.let { "~" + money(it) } ?: "—", ValueKind.number)
+            ExitValueRow(tr("Claim fee"), fees?.fee?.let { "~" + money(it) } ?: "—", ValueKind.number, last = true)
             TotalRow(tr("You get"), fees?.fee?.let { "~" + money(ExitRules.received(value, it)) } ?: money(value))
         }
         if (short > 0) {
@@ -352,14 +381,16 @@ internal fun ExitChooseContent(all: List<VtxoModel>, costs: Map<String, ExitCost
     }
 }
 
-/** A total row (prototype `.br.tot`): a line above, the label in the foreground. */
+/** A total row (prototype `.br.tot`): a line above, the label in the foreground; the value goes under it when both don't fit. */
 @Composable
 internal fun TotalRow(label: String, value: String) {
     val palette = LocalPalette.current
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).drawBehind { drawRect(palette.foreground, Offset.Zero, Size(size.width, 1.dp.toPx())) }
-        .semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.weight(1f), style = ActivityType.value, color = palette.foreground)
-        Text(value, style = ActivityType.number, color = palette.foreground, maxLines = 1)
+    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).drawBehind { drawRect(palette.foreground, Offset.Zero, Size(size.width, 1.dp.toPx())) }
+        .semantics(mergeDescendants = true) {}, contentAlignment = Alignment.CenterStart) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, Modifier.padding(end = 12.dp), style = ActivityType.value, color = palette.foreground)
+            Text(value, style = ActivityType.number, color = palette.foreground)
+        }
     }
 }
 
@@ -400,8 +431,8 @@ private fun ChooseRow(vtxo: VtxoModel, cost: ExitCosts.Cost?, checked: Boolean?,
             } else Box(Modifier.size(14.dp, 2.dp).background(palette.muted, RoundedCornerShape(1.dp)))
         }
         Column(Modifier.weight(1f)) {
-            Text(money(vtxo.amount), style = HomeType.amount, color = palette.foreground, maxLines = 1)
-            Text(sub, style = HomeType.small, color = if (exitable && uneconomic) palette.failure else palette.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            WrappingLabel(money(vtxo.amount), HomeType.amount.copy(color = palette.foreground))
+            Text(sub, style = HomeType.small, color = if (exitable && uneconomic) palette.failure else palette.muted)
             if (barred == ExitCosts.Barred.renew) Text(tr("Renew this VTXO in Settings → VTXOs before exiting it."), style = HomeType.small, color = palette.muted)
         }
     }
@@ -434,15 +465,15 @@ internal fun ExitDepositContent(address: String?, error: String?, need: Long, mo
             Box(Modifier.fillMaxWidth().padding(top = 16.dp), contentAlignment = Alignment.Center) {
                 com.noahwallet.ui.ReceiveQR(value, maximumSide = 220.dp) { copy(context, value); toasts.show(copied) }
             }
-            DetailRow(tr("Bitcoin address"), short(value, 10, 8), ValueKind.mono, copy = value, toasts = toasts, last = true)
+            ExitValueRow(tr("Bitcoin address"), short(value, 10, 8), ValueKind.mono, last = true) { CopyIcon("Bitcoin address", value, toasts) }
             FinePrint(tr("The amount required may vary."))
             Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SendPill(tr("Copy"), Modifier.weight(1f), outlined = true, icon = SettingsIcons.copy) { copy(context, value); toasts.show(copied) }
-                SendPill(tr("Share"), Modifier.weight(1f), icon = SettingsIcons.share) {
+                SendPill(tr("Copy"), Modifier.weight(1f), outlined = true, icon = SettingsIcons.copy, wrap = true) { copy(context, value); toasts.show(copied) }
+                SendPill(tr("Share"), Modifier.weight(1f), icon = SettingsIcons.share, wrap = true) {
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, value), null))
                 }
             }
         } ?: FinePrint(tr(error ?: "Loading address…"), failed = error != null)
-        SendPill(tr("Done"), Modifier.fillMaxWidth().padding(top = 10.dp), outlined = true) { close() }
+        SendPill(tr("Done"), Modifier.fillMaxWidth().padding(top = 10.dp), outlined = true, wrap = true) { close() }
     }
 }

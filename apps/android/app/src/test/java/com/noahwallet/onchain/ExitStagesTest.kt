@@ -3,7 +3,7 @@ package com.noahwallet.onchain
 import org.junit.Assert.*
 import org.junit.Test
 import com.noahwallet.onchain.ExitActions.Action as a
-import com.noahwallet.onchain.ExitList.Step as s
+import com.noahwallet.onchain.ExitScene.Mark as m
 
 /** exit.md, Testing: bark's states map to phases, the inferred rules, and what the list and Settings show. */
 class ExitStagesTest {
@@ -70,27 +70,33 @@ class ExitStagesTest {
     }
 
     @Test fun thePictureFollowsEachState() {
-        fun pose(e: ExitModel, tip: Long = 100, needsFunds: Boolean = false) = ExitPose.of(e, ExitStages.of(e, tip, needsFunds), tip)
+        fun scene(e: ExitModel, tip: Long = 100, needsFunds: Boolean = false) = ExitScene.of(e, ExitStages.of(e, tip, needsFunds), tip, confirmed = 300)
         val packages = listOf(ExitPackage("root", outputs = 5), ExitPackage("l2", outputs = 5, spends = 2), ExitPackage("l1", outputs = 5, spends = 2),
             ExitPackage("leaf", outputs = 2, spends = 1))
-        val lift = pose(exit("Start", ExitDetails(tip_height = 100), packages = packages))
-        assertEquals(4, lift.n); assertEquals(listOf(3, 3, 3, 0), lift.branches); assertEquals(listOf(2, 2, 1, 0), lift.ours)
-        assertEquals(0f, PictureMotion.rest(lift).unroll)
-        val parked = exit("Processing", processing(100, tx("root", "confirmed", block = 99), tx("l2", "awaiting-cpfp-broadcast"), tx("l1", "verify-inputs"), tx("leaf", "verify-inputs")), packages = packages)
-        pose(parked).let { assertTrue(it.dropped); assertFalse(it.fee); assertEquals(listOf(99L, null, null, null), it.mined); assertEquals(1, it.current) }
-        pose(parked, needsFunds = true).let { assertFalse("it waits in the branch, ringed", it.dropped); assertEquals(ExitStage.Attention.needsFunds, it.attention) }
+        val lift = scene(exit("Start", ExitDetails(tip_height = 100), packages = packages))
+        assertEquals(4, lift.n); assertTrue(lift.lifting); assertEquals(List(4) { m.unsent }, lift.marks)
+        assertEquals("tree nodes have other people's branches; the leaf doesn't", listOf(true, true, true, false), lift.nodes)
+        assertFalse("nothing is sent: no phone badge yet", lift.wallet)
+        val parked = exit("Processing", processing(100, tx("root", "confirmed", block = 99), tx("l2", "awaiting-cpfp-broadcast"), tx("l1", "verify-inputs"), tx("leaf", "verify-inputs")),
+            packages = packages, next = 1_200)
+        scene(parked).let { assertEquals("ready, not in the mempool: no glow, no Next block", listOf(m.mined, m.ready, m.unsent, m.unsent), it.marks)
+            assertEquals(listOf(99L, null, null, null), it.heights); assertEquals(-1, it.waiting); assertTrue("fees leave the wallet now", it.wallet) }
+        scene(parked, needsFunds = true).let { assertEquals("it waits on the branch, ringed red", m.needsFee, it.marks[1]); assertEquals(-1, it.waiting)
+            assertEquals("the fee needs 1,200 and 300 is left", 900L, it.need) }
         val paying = exit("Processing", processing(100, tx("root", "awaiting-confirmation", "c", origin = "mempool"), tx("leaf", "verify-inputs")))
-        pose(paying).let { assertTrue(it.dropped && it.fee); assertEquals(listOf(true, false), it.theirs); assertEquals(listOf(true, false), it.paid) }
+        scene(paying).let { assertEquals(listOf(m.waiting, m.unsent), it.marks); assertEquals(listOf(true, false), it.theirs); assertEquals(listOf(true, false), it.paid)
+            assertNull("another wallet's fee costs nothing", it.fee) }
         val wait = exit("AwaitingDelta", ExitDetails(tip_height = 150, confirmed_block = ExitDetails.Block(104), claimable_height = 248),
             history = listOf(processing(104, *four.mapIndexed { i, id -> tx(id, "confirmed", block = 101L + i) }.toTypedArray())))
-        pose(wait, 150).let { assertTrue(it.zoomed); assertFalse(it.claiming); assertEquals(104L, it.lockedFrom); assertEquals(248L, it.claimableHeight)
-            assertEquals(listOf(101L, 102, 103, 104), it.mined); assertEquals(1f, PictureMotion.rest(it).zoom); assertEquals(0f, PictureMotion.rest(it).open) }
+        scene(wait, 150).let { assertTrue(it.locked); assertFalse(it.open); assertFalse(it.claiming); assertEquals(listOf(101L, 102, 103, 104), it.heights)
+            assertEquals(98L, it.left); assertEquals(46f / 144, it.dial, .001f) }
         val claimable = wait.copy(state = "Claimable", details = ExitDetails(tip_height = 248, claimable_since = ExitDetails.Block(248)))
-        assertEquals(1f, PictureMotion.rest(pose(claimable, 248)).open)
+        scene(claimable, 248).let { assertTrue(it.open); assertEquals(1f, it.dial); assertFalse(it.claiming) }
         val claimed = wait.copy(state = "Claimed", details = ExitDetails(tip_height = 249, block = ExitDetails.Block(249), txid = "claim"))
-        PictureMotion.rest(pose(claimed, 249)).let { assertEquals(1f, it.claim); assertEquals(1f, it.fin) }
+        scene(claimed, 249).let { assertTrue(it.claiming && it.claimed); assertEquals(249L, it.claimedBlock); assertNull("this phone", it.destination) }
+        assertEquals("bc1qx", ExitScene.of(claimed, ExitStages.of(claimed, 249), 249, destination = "bc1qx").destination)
         val canceled = exit("Canceled", ExitDetails(tip_height = 101), history = listOf(processing(101, tx("root", "confirmed", block = 101), tx("leaf", "awaiting-cpfp-broadcast"))))
-        pose(canceled, 101).let { assertEquals(listOf(101L, null), it.mined); assertEquals(1f, PictureMotion.rest(it).cancel) }
+        scene(canceled, 101).let { assertEquals(listOf(m.mined, m.unsent), it.marks); assertEquals(listOf(101L, null), it.heights); assertTrue(it.canceled); assertFalse(it.wallet) }
     }
 
     /**
@@ -339,16 +345,6 @@ class ExitStagesTest {
             ExitList.shared(listOf(a, paths("b", "root", "l2a", "l1b", "leafB", state = "Claimed"))))
     }
 
-    @Test fun longSharedPathsStayInsideThePicture() {
-        assertEquals("a round's four hops keep today's spacing", 30f, ExitList.rows(250f, 3).step, 0f)
-        // Four tree hops and two checkpoint or arkoor hops: 8 transactions, the deepest at depth 7; and longer still.
-        for (deepest in 1..12) {
-            val rows = ExitList.rows(250f, deepest)
-            assertTrue("depth $deepest: the coin's amount is cut off", rows.y(deepest) - ExitList.labelRoom >= 0f)
-            assertTrue(rows.step <= 30f)
-        }
-    }
-
     @Test fun exitsFromTwoRoundsAreDrawnAsTwoGroups() {
         fun paths(id: String, vararg txs: String) = exit("Processing", ExitDetails(), packages = txs.map { ExitPackage(it) }, id = id)
         val a = paths("a", "r1", "a1"); val b = paths("b", "r1", "b1"); val c = paths("c", "r2", "c1"); val d = paths("d", "r2", "d1")
@@ -367,24 +363,6 @@ class ExitStagesTest {
         val claim = ExitContext(0, null, null, claimFee = 262, claimIds = listOf("a", "b"))
         assertEquals(55_238L, ExitRules.received(31_000, claim.claimShare("a")!!) + ExitRules.received(24_500, claim.claimShare("b")!!))
         assertNull(ExitContext(0, null, null).claimShare("a"))
-    }
-
-    @Test fun theListsRailAndSharedTreeFollowEachExit() {
-        assertEquals(listOf(s.now, s.todo, s.todo, s.todo, s.todo), ExitList.rail(ExitStage(ExitStage.Phase.lift)))
-        assertEquals(listOf(s.done, s.now, s.todo, s.todo, s.todo), ExitList.rail(ExitStage(ExitStage.Phase.bump)))
-        assertEquals(listOf(s.done, s.failed, s.todo, s.todo, s.todo), ExitList.rail(ExitStage(ExitStage.Phase.mempool, ExitStage.Attention.needsFunds)))
-        assertEquals(listOf(s.done, s.done, s.now, s.todo, s.todo), ExitList.rail(ExitStage(ExitStage.Phase.wait)))
-        assertEquals(listOf(s.done, s.done, s.done, s.now, s.todo), ExitList.rail(ExitStage(ExitStage.Phase.claimable)))
-        assertEquals(List(5) { s.done }, ExitList.rail(ExitStage(ExitStage.Phase.claimed)))
-        assertEquals(listOf(s.done, s.todo, s.todo, s.todo, s.todo), ExitList.rail(ExitStage(ExitStage.Phase.canceled)))
-        fun paths(id: String, vararg txs: String) = exit("Processing", processing(100, tx(txs[0], "confirmed", block = 99)), packages = txs.map { ExitPackage(it) }, id = id)
-        val group = ExitList.shared(listOf(paths("a", "root", "x", "leafA"), paths("b", "root", "x", "leafB"))).single()
-        val placed = ExitList.layout(group).associateBy { it.txid }
-        assertEquals(setOf("root", "x", "leafA", "leafB"), placed.keys)
-        assertEquals(null, placed.getValue("root").parent); assertEquals("x", placed.getValue("leafB").parent)
-        assertEquals(0, placed.getValue("leafA").coin); assertEquals(1, placed.getValue("leafB").coin); assertNull(placed.getValue("x").coin)
-        assertEquals("shared nodes sit between the coins they lead to", 0f, placed.getValue("x").x, 0.001f)
-        assertEquals(ExitList.TxState.mined, placed.getValue("root").state); assertEquals(ExitList.TxState.waiting, placed.getValue("x").state)
     }
 
     @Test fun anotherWalletTakesOnlyAnOnchainAddressForThisNetwork() {

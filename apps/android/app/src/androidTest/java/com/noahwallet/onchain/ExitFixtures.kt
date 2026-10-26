@@ -77,6 +77,41 @@ internal object ExitFixtures {
     val canceled = exit("Canceled", ExitDetails(kind = "canceled", tip_height = tip + 1),
         history = listOf(processing(tip + 1, tx(0, "confirmed", "fee1", tip + 1), tx(1, "awaiting-cpfp-broadcast"), tx(2, "verify-inputs"), tx(3, "verify-inputs"))))
 
+    /** Your exit with two others from its round: its third transaction waits for the next block, its first three are shared. */
+    val sharing = exit("Processing", processing(tip + 2, tx(0, "confirmed", "fee1", tip + 1), tx(1, "confirmed", "fee2", tip + 2), tx(2, "awaiting-confirmation", "fee3"),
+        tx(3, "verify-inputs")), fees = mapOf("fee1" to 1_215, "fee2" to 1_215, "fee3" to 1_215), children = (0..2).associate { it to ("fee${it + 1}" to "wallet") })
+    /** A 4,096-leaf round and an arkoor hop: 9 transactions, six mined, the seventh waiting for the next block. */
+    val deepHero: ExitModel = run {
+        val names = listOf("root", "n5", "n4", "n3", "n2", "n1", "leaf", "ckpt", "arkoor").map(::txid)
+        val statuses = names.mapIndexed { i, id -> when {
+            i < 6 -> ExitDetails.Transaction(id, ExitDetails.Status("confirmed", "fee$i", ExitDetails.Block(tip - 5 + i), "wallet"))
+            i == 6 -> ExitDetails.Transaction(id, ExitDetails.Status("awaiting-confirmation", "fee$i", null, "wallet"))
+            else -> ExitDetails.Transaction(id, ExitDetails.Status("verify-inputs", null, null, null))
+        } }
+        ExitModel(vtxos[0].id, 31_000, "Processing", processing(tip, *statuses.toTypedArray()), listOf("processing"), emptyList(),
+            names.mapIndexed { i, id -> ExitPackage(id, 1_000, if (i < 6) 5 else 2, 1, if (i <= 6) "fee$i" else null, 608, if (i <= 6) "wallet" else null) },
+            (0..6).associate { "fee$it" to 1_215L })
+    }
+
+    /** A 60-transaction path (a deep round and arkoor hops): 25 mined, the 26th waiting for the next block. */
+    val long: ExitModel get() = long(25)
+    /** The same path with [mined] in blocks and the next waiting. */
+    fun long(mined: Int): ExitModel {
+        val names = List(60) { txid("long$it") }
+        val statuses = names.mapIndexed { i, id -> when {
+            i < mined -> ExitDetails.Transaction(id, ExitDetails.Status("confirmed", "lfee$i", ExitDetails.Block(tip + i), "wallet"))
+            i == mined -> ExitDetails.Transaction(id, ExitDetails.Status("awaiting-confirmation", "lfee$i", null, "wallet"))
+            else -> ExitDetails.Transaction(id, ExitDetails.Status("verify-inputs", null, null, null))
+        } }
+        return ExitModel(vtxos[0].id, 31_000, "Processing", processing(tip + mined, *statuses.toTypedArray()), listOf("processing"), emptyList(),
+            names.mapIndexed { i, id -> ExitPackage(id, 1_000, if (i < 40) 5 else 2, 1, if (i <= mined) "lfee$i" else null, 608, if (i <= mined) "wallet" else null) },
+            (0..mined).associate { "lfee$it" to 1_215L })
+    }
+    /** Another exit sharing all of the long path but its coin, a block behind. */
+    val longTwin: ExitModel get() = long(24).let { it.copy(id = vtxos[2].id, amount = 21_000, packages = it.packages.dropLast(1) + ExitPackage(txid("longTwinCoin"))) }
+    /** Another exit from the long path's round, leaving it after its 22nd transaction. */
+    val longSibling: ExitModel get() = long(25).let { it.copy(id = vtxos[1].id, amount = 24_500, packages = it.packages.take(22) + List(38) { i -> ExitPackage(txid("longB$i")) }) }
+
     /** The list: exits in every group, three of them from one round sharing its root. */
     val list: List<ExitModel> = run {
         fun from(id: String, amount: Long, base: ExitModel, path: List<String>) = base.copy(id = vtxos.first { it.id.startsWith(id) }.id, amount = amount,

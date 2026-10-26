@@ -22,6 +22,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -129,7 +131,9 @@ internal fun SettingsFrame(title: String, back: (() -> Unit)?, modifier: Modifie
     val start = if (pane == SettingsPane.trailing) 32.dp else 24.dp
     val end = if (pane == SettingsPane.trailing) 32.dp else 24.dp
     val scroll = if (bare) null else scroll
-    val bottom = if (foot != null) (if (wide) 140.dp else 150.dp) else if (wide) 110.dp else 56.dp
+    // The fixed foot measures itself (two-line pills at large text): nothing sits under it.
+    var footHeight by remember { mutableIntStateOf(0) }
+    val bottom = if (foot != null) maxOf(if (wide) 140.dp else 150.dp, with(LocalDensity.current) { footHeight.toDp() } + 12.dp) else if (wide) 110.dp else 56.dp
     Box(modifier.fillMaxSize().background(palette.background)) {
         val body: @Composable ColumnScope.() -> Unit = {
             if (!wide && !hero) Row(Modifier.fillMaxWidth().heightIn(min = 46.dp), verticalAlignment = Alignment.CenterVertically,
@@ -170,10 +174,11 @@ internal fun SettingsFrame(title: String, back: (() -> Unit)?, modifier: Modifie
             actions()
         }
         foot?.let { actionsRow ->
-            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { footHeight = it.height }
                 .background(Brush.verticalGradient(0f to palette.background.copy(alpha = 0f), footFade to palette.background))
                 .padding(start = start, end = if (wide) 24.dp else end, top = 48.dp, bottom = if (wide) 24.dp else 28.dp)) {
-                Row(Modifier.widthIn(max = 640.dp).fillMaxWidth().align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(10.dp), content = actionsRow)
+                Row(Modifier.widthIn(max = 640.dp).fillMaxWidth().align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically, content = actionsRow)
             }
         }
         HomeToast(LocalSettingsToasts.current.current, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
@@ -183,9 +188,9 @@ internal fun SettingsFrame(title: String, back: (() -> Unit)?, modifier: Modifie
 /** A bottom action (56 dp, prototype `.foot .pill`). */
 @Composable
 internal fun RowScope.FootPill(title: String, modifier: Modifier = Modifier, enabled: Boolean = true, outlined: Boolean = false,
-                               danger: Boolean = false, loading: Boolean = false, icon: Int? = null, weight: Float = 1f, onClick: () -> Unit) {
+                               danger: Boolean = false, loading: Boolean = false, icon: Int? = null, weight: Float = 1f, wrap: Boolean = false, onClick: () -> Unit) {
     val haptics = rememberHaptics()
-    SendPill(title, modifier.weight(weight), enabled = enabled, outlined = outlined, height = 56.dp, danger = danger, loading = loading, icon = icon) {
+    SendPill(title, modifier.weight(weight), enabled = enabled, outlined = outlined, height = 56.dp, danger = danger, loading = loading, icon = icon, wrap = wrap) {
         haptics.light(); onClick()
     }
 }
@@ -323,12 +328,12 @@ internal fun SettingsSheet(onDismiss: () -> Unit, title: String, line: String? =
 /** A sheet's two actions (prototype `.shact`): Cancel and the action, sharing the width. */
 @Composable
 internal fun SheetActions(cancel: String, confirm: String, onCancel: () -> Unit, onConfirm: () -> Unit, enabled: Boolean = true, danger: Boolean = false,
-                          loading: Boolean = false, cancelEnabled: Boolean = !loading, confirmTag: String? = null) {
+                          loading: Boolean = false, cancelEnabled: Boolean = !loading, confirmTag: String? = null, wrap: Boolean = false) {
     val haptics = rememberHaptics()
-    Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        SendPill(cancel, Modifier.weight(1f), enabled = cancelEnabled, outlined = true) { haptics.light(); onCancel() }
+    Row(Modifier.fillMaxWidth().padding(top = 22.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        SendPill(cancel, Modifier.weight(1f), enabled = cancelEnabled, outlined = true, wrap = wrap) { haptics.light(); onCancel() }
         SendPill(confirm, Modifier.weight(1f).then(if (confirmTag != null) Modifier.testTag(confirmTag) else Modifier), enabled = enabled,
-            danger = danger, loading = loading) { if (danger) haptics.warning() else haptics.light(); onConfirm() }
+            danger = danger, loading = loading, wrap = wrap) { if (danger) haptics.warning() else haptics.light(); onConfirm() }
     }
 }
 
@@ -405,12 +410,13 @@ internal fun FieldLabel(text: String, modifier: Modifier = Modifier) {
 
 /**
  * Send's tonal field (prototype `.fld`): an orange outline while focused, red when [failed]; an optional [tag] (the
- * recipient's kind) at the end. [lines] above one makes it a text area.
+ * recipient's kind) at the end. [lines] above one makes it a text area; [mono] shows the whole value in monospace, wrapping.
  */
 @Composable
 internal fun SettingsField(value: String, onValue: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, label: String? = null,
                            failed: Boolean = false, enabled: Boolean = true, lines: Int = 1, tag: String? = null,
-                           keyboard: KeyboardOptions = KeyboardOptions.Default, leading: Int? = null, contentDescription: String = label ?: placeholder) {
+                           keyboard: KeyboardOptions = KeyboardOptions.Default, leading: Int? = null, contentDescription: String = label ?: placeholder,
+                           mono: Boolean = false) {
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -422,7 +428,8 @@ internal fun SettingsField(value: String, onValue: (String) -> Unit, placeholder
         verticalAlignment = if (lines > 1) Alignment.Top else Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         leading?.let { Icon(painterResource(it), null, Modifier.size(20.dp), tint = palette.muted) }
         BasicTextField(value, onValue, Modifier.weight(1f).semantics { this.contentDescription = contentDescription }, enabled = enabled,
-            textStyle = NoahTokens.Typography.body.copy(color = palette.foreground), singleLine = lines == 1, minLines = lines,
+            textStyle = (if (mono) com.noahwallet.ui.activity.ActivityType.mono.copy(fontSize = 15.sp, lineHeight = 21.sp) else NoahTokens.Typography.body)
+                .copy(color = palette.foreground), singleLine = lines == 1 && !mono, minLines = lines,
             cursorBrush = SolidColor(palette.orange), keyboardOptions = keyboard, interactionSource = interaction,
             decorationBox = { inner -> Box { if (value.isEmpty()) Text(placeholder, style = NoahTokens.Typography.body, color = palette.muted, maxLines = 1); inner() } })
         tag?.let { Text(it, Modifier.padding(end = 8.dp), style = HomeType.header, color = palette.muted, maxLines = 1) }
