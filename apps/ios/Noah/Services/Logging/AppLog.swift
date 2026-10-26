@@ -56,6 +56,9 @@ final class LogFile: @unchecked Sendable {
     private let lock = NSLock()
     private let capacity: Int
     private let systemSink: @Sendable (AppLog.Level, String, String) -> Void
+    private let redactor: @Sendable (String) -> String
+    /// The longest a drain waits for the writer; also the lifecycle drain's budget.
+    let drainLimit: TimeInterval
     private var pending = 0
     private var dropped = 0
     static let maxPendingRecords = 256
@@ -68,12 +71,15 @@ final class LogFile: @unchecked Sendable {
 
     init(directory: URL, capacity: Int = LogFile.maxPendingRecords,
          queue: DispatchQueue = DispatchQueue(label: "com.noahwallet.log-file"),
-         systemSink: @escaping @Sendable (AppLog.Level, String, String) -> Void = { LogFile.emitSystemLog($0, $1, $2) }) {
+         systemSink: @escaping @Sendable (AppLog.Level, String, String) -> Void = { LogFile.emitSystemLog($0, $1, $2) },
+         redact: @escaping @Sendable (String) -> String = { LogFile.redact($0) }, drainLimit: TimeInterval = 0.2) {
         precondition(capacity > 0)
         self.directory = directory
         self.capacity = capacity
         self.queue = queue
         self.systemSink = systemSink
+        self.redactor = redact
+        self.drainLimit = drainLimit
     }
 
     func append(level: AppLog.Level, tag: String, message: String, date: Date = Date(),
@@ -84,8 +90,8 @@ final class LogFile: @unchecked Sendable {
             enqueueDroppedMarker()
             pending += 1
             queue.async { [self] in
-                let cleaned = Self.redact(message)
-                let safeTag = Self.redact(tag)
+                let cleaned = redactor(message)
+                let safeTag = redactor(tag)
                 if systemLog {
                     let formatted = "[\(safeTag)] \(cleaned)"
                     let record = EndpointLogPrivacy.redactRecord(formatted)
@@ -187,7 +193,7 @@ final class LogFile: @unchecked Sendable {
     /// Neither the caller nor a worker thread waits for a stalled writer.
     func drainAsync(until deadline: ContinuousClock.Instant) async {
         let remaining = ContinuousClock.now.duration(to: deadline).components
-        let seconds = min(0.2, Double(remaining.seconds) + Double(remaining.attoseconds) / 1e18)
+        let seconds = min(drainLimit, Double(remaining.seconds) + Double(remaining.attoseconds) / 1e18)
         guard seconds > 0 else { return }
         await withCheckedContinuation { continuation in
             let completion = DrainCompletion(continuation)

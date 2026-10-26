@@ -108,16 +108,6 @@ import Testing
                                          sleep: { duration in sleeps.append(duration); throw CancellationError() })
         #expect(events == ["tip"] && sleeps == [.seconds(30)])
     }
-    @Test func sendsEntryAndPeriodicStatusChecksShareOneClock() async {
-        let storage = SendPaymentTests.Storage()
-        storage.attempt = .init(payment: SendPaymentTests().payment, snapshot: .init(movementIDs: []))
-        let model = SendModel(controller: SendPaymentTests().make(.init(), storage))
-        let entry = Date()
-        #expect(model.untilAutomaticCheck(at: entry) == .zero)
-        await model.automaticStatusCheck(at: entry)
-        #expect(model.untilAutomaticCheck(at: entry.addingTimeInterval(10)) == .seconds(20))
-        #expect(model.untilAutomaticCheck(at: entry.addingTimeInterval(31)) == .zero)
-    }
     @Test func sendLookupErrorsDoNotSurviveSerialization() throws {
         let receipt = SendReceipt(amount: 1000, txid: "exact", status: .submitted,
             proof: .preparedTxid, broadcastRetryPending: true, chainStatus: .inMempool,

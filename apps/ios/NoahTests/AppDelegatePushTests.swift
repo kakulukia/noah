@@ -11,25 +11,27 @@ struct AppDelegatePushTests {
     @Test func foregroundNotificationPresentationIsInstalled() {
         #expect(AppDelegate().responds(to: #selector(UNUserNotificationCenterDelegate.userNotificationCenter(_:willPresent:withCompletionHandler:))))
     }
+    /// Each lifecycle callback hands its drain to a background task. The writer is stalled and the drain has no limit
+    /// of its own, so a callback that waited for the drain couldn't return until the writer did: each returns while it's
+    /// held, and the record accepted before it lands once the writer resumes.
     @Test(arguments: ["resign", "background", "scene"])
     func lifecycleDrainMustNotBlockMainThread(callback: String) async {
         let queue = DispatchQueue(label: "regression.blocked-writer")
         queue.suspend()
+        let stall = LogStall { queue.resume() }
         let directory = FileManager.default.temporaryDirectory.appending(path: "r3-drain-\(UUID())")
         defer { try? FileManager.default.removeItem(at: directory) }
-        let file = LogFile(directory: directory, queue: queue)
+        let file = LogFile(directory: directory, queue: queue, drainLimit: 3_600)
         file.append(level: .info, tag: "r3", message: "accepted")
-        let started = ContinuousClock.now
         let delegate = AppDelegate(logFile: file)
         switch callback {
         case "resign": delegate.applicationWillResignActive(UIApplication.shared)
         case "background": delegate.applicationDidEnterBackground(UIApplication.shared)
         default: delegate.drainLifecycleLogs()
         }
-        let elapsed = ContinuousClock.now - started
-        queue.resume()
+        #expect(stall.release(), "the \(callback) callback waited for the stalled writer")
         await file.flushAsync()
-        #expect(elapsed < .milliseconds(50))
+        #expect(file.lines().last?.hasSuffix("[r3] accepted") == true)
     }
 
     @Test func ignoresPushesThatAreNotForNoah() async {
@@ -72,24 +74,6 @@ struct AppDelegatePushTests {
         }
         #expect(FileManager.default.fileExists(atPath: directory.appending(path: "noah.log").path))
         await file.flushAsync()
-    }
-
-    @Test(arguments: [true, false])
-    func lifecycleCallbacksDrainAcceptedRecords(resigning: Bool) async {
-        let directory = FileManager.default.temporaryDirectory.appending(path: "delegate-log-\(UUID())")
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let queue = DispatchQueue(label: "test.delegate-drain")
-        queue.suspend()
-        let file = LogFile(directory: directory, queue: queue)
-        let delegate = AppDelegate(logFile: file)
-        file.append(level: .info, tag: "test", message: "Accepted before lifecycle callback")
-        DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(50)) { queue.resume() }
-        let started = ContinuousClock.now
-        if resigning { delegate.applicationWillResignActive(UIApplication.shared) }
-        else { delegate.applicationDidEnterBackground(UIApplication.shared) }
-        #expect(ContinuousClock.now - started < .milliseconds(50))
-        await file.flushAsync()
-        #expect(FileManager.default.fileExists(atPath: directory.appending(path: "noah.log").path))
     }
 
     @Test func expiryDuringLogDrainStillCompletesExactlyOnce() async throws {
