@@ -36,11 +36,11 @@ export default defineRailway((ctx) => {
     },
   });
 
-  // Published from the reviewed migration commit; updates are deployed explicitly.
+  // sha-c25730237 (#387, UnifiedPush visible receipts); updates are deployed explicitly.
   const api = service("api", {
     build: { builder: "DOCKERFILE", dockerfilePath: "Dockerfile" },
     source: image(
-      "niteshbalusu/noah-server@sha256:872272a39b71ec8f46878408d003aa4cb0fe5955f9856e2c56be57d324361d8f",
+      "niteshbalusu/noah-server@sha256:9e8fdbf7359cf33bb2ed7bc33b4e75301e1f284e1b03a1c551ad4da7352dcd02",
       { autoUpdates: { type: "disabled" } },
     ),
     healthcheck: "/health",
