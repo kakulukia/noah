@@ -9,13 +9,14 @@ import UIKit
 /// pages in Settings' stack with fake wallet data shaped like the prototype's (tip 921,345; the
 /// exit followed is ₿31,000, four transactions). Write a state to Documents/exit-shot; "stop" ends
 /// the session. Light and dark follow the simulator; a wide window (the Duo open) shows the panes.
-/// States: warn, warn-live, warn-many, choose, choose-all, choose-unfunded, review, review-unfunded,
+/// States: warn, warn-live, warn-many, warn-past (only ended exits), warn-late (the exits read 1.5 s after the page opens), choose, choose-all, choose-unfunded, review, review-unfunded,
 /// progress-<lift|publish|sending|mempool|confirm|mempool3|onchain|wait|claimable|claiming|claimed>,
 /// progress-<nofunds|feesrose|stuck|shared|stale|canceled|spent>, progress-shared3 (three exits sharing a path),
 /// progress-deep (nine transactions), progress-deep20 and progress-deep20-6 (twenty, folded to fit),
 /// progress-<claiming|claimed>-other (to another wallet), review-again, claim-other, claim-phone, claim-again, list,
 /// list-plain. "step <progress state>" moves the page on screen to that state, as a new
-/// read would, so the picture's motion can be recorded.
+/// read would, so the picture's motion can be recorded. "open list" pushes the Exits list over
+/// the page, and "back" pops it, as Settings' stack does.
 @MainActor
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["NOAH_EXIT_SHOTS"] == "1"))
 struct ExitShotTests {
@@ -42,11 +43,17 @@ struct ExitShotTests {
             for root in roots { try? FileManager.default.removeItem(at: root) }
         }
         var current = "", live: Live?
+        let stack = Stack()
         let deadline = ContinuousClock.now.advanced(by: .seconds(3500))
         while ContinuousClock.now < deadline {
             let state = (try? String(contentsOf: request, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             if state == "stop" { return }
-            if state.hasPrefix("step "), state != current, let live {
+            if state == "open list" || state == "back", state != current {
+                if state == "back" { _ = stack.pages.popLast() } else { stack.pages.append(.exitList) }
+                try await Task.sleep(for: .milliseconds(900))
+                try state.write(to: ready, atomically: true, encoding: .utf8)
+                current = state
+            } else if state.hasPrefix("step "), state != current, let live {
                 // The same page reads the wallet again and finds it moved on.
                 let name = String(state.dropFirst("step progress-".count))
                 (live.overview, live.detail) = Self.progress(name)
@@ -57,7 +64,8 @@ struct ExitShotTests {
             } else if !state.isEmpty && state != current {
                 host.rootView = AnyView(Color.clear)
                 try await Task.sleep(for: .milliseconds(150))
-                let (view, root, page) = try fixture(state)
+                stack.pages = []
+                let (view, root, page) = try fixture(state, stack: stack)
                 roots.append(root)
                 live = page
                 host.rootView = view
@@ -248,8 +256,12 @@ struct ExitShotTests {
         return (overview, exit)
     }
 
-    static func model(_ overview: OnchainOverview, detail: ExitModel? = nil, quote: Bool = true, reviewFails: Bool = false, live: Live? = nil) -> OnchainModel {
-        OnchainModel(dependencies: .init(ready: { true }, overview: { live?.overview ?? overview },
+    static func model(_ overview: OnchainOverview, detail: ExitModel? = nil, quote: Bool = true, reviewFails: Bool = false, live: Live? = nil,
+                      slow: Duration? = nil) -> OnchainModel {
+        OnchainModel(dependencies: .init(ready: { true }, overview: {
+                if let slow { try await Task.sleep(for: slow) }
+                return live?.overview ?? overview
+            },
             quote: { action, ids, _, destination in
                 if reviewFails { throw OnchainFailure.changed }
                 guard quote else { throw ExitEstimateUnavailable(review: .init(action: action, walletID: "fixture", ids: ids, amount: 0, confirmed: overview.confirmed)) }
@@ -269,7 +281,12 @@ struct ExitShotTests {
             detailID: detail?.id)
     }
 
-    private func fixture(_ state: String) throws -> (AnyView, URL, Live?) {
+    /// The pages pushed over the fixture's page.
+    @Observable final class Stack {
+        var pages: [SettingsPage] = []
+    }
+
+    private func fixture(_ state: String, stack: Stack) throws -> (AnyView, URL, Live?) {
         let root = FileManager.default.temporaryDirectory.appending(path: "exit-shot-\(UUID())")
         let storage = try SettingsStorage(rootPath: root.appending(path: "mmkv").path)
         try storage.setPersistedState(PersistedWalletState(isInitialized: true, isWalletLoaded: true), key: PersistedWalletState.key,
@@ -279,9 +296,14 @@ struct ExitShotTests {
         let onchain: @MainActor () -> OnchainModel
         var live: Live?
         switch state {
-        case "warn", "warn-live", "warn-many":
-            let exits = state == "warn" ? [] : state == "warn-many" ? Self.listed() : [Self.followed("mempool")]
-            page = .exit; onchain = { Self.model(Self.overview(exits: exits)) }
+        case "warn", "warn-live", "warn-many", "warn-past", "warn-late":
+            let exits = switch state {
+            case "warn": [ExitModel]()
+            case "warn-many", "warn-late": Self.listed()
+            case "warn-past": Self.listed().filter { !ExitRules.live($0.state) }
+            default: [Self.followed("mempool")]
+            }
+            page = .exit; onchain = { Self.model(Self.overview(exits: exits), slow: state == "warn-late" ? .milliseconds(1_500) : nil) }
         case "choose", "choose-all", "choose-unfunded":
             page = .exitChoose; onchain = { Self.model(Self.overview(exits: [], confirmed: state == "choose-unfunded" ? 310 : 18_400)) }
         case "review", "review-unfunded", "review-unknown", "review-again":
@@ -313,7 +335,7 @@ struct ExitShotTests {
                                       executor: recurring.executor, exitSelection: state == "choose" ? [Self.vtxos[0].id] : nil,
                                       exitClaimTo: ["claim-other": "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202", "claim-again": "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202", "claim-phone": "phone",
                                                     "claim-invalid": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"][state])
-        let view = ExitShotHost(page: page)
+        let view = ExitShotHost(page: page, stack: stack)
             .environment(app)
             .environment(app.walletLock)
             .environment(summary)
@@ -327,12 +349,17 @@ struct ExitShotTests {
 /// The exit page in Settings' stack, with Home's navigator for the window's width.
 private struct ExitShotHost: View {
     let page: SettingsPage
+    @Bindable var stack: ExitShotTests.Stack
     @State private var window = OnboardingLayout(size: .zero, insets: EdgeInsets())
 
     var body: some View {
-        NavigationStack { SettingsHost(page: page) }
-            .environment(\.settings, SettingsNavigator(live: true, wide: window.wide,
-                                                       leadingWidth: max(0, window.size.width / 2 - window.insets.leading)))
-            .onboardingWindow($window)
+        // Pages open over the fixture's page and Back pops them, as in Home's stack.
+        NavigationStack(path: $stack.pages) {
+            SettingsHost(page: page).navigationDestination(for: SettingsPage.self) { SettingsHost(page: $0) }
+        }
+        .environment(\.settings, SettingsNavigator(live: true, wide: window.wide,
+                                                   leadingWidth: max(0, window.size.width / 2 - window.insets.leading),
+                                                   open: { stack.pages.append($0) }, back: { _ = stack.pages.popLast() }))
+        .onboardingWindow($window)
     }
 }
