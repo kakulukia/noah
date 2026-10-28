@@ -41,10 +41,9 @@ railway up --project 8847a6a1-bf07-4321-a62b-9839e9954e46 \
 ```
 
 Railway builds the checked-out code with the existing root Dockerfile and waits
-for deployment success; CI then checks public `/health`. The deployment job clears
-the API's old registry/GitHub source with `railway service source disconnect`
-before uploading, so the first release also transitions off the migration image
-pin. IaC leaves the API's image/repository source unset, preventing later
+for deployment success; CI then checks public `/health`. Service-source changes
+are handled separately from CI deployments. IaC leaves the API's
+image/repository source unset, preventing later
 configuration applies from restoring an old image. No infrastructure graph is
 applied during an application release. `.railwayignore` excludes the mobile app
 and documentation from the upload.

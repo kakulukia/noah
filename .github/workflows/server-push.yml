@@ -145,7 +145,6 @@ jobs:
           RAILWAY_SERVICE: 2dac716c-bcd0-4c2c-ab77-6f3226548ca8
         run: |
           test -n "$RAILWAY_TOKEN"
-          railway service source disconnect --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE"
           railway up --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE" --ci --message "$GITHUB_SHA"
           curl --fail --silent --show-error https://signet.noahwallet.io/health
 

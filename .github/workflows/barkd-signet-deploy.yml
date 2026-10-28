@@ -30,5 +30,4 @@ jobs:
           RAILWAY_SERVICE: 0250c7b1-1916-44e0-81e7-afc947c4c5ad
         run: |
           test -n "$RAILWAY_TOKEN"
-          railway service source disconnect --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE"
           railway up .railway/barkd --path-as-root --project "$RAILWAY_PROJECT" --environment "$RAILWAY_ENVIRONMENT" --service "$RAILWAY_SERVICE" --ci --message "$GITHUB_SHA"
