@@ -27,6 +27,7 @@ const coldStartState = useWalletStore.getState();
 
 const effects = [];
 let nativeLoaded = false;
+let nativeCheckDelay = Promise.resolve();
 const loadWallet = mock((_args, options) => {
   nativeLoaded = true;
   useWalletStore.getState().setWalletLoaded();
@@ -39,7 +40,12 @@ mock.module("react", () => ({
 }));
 mock.module("react-native", () => ({ View: "view" }));
 mock.module("gt-react-native", () => ({ T: "translation" }));
-mock.module("react-native-nitro-ark", () => ({ isWalletLoaded: async () => nativeLoaded }));
+mock.module("react-native-nitro-ark", () => ({
+  isWalletLoaded: async () => {
+    await nativeCheckDelay;
+    return nativeLoaded;
+  },
+}));
 mock.module("../../src/store/walletStore", () => ({
   useWalletStore: Object.assign(() => useWalletStore.getState(), {
     getState: useWalletStore.getState,
@@ -62,6 +68,7 @@ const { default: WalletLoader } = await import("../../src/components/WalletLoade
 beforeEach(() => {
   effects.length = 0;
   nativeLoaded = false;
+  nativeCheckDelay = Promise.resolve();
   loadWallet.mockClear();
   useWalletStore.getState().reset();
   storage.set("wallet-storage", JSON.stringify({ state: savedState, version: 0 }));
@@ -112,3 +119,23 @@ test.each([false, true])(
     expect(WalletLoader({ children: "wallet" }).type).toBe("biometric-gate");
   },
 );
+
+test("does not restart loading when a background job readies the wallet during the native check", async () => {
+  let finishNativeCheck;
+  nativeCheckDelay = new Promise((resolve) => {
+    finishNativeCheck = resolve;
+  });
+  expect(WalletLoader({ children: "wallet" }).type).toBe("view");
+  effects[0]();
+
+  nativeLoaded = true;
+  useWalletStore.getState().setWalletLoaded();
+  expect(WalletLoader({ children: "wallet" }).type).toBe("biometric-gate");
+
+  finishNativeCheck();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(loadWallet).not.toHaveBeenCalled();
+  expect(useWalletStore.getState().isWalletLoaded).toBe(true);
+  expect(WalletLoader({ children: "wallet" }).type).toBe("biometric-gate");
+});
