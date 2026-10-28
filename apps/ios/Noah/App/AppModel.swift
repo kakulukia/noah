@@ -73,6 +73,7 @@ final class AppModel {
         try settings.setPersistedState(profile, key: PersistedProfileState.key, version: PersistedProfileState.version)
         amountUnit = profile.amountUnit
         preferredCurrency = profile.currency
+        WidgetDataWriter.republish(variant: variant, display: { .init(settings: settings) })
     }
 
     func setLanguage(_ code: String) {
@@ -103,6 +104,7 @@ final class AppModel {
     let pushPermission: PushPermissionModel
     let walletLock: WalletLock
     let paymentLink = PaymentLinkRoute()
+    let widgetRoute = WidgetRoute()
     var paymentLinkGate: PaymentLinkRoute.Gate {
         .init(phase: phase, onboarding: holdsOnboardingAfterRestore,
               gated: isWalletSuspended || pushPermission.blocksWallet(initialized: true) || (phase == .launching && customServerUnresponsive),
@@ -340,11 +342,12 @@ extension AppModel {
                   settings.persistedState(PersistedWalletState.self, key: PersistedWalletState.key)?.isWalletSuspended != true
             else { throw CancellationError() }
         }
+        let ticket = WidgetDataWriter.ticket(variant: variant)
         do {
             guard let latest = try await ForegroundWidgetRefresh.read(
-                summary: { try await session.summary() }, expiry: { try await session.closestExpiryBlocks() },
+                summary: { try await session.summary() }, widget: { try await session.widgetFacts() },
                 checkStage: checkStage,
-                publish: { WidgetDataWriter.write(balance: $0, closestExpiryBlocks: $1, variant: variant) }) else {
+                publish: { WidgetDataWriter.write(balance: $0, facts: $1, variant: variant, ticket: ticket) }) else {
                 // Not open (e.g. the first open failed): try again rather than
                 // clearing the error with nothing to show.
                 await openExistingWallet()
@@ -641,5 +644,6 @@ extension AppModel {
         try? settings.setPersistedState(
             PersistedPrivacyState(isHomeBalanceHidden: isBalanceHidden),
             key: PersistedPrivacyState.key, version: PersistedPrivacyState.version)
+        WidgetDataWriter.republish(variant: variant, display: { .init(settings: settings) })
     }
 }

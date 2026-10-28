@@ -146,6 +146,10 @@ class AppModel(application: Application, val settings: SettingsStorage = Setting
     var scannedDestination by mutableStateOf<String?>(null)
     /** Send reviews and recurring approvals on screen ([ReviewOpen]); an OS link is rejected while any is open. */
     val openReviews = mutableIntStateOf(0)
+    /** Send preparing or showing a review on screen ([ReviewOpen]); widget routes keep the app on Send meanwhile. */
+    val sendBusy = mutableIntStateOf(0)
+    /** A recurring payment's approval on screen ([ReviewOpen]); widget routes move nothing meanwhile. */
+    val recurringApprovals = mutableIntStateOf(0)
     var repeatPayment by mutableStateOf<com.noahwallet.history.RepeatPayment?>(null)
     /** The expiring VTXOs Home's Renew nudge hands to today's VTXO refresh review; consumed once. */
     var renewVtxos by mutableStateOf<List<String>?>(null)
@@ -157,7 +161,23 @@ class AppModel(application: Application, val settings: SettingsStorage = Setting
             "profile-storage")
         if (key == "bitcoinAmountUnit") amountUnit = if (value == "sats") BitcoinAmountUnit.sats else BitcoinAmountUnit.bip177
         if (key == "preferredCurrency") preferredCurrency = SettingsPreferences.preferredCurrency(settings.string("profile-storage"))
+        if (key == "bitcoinAmountUnit" || key == "preferredCurrency") republishWidget()
     }
+
+    /** What the widget follows from Home: unit, hide setting and fiat currency. */
+    private val widgetDisplay get() = com.noahwallet.services.push.WidgetDataWriter.Display(amountUnit, hidden, preferredCurrency)
+
+    /** The widget takes a display change, or Home's latest [quote], without reading the wallet; the display is read when it applies. */
+    fun republishWidget(quote: com.noahwallet.services.push.WidgetDataWriter.Quote? = null) {
+        viewModelScope.launch {
+            runCatching { com.noahwallet.services.push.WidgetDataWriter.republish(getApplication(), { widgetDisplay }, BuildConfig.APP_VARIANT, quote) }
+        }
+    }
+
+    /** The block times Activity has read for confirmed on-chain rows (it rewrites their date once it knows one). */
+    private fun widgetBlockTimes(): Map<String, Long> = history.transactions
+        .filter { it.source == "onchain-wallet" && it.hasConfirmation == true && it.dateLabel == null }
+        .mapNotNull { row -> row.txid?.let { txid -> row.timestamp?.time?.takeIf { it > 0 }?.let { txid to it } } }.toMap()
 
     fun refreshLocale() { localeIdentifier = com.noahwallet.services.storage.LegacyLocale.resolved(getApplication()) }
 
@@ -407,8 +427,11 @@ class AppModel(application: Application, val settings: SettingsStorage = Setting
         try {
             checkStage()
             if (sync) session.sync()
-            summary = ForegroundWidgetRefresh.read(session::summary, session::closestExpiryBlocks, ::checkStage) { balance, expiry ->
-                com.noahwallet.services.push.WidgetDataWriter.write(getApplication(), balance, expiry, BuildConfig.APP_VARIANT, checkStage = ::checkStage)
+            var ticket = 0L
+            summary = ForegroundWidgetRefresh.read({ ticket = com.noahwallet.services.push.WidgetDataWriter.ticket(); session.summary() },
+                session::widgetExtras, ::checkStage) { balance, extras ->
+                com.noahwallet.services.push.WidgetDataWriter.write(getApplication(), balance, extras, { widgetDisplay }, BuildConfig.APP_VARIANT,
+                    ticket, known = widgetBlockTimes(), checkStage = ::checkStage)
             }
             summaryRevision++
             error = null
@@ -422,6 +445,7 @@ class AppModel(application: Application, val settings: SettingsStorage = Setting
         settings.set(JsonObject(envelope + ("state" to JsonObject(state("privacy-storage") +
             ("isHomeBalanceHidden" to JsonPrimitive(value)))) + ("version" to (envelope["version"] ?: JsonPrimitive(0)))).toString(), "privacy-storage")
         hidden = value
+        republishWidget()
     }
 }
 

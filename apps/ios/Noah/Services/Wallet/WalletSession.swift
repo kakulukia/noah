@@ -114,6 +114,8 @@ actor WalletSession {
     let syncFlight = WalletSync()
     private var settlingCloses = 0
     private var runningCalls = 0
+    /// The widget's balance check after its records: at most one read unfinished.
+    let widgetBalanceCheck = WidgetBalanceCheck()
     private var sendReserved = false
     private var exclusiveSend = false
     @TaskLocal private static var sendWork = false
@@ -471,27 +473,32 @@ extension WalletSession {
         guard isOpen else { return nil }
         return try await withOpenWallet { handles in
             let wallet = handles.wallet
-            let ark = try await wallet.balance()
-            let chain = try await handles.onchain.balance()
             return Summary(
                 network: try await wallet.network(),
                 fingerprint: wallet.fingerprint(),
-                balance: WalletBalance(
-                    ark: .init(
-                        spendable: ark.spendableSats,
-                        needsRefresh: ark.needsRefreshSats,
-                        pendingLightningSend: ark.pendingLightningSendSats,
-                        claimableLightningReceive: ark.claimableLightningReceiveSats,
-                        pendingInRound: ark.pendingInRoundSats,
-                        pendingExit: ark.pendingExitSats,
-                        pendingBoard: ark.pendingBoardSats,
-                        pendingArkoorSend: ark.pendingArkoorSendSats,
-                        pendingOffboard: ark.pendingOffboardSats,
-                        pending: ark.pendingSats,
-                        total: ark.totalSats),
-                    onchain: .init(confirmed: chain.confirmedSats, pending: chain.pendingSats, total: chain.totalSats)),
+                balance: try await Self.balance(handles),
                 movementCount: try await wallet.history().count)
         }
+    }
+
+    /// bark's and the on-chain wallet's balances, as Home shows them.
+    static func balance(_ handles: Handles) async throws -> WalletBalance {
+        let ark = try await handles.wallet.balance()
+        let chain = try await handles.onchain.balance()
+        return WalletBalance(
+            ark: .init(
+                spendable: ark.spendableSats,
+                needsRefresh: ark.needsRefreshSats,
+                pendingLightningSend: ark.pendingLightningSendSats,
+                claimableLightningReceive: ark.claimableLightningReceiveSats,
+                pendingInRound: ark.pendingInRoundSats,
+                pendingExit: ark.pendingExitSats,
+                pendingBoard: ark.pendingBoardSats,
+                pendingArkoorSend: ark.pendingArkoorSendSats,
+                pendingOffboard: ark.pendingOffboardSats,
+                pending: ark.pendingSats,
+                total: ark.totalSats),
+            onchain: .init(confirmed: chain.confirmedSats, pending: chain.pendingSats, total: chain.totalSats))
     }
 
     /// Both reads stay counted until completion; no observer holds a wallet call open.
@@ -525,16 +532,6 @@ extension WalletSession {
     /// Claims pending Lightning receives without waiting (RN `wait: false`).
     func claimLightningReceives() async throws {
         try await withOpenWallet { _ = try await $0.wallet.tryClaimAllLightningReceives(wait: false) }
-    }
-
-    /// Blocks until the soonest VTXO expiry, as the widget shows it.
-    func closestExpiryBlocks() async throws -> Int? {
-        try await withOpenWallet { handles in
-            let vtxos = try await handles.wallet.vtxos()
-            guard !vtxos.isEmpty else { return nil }
-            let tip = Int(try await handles.onchain.tipHeight())
-            return vtxos.map { Int($0.expiryHeight) - tip }.min()
-        }
     }
 
     // MARK: Receive

@@ -81,11 +81,14 @@ class WalletSession internal constructor(
         suspend fun peekPublicKey(index: UInt): String
         suspend fun peekAddress(index: UInt): String
         suspend fun summary(): Summary
+        /** The balances alone, without the summary's history read (the widget checks them after its reads). */
+        suspend fun balance(): WalletBalance = summary().balance
+        suspend fun pendingLightningReceives(): List<io.github.niteshbalusu11.bark.LightningReceive> = throw UnsupportedOperationException()
+        suspend fun pendingBoardVtxos(): List<io.github.niteshbalusu11.bark.Vtxo> = throw UnsupportedOperationException()
         suspend fun sync()
         suspend fun maintenanceDelegated()
         suspend fun bolt11Invoice(amountSats: ULong): String
         suspend fun claimLightningReceives()
-        suspend fun closestExpiryBlocks(): Long?
         suspend fun createSnapshot(destination: File): WalletSnapshotInfo
         suspend fun stopDaemonWait()
         fun close()
@@ -414,7 +417,9 @@ class WalletSession internal constructor(
     suspend fun maintenanceDelegated() = withOpen { it.maintenanceDelegated() }
     suspend fun bolt11Invoice(amountSats: ULong): String = withOpen { it.bolt11Invoice(amountSats) }
     suspend fun claimLightningReceives() = withOpen { it.claimLightningReceives() }
-    suspend fun closestExpiryBlocks(): Long? = withOpen { it.closestExpiryBlocks() }
+    /** The widget's wave history and Home's Renew, best effort, beside a summary with the balance [shown]. */
+    suspend fun widgetExtras(shown: WalletBalance?): com.noahwallet.services.push.WidgetDataWriter.Extras =
+        withOpen { com.noahwallet.services.push.WidgetDataWriter.extras(it, variant, shown) }
 
     internal suspend fun <T> withOpen(block: suspend (Handles) -> T): T {
         val caller = currentCoroutineContext()
@@ -755,27 +760,24 @@ class WalletSession internal constructor(
         override suspend fun initializeAddress() { wallet.deriveStoreNextKeypair() }
         override suspend fun peekPublicKey(index: UInt) = wallet.peekPublicKey(index)
         override suspend fun peekAddress(index: UInt): String = wallet.peekAddress(index)
-        override suspend fun summary(): Summary {
+        override suspend fun summary() = Summary(wallet.network(), wallet.fingerprint(), balance(), wallet.history().size)
+        override suspend fun balance(): WalletBalance {
             val ark = wallet.balance()
             val chain = onchain.balance()
-            return Summary(wallet.network(), wallet.fingerprint(), WalletBalance(
+            return WalletBalance(
                 WalletBalance.Ark(ark.spendableSats, ark.needsRefreshSats, ark.pendingLightningSendSats,
                     ark.claimableLightningReceiveSats, ark.pendingInRoundSats, ark.pendingExitSats,
                     ark.pendingBoardSats, ark.pendingArkoorSendSats, ark.pendingOffboardSats,
                     pending = ark.pendingSats, total = ark.totalSats),
                 WalletBalance.Onchain(chain.confirmedSats, chain.pendingSats, chain.totalSats),
-            ), wallet.history().size)
+            )
         }
+        override suspend fun pendingLightningReceives() = wallet.pendingLightningReceives()
+        override suspend fun pendingBoardVtxos() = wallet.pendingBoardVtxos()
         override suspend fun sync() { WalletSync.attemptAll({ onchain.sync() }, { wallet.sync() }) }
         override suspend fun maintenanceDelegated() { wallet.maintenanceDelegated() }
         override suspend fun bolt11Invoice(amountSats: ULong) = wallet.bolt11Invoice(amountSats, null).invoice
         override suspend fun claimLightningReceives() { wallet.tryClaimAllLightningReceives(false) }
-        override suspend fun closestExpiryBlocks(): Long? {
-            val vtxos = wallet.vtxos()
-            if (vtxos.isEmpty()) return null
-            val tip = onchain.tipHeight().toLong()
-            return vtxos.minOf { it.expiryHeight.toLong() - tip }
-        }
         override suspend fun createSnapshot(destination: File) = wallet.createSnapshot(destination.path)
         override suspend fun stopDaemonWait() { wallet.stopDaemonWait() }
         override fun close() { try { wallet.close() } finally { onchain.close() } }

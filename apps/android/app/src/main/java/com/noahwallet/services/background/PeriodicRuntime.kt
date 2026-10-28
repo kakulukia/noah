@@ -11,7 +11,8 @@ import com.noahwallet.services.wallet.WalletSession
 
 internal class PeriodicRuntime(context: Context, services: AppServices) {
     private var summary: WalletSession.Summary? = null
-    private var expiry: Long? = null
+    private var extras: WidgetDataWriter.Extras? = null
+    private var ticket = 0L
     val jobs = PeriodicJobs(PeriodicJobs.Dependencies(
         eligible = services::backgroundWalletEligible,
         recurringDue = { RecurringRuntime.shared(context).hasDuePayments() },
@@ -21,9 +22,9 @@ internal class PeriodicRuntime(context: Context, services: AppServices) {
         maintenance = services.session::maintenanceDelegated,
         backupEnabled = { services.registration.state.isBackupEnabled == true },
         backup = { services.backupCoordinator.flush(BackupCoordinator.Reason.startup, requireEnabled = true) },
-        widgetSummary = { summary = services.session.summary() },
-        widgetExpiry = { expiry = services.session.closestExpiryBlocks() },
-        publishWidget = { summary?.let { WidgetDataWriter.write(context, it.balance, expiry, BuildConfig.APP_VARIANT) } },
+        widgetSummary = { ticket = WidgetDataWriter.ticket(); summary = services.session.summary() },
+        widgetExpiry = { extras = services.session.widgetExtras(summary?.balance) },
+        publishWidget = { summary?.let { WidgetDataWriter.write(context, it.balance, extras, services::widgetDisplay, BuildConfig.APP_VARIANT, ticket) } },
         progressExits = { services.session.progressPendingExits { AppLog(context, "backgroundTasks").w("Background exit progress failed: $it") } },
     ))
 }
