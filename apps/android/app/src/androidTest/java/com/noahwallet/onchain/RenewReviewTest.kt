@@ -1,7 +1,7 @@
 package com.noahwallet.onchain
 
 import androidx.compose.runtime.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -31,7 +31,8 @@ class RenewReviewTest {
         // As the session does, under the wallet's locks: every VTXO must still be due, or nothing is submitted.
         executeRenewal = { quote ->
             if (!quote.ids.all { it in due }) fail(OnchainFailure.changed)
-            journal[quote.id] = OnchainOperationJournal.Attempt(quote, OnchainReceipt("Refresh submitted to delegated round 7.")); "Refresh submitted to delegated round 7."
+            journal[quote.id] = OnchainOperationJournal.Attempt(quote, OnchainReceipt("Refresh submitted to delegated round 7."))
+            "Refresh submitted to delegated round 7."
         },
     ))
     private var started: List<String>? = null
@@ -45,7 +46,7 @@ class RenewReviewTest {
                 onStart = { started = it })
         }
     }
-    @Composable private fun Text(@Suppress("UNUSED_PARAMETER") request: List<String>?) {}
+    @Composable private fun Text(@Suppress("UNUSED_PARAMETER") request: List<String>?) = Unit
 
     @Test fun aLateQuoteStillOpensTheReviewForExactlyThoseVtxos() {
         show()

@@ -10,7 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.StateRestorationTester
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
@@ -123,7 +123,8 @@ class ExitWarningEntryTest {
 
     /** Into Choose VTXOs, turn the phone, Back: the page comes back in split panes, its tree grown as it was left. */
     @Config(qualifiers = "w900dp-h600dp")
-    @Test fun theTreeIsGrownBackOnThePageAfterTheLayoutChanged() {
+    @Test
+    fun theTreeIsGrownBackOnThePageAfterTheLayoutChanged() {
         transactions = 6
         pageInStack()
         compose.mainClock.advanceTimeBy(4_000)
@@ -138,7 +139,8 @@ class ExitWarningEntryTest {
 
     /** A fold bends or a Duo opens while you're on the page: the tree moves into the leading pane as it stands. */
     @Config(qualifiers = "w900dp-h600dp")
-    @Test fun theTreeStaysGrownWhenTheLayoutChangesOnThePage() {
+    @Test
+    fun theTreeStaysGrownWhenTheLayoutChangesOnThePage() {
         transactions = 6
         pageInStack()
         compose.mainClock.advanceTimeBy(4_000)

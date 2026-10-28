@@ -1,0 +1,36 @@
+# Overrides on top of detekt's defaults (build-upon-default-config); --all-rules turns on the rest. ktlint owns layout.
+# Rules that need type resolution (e.g. SuspendFunSwallowedCancellation, UnsafeCallOnNullableType) don't run: the CLI has
+# no compile classpath, and type resolution on Kotlin 2.4 needs detekt 2, still alpha. Android Lint and the compiler cover part.
+complexity:
+  LongParameterList:
+    # Composables take state and callbacks as parameters by design.
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    active: false
+  CyclomaticComplexMethod:
+    ignoreSingleWhenExpression: true
+naming:
+  EnumNaming:
+    # lowerCamel entries mirror the Swift enums.
+    enumEntryPattern: '[a-zA-Z][_a-zA-Z0-9]*'
+  FunctionNaming:
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    constantPattern: '[A-Za-z][_A-Za-z0-9]*'
+  ConstructorParameterNaming:
+    privateParameterPattern: '_?[a-z][A-Za-z0-9]*'
+style:
+  MaxLineLength:
+    maxLineLength: 160
+    excludeCommentStatements: true
+    excludeRawStrings: true
+  MagicNumber:
+    # Layout dimensions and fixture values are clearer inline.
+    active: false
+  WildcardImport:
+    active: false
+  ReturnCount:
+    max: 4
+    excludeGuardClauses: true
+  ForbiddenComment:
+    active: false

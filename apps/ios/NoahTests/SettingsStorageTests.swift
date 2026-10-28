@@ -1,7 +1,6 @@
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 @MainActor
 struct SettingsStorageTests {
@@ -16,7 +15,9 @@ struct SettingsStorageTests {
         let storage = try SettingsStorage(rootPath: rootPath)
         // Exactly what zustand persist + createJSONStorage writes.
         storage.set(
-            #"{"state":{"isInitialized":true,"isWalletLoaded":true,"staticVtxoPubkey":null,"isBiometricsEnabled":true,"isDebugModeEnabled":false,"isWalletSuspended":false,"hasSeenBatteryOptimizationPrompt":true},"version":0}"#,
+            #"{"state":{"isInitialized":true,"isWalletLoaded":true,"staticVtxoPubkey":null,"isBiometricsEnabled":t"#
+                + #"rue,"isDebugModeEnabled":false,"isWalletSuspended":false,"hasSeenBatteryOptimizationPrompt":true},"v"#
+                + #"ersion":0}"#,
             forKey: PersistedWalletState.key)
 
         let state = try #require(storage.persistedState(PersistedWalletState.self, key: PersistedWalletState.key))
@@ -81,7 +82,7 @@ struct SettingsStorageTests {
         // A damaged file still resets to defaults with the notice, as when every read went to disk.
         try Data("damaged generation".utf8).write(to: storage.nativeFile.file)
         #expect(storage.string(forKey: "k") == nil)
-        #expect(try storage.takeUpgradeNotices() == [SettingsStorage.settingsNotice])
+        #expect(storage.takeUpgradeNotices() == [SettingsStorage.settingsNotice])
     }
 
     /// Another writer racing a save: writing into our pending file before its rename (it shares the path), or

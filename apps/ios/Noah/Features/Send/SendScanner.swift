@@ -41,8 +41,8 @@ private struct ScannerCamera: UIViewRepresentable {
         context.coordinator.start { [weak view] in view?.setNeedsLayout() }
         return view
     }
-    func updateUIView(_ view: CameraPreview, context: Context) {}
-    static func dismantleUIView(_ view: CameraPreview, coordinator: CameraDriver) { coordinator.stop() }
+    func updateUIView(_: CameraPreview, context _: Context) { /* The preview layer follows its session. */ }
+    static func dismantleUIView(_: CameraPreview, coordinator: CameraDriver) { coordinator.stop() }
 }
 enum ScannerPreviewLayout {
     static func rotation(for orientation: UIInterfaceOrientation) -> CGFloat {
@@ -56,8 +56,11 @@ enum ScannerPreviewLayout {
 }
 
 private final class CameraPreview: UIView {
-    override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
-    var preview: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    override static var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
+    var preview: AVCaptureVideoPreviewLayer {
+        guard let preview = layer as? AVCaptureVideoPreviewLayer else { preconditionFailure("layerClass is AVCaptureVideoPreviewLayer") }
+        return preview
+    }
     override func layoutSubviews() {
         super.layoutSubviews()
         guard let scene = window?.windowScene, let connection = preview.connection else { return }
@@ -82,7 +85,7 @@ private final class CameraDriver: NSObject, AVCaptureMetadataOutputObjectsDelega
     func start(configured: @escaping @MainActor @Sendable () -> Void) {
         queue.async { [self] in
             guard let camera = AVCaptureDevice.default(for: .video),
-                let input = try? AVCaptureDeviceInput(device: camera)
+                  let input = try? AVCaptureDeviceInput(device: camera)
             else {
                 Task { @MainActor in self.failed("No camera is available. You can paste the payment request instead.") }
                 return
@@ -104,9 +107,8 @@ private final class CameraDriver: NSObject, AVCaptureMetadataOutputObjectsDelega
     }
     func stop() { queue.async { self.session.stopRunning() } }
     func metadataOutput(
-        _ output: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject],
-        from connection: AVCaptureConnection
-    ) {
+        _: AVCaptureMetadataOutput, didOutput metadataObjects: [AVMetadataObject],
+        from _: AVCaptureConnection) {
         guard !delivered, let value = (metadataObjects.first as? AVMetadataMachineReadableCodeObject)?.stringValue
         else { return }
         delivered = true

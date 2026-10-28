@@ -2,10 +2,10 @@ package com.noahwallet.onchain
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.*
-import androidx.compose.ui.test.*
 import androidx.compose.runtime.saveable.LocalSaveableStateRegistry
 import androidx.compose.runtime.saveable.SaveableStateRegistry
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.noahwallet.services.storage.WalletDataLocation
 import com.noahwallet.services.wallet.ReceiveRequest
@@ -17,13 +17,13 @@ import com.noahwallet.ui.NoahTheme
 import com.noahwallet.ui.WindowRegion
 import com.noahwallet.ui.settings.SettingsNav
 import io.github.niteshbalusu11.bark.*
-import java.io.File
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
 /**
  * Start and claim submit once through the pages' own wiring (exit.md, Testing): the page, its model, the session's locks,
@@ -76,7 +76,10 @@ class ExitSubmitDeviceTest {
             calls += "start"; gate?.await()
             spendable = false; exit = ExitState.Start(tip.toUInt())
         }
-        override suspend fun drain(ids: List<String>, destination: String): ExitClaimTransaction { calls += "drain"; return ExitClaimTransaction("psbt", drainFee) }
+        override suspend fun drain(ids: List<String>, destination: String): ExitClaimTransaction {
+            calls += "drain"
+            return ExitClaimTransaction("psbt", drainFee)
+        }
         override suspend fun claimTransaction(psbt: String) = ExitFixtures.signedClaim
         override suspend fun broadcastClaim(psbt: String): String {
             calls += "broadcast"; gate?.await()
@@ -90,18 +93,18 @@ class ExitSubmitDeviceTest {
         override suspend fun history(): List<Movement> = emptyList()
         override suspend fun receiveRequest(): ReceiveRequest = error("unused")
         override suspend fun receiveInvoice(request: ReceiveRequest, amountSat: Long, description: String): ReceiveRequest = error("unused")
-        override suspend fun initializeAddress() {}
+        override suspend fun initializeAddress() = Unit
         override suspend fun peekPublicKey(index: UInt): String = error("unused")
         override suspend fun peekAddress(index: UInt): String = error("unused")
         override suspend fun summary(): WalletSession.Summary = error("unused")
-        override suspend fun sync() {}
-        override suspend fun maintenanceDelegated() {}
+        override suspend fun sync() = Unit
+        override suspend fun maintenanceDelegated() = Unit
         override suspend fun bolt11Invoice(amountSats: ULong): String = error("unused")
-        override suspend fun claimLightningReceives() {}
+        override suspend fun claimLightningReceives() = Unit
         override suspend fun closestExpiryBlocks(): Long? = null
         override suspend fun createSnapshot(destination: File): WalletSnapshotInfo = error("unused")
-        override suspend fun stopDaemonWait() {}
-        override fun close() {}
+        override suspend fun stopDaemonWait() = Unit
+        override fun close() = Unit
     }
 
     /** One app process: its session (with its journal on disk) and its wallet-mutation gate, as AppServices holds them. */
@@ -137,7 +140,8 @@ class ExitSubmitDeviceTest {
             if (shown) {
                 val restored = remember { SaveableStateRegistry(saved) { true }.also { registry = it } }
                 CompositionLocalProvider(LocalSaveableStateRegistry provides restored) {
-                    val model = remember { OnchainModel(onchainDependencies(process.session, process.lifecycle, AutoBoardFunding({ null }, {}), claims, ExitSeen({ null }, {})) { true })
+                    val model = remember { OnchainModel(onchainDependencies(process.session, process.lifecycle, AutoBoardFunding({ null }, {}), claims,
+                        ExitSeen({ null }, {})) { true })
                         .also { models += it } }
                     LaunchedEffect(model) { model.load() }
                     page(model)

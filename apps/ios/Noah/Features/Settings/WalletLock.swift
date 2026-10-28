@@ -49,14 +49,20 @@ final class WalletLock {
         Task { await refresh() }
     }
 
+    private struct Probe {
+        let context: LAContext
+        let available: Bool
+        let noScreenLock: Bool
+        let biometryType: LABiometryType
+    }
     /// `LAContext()` waits on coreauthd, which stalls behind the Face ID permission alert, so never on the main thread.
-    @concurrent private nonisolated static func probe() async
-        -> sending (context: LAContext, available: Bool, noScreenLock: Bool, biometryType: LABiometryType) {
+    @concurrent private nonisolated static func probe() async -> sending Probe {
         let context = LAContext()
         var error: NSError?
         let available = context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
         _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil) // Sets biometryType.
-        return (context, available, !available && RecoveryPhraseAuthentication.unavailable(error) == .noScreenLock, context.biometryType)
+        return Probe(context: context, available: available,
+                     noScreenLock: !available && RecoveryPhraseAuthentication.unavailable(error) == .noScreenLock, biometryType: context.biometryType)
     }
 
     func refresh() async {
@@ -116,7 +122,7 @@ final class WalletLock {
     func setEnabled(_ enabled: Bool) async throws {
         let generation = policy.generation
         guard await authenticate(enabled ? L10n.text("Enable wallet authentication")
-                                 : L10n.text("Disable wallet authentication")) else { return }
+            : L10n.text("Disable wallet authentication")) else { return }
         guard generation == policy.generation else { return }
         var wallet = SettingsStorage.shared.persistedState(PersistedWalletState.self, key: PersistedWalletState.key) ?? .init()
         wallet.isBiometricsEnabled = enabled
@@ -155,7 +161,7 @@ struct WalletLockView: View {
                     Button { Task { await lock.unlock() } } label: {
                         HStack(spacing: 8) {
                             if lock.authenticating { ProgressView().tint(NoahTokens.Colors.background) }
-                            else { Image(systemName: lock.biometry.symbol) }
+                            else { Image(systemName: lock.biometry.symbol).accessibilityHidden(true) }
                             Text("Unlock")
                         }
                     }
@@ -194,7 +200,7 @@ struct WalletLockOverlay: UIViewRepresentable {
         context.coordinator.protectOnBackground = protectOnBackground
         context.coordinator.update(source: view.window)
     }
-    static func dismantleUIView(_ uiView: SourceView, coordinator: Coordinator) { coordinator.uncover() }
+    static func dismantleUIView(_: SourceView, coordinator: Coordinator) { coordinator.uncover() }
 
     final class SourceView: UIView {
         var onWindow: (() -> Void)?

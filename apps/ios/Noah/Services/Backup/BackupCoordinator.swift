@@ -96,7 +96,7 @@ actor BackupCoordinator {
         let waiter = Task { try await Self.value(of: inFlight) }
         let deadline = Task {
             do { try await Task.sleep(for: timeout); waiter.cancel() }
-            catch { }
+            catch { /* Canceled: the wait finished first. */ }
         }
         defer { deadline.cancel(); cancelScheduled() }
         do { _ = try await waiter.value }

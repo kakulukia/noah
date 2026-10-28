@@ -78,7 +78,7 @@ final class LogFile: @unchecked Sendable {
         self.capacity = capacity
         self.queue = queue
         self.systemSink = systemSink
-        self.redactor = redact
+        redactor = redact
         self.drainLimit = drainLimit
     }
 
@@ -228,8 +228,7 @@ final class LogFile: @unchecked Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let active = directory.appending(path: Self.fileName)
         if let size = try? FileManager.default.attributesOfItem(atPath: active.path)[.size] as? Int,
-            size + data.count > Self.maxFileSizeBytes
-        {
+           size + data.count > Self.maxFileSizeBytes {
             try rotate(active: active)
         }
         if !FileManager.default.fileExists(atPath: active.path) {
@@ -271,16 +270,19 @@ final class LogFile: @unchecked Sendable {
     }
 
     // Decoding loses source offsets, so a hit in any decoded view omits the entire message.
+    // swiftlint:disable:next discouraged_optional_collection - nil means inspection was uncertain, unlike an empty result
     static func decodedViews(_ message: String, percentEncoded: Bool = false, compatibility: Bool = false) -> [String]? {
         let escapes = percentEncoded ? encodedEscapes : jsonEscapes
         var views = [message]
         for _ in 0..<4 {
-            if compatibility && EndpointLogPrivacy.hasExcessiveCombiningRun(views.last!) { return nil }
-            let source = compatibility ? views.last!.precomposedStringWithCompatibilityMapping : views.last!
+            let current = views[views.count - 1]
+            if compatibility && EndpointLogPrivacy.hasExcessiveCombiningRun(current) { return nil }
+            let source = compatibility ? current.precomposedStringWithCompatibilityMapping : current
             if compatibility && EndpointLogPrivacy.hasExcessiveCombiningRun(source) { return nil }
-            if source != views.last! { views.append(source) }
+            if source != current { views.append(source) }
             let matches = escapes.matches(in: source, range: NSRange(source.startIndex..., in: source))
             if matches.isEmpty { return views }
+            // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
             let original = source as NSString
             var parts: [String] = []
             var offset = 0
@@ -296,10 +298,11 @@ final class LogFile: @unchecked Sendable {
             parts.append(original.substring(from: offset))
             views.append(parts.joined())
         }
-        if compatibility && EndpointLogPrivacy.hasExcessiveCombiningRun(views.last!) { return nil }
-        let last = compatibility ? views.last!.precomposedStringWithCompatibilityMapping : views.last!
+        let current = views[views.count - 1]
+        if compatibility && EndpointLogPrivacy.hasExcessiveCombiningRun(current) { return nil }
+        let last = compatibility ? current.precomposedStringWithCompatibilityMapping : current
         if compatibility && EndpointLogPrivacy.hasExcessiveCombiningRun(last) { return nil }
-        if last != views.last! { views.append(last) }
+        if last != current { views.append(last) }
         guard escapes.firstMatch(in: last, range: NSRange(last.startIndex..., in: last)) == nil else { return nil }
         return views
     }
@@ -322,7 +325,7 @@ final class LogFile: @unchecked Sendable {
         result = replaceURLs(result)
         for (index, pattern) in sensitivePatterns.enumerated() {
             result = pattern.stringByReplacingMatches(in: result,
-                range: NSRange(result.startIndex..., in: result), withTemplate: "[redacted]")
+                                                      range: NSRange(result.startIndex..., in: result), withTemplate: "[redacted]")
             if index == 1 {
                 result = replaceTokens(in: result, tokens: jwtTokens, pattern: jwt)
                 result = replacePushTokens(result)
@@ -342,7 +345,7 @@ final class LogFile: @unchecked Sendable {
 
     private static func normalizeMnemonic(_ text: String) -> String {
         text.decomposedStringWithCompatibilityMapping.folding(options: .caseInsensitive,
-            locale: Locale(identifier: "en_US_POSIX"))
+                                                              locale: Locale(identifier: "en_US_POSIX"))
     }
 
     // For privacy detection only; wallet seed validation intentionally stays stricter.
@@ -358,19 +361,20 @@ final class LogFile: @unchecked Sendable {
     }
 
     private static let latinConfusables: [UnicodeScalar: UnicodeScalar] = {
-        let groups = ["a": "аα", "b": "ьβ", "c": "сϲσ", "d": "ԁ", "e": "еε", "f": "ғ",
-                      "g": "ɡ", "h": "һн", "i": "іι", "j": "ј", "k": "κк", "l": "ӏ",
-                      "m": "мμ", "n": "ո", "o": "оο", "p": "рρ", "s": "ѕ", "t": "тτ",
-                      "u": "υս", "v": "νѵ", "w": "ԝω", "x": "хχ", "y": "уγ", "z": "ζ"]
+        let groups: [UnicodeScalar: String] = ["a": "аα", "b": "ьβ", "c": "сϲσ", "d": "ԁ", "e": "еε", "f": "ғ",
+                                               "g": "ɡ", "h": "һн", "i": "іι", "j": "ј", "k": "κк", "l": "ӏ",
+                                               "m": "мμ", "n": "ո", "o": "оο", "p": "рρ", "s": "ѕ", "t": "тτ",
+                                               "u": "υս", "v": "νѵ", "w": "ԝω", "x": "хχ", "y": "уγ", "z": "ζ"]
         var result: [UnicodeScalar: UnicodeScalar] = [:]
         for (latin, lookalikes) in groups {
-            for scalar in lookalikes.unicodeScalars { result[scalar] = latin.unicodeScalars.first! }
+            for scalar in lookalikes.unicodeScalars { result[scalar] = latin }
         }
         return result
     }()
 
     private static func mnemonicRanges(in normalized: String) -> [NSRange] {
         let words = wordPattern.matches(in: normalized, range: NSRange(normalized.startIndex..., in: normalized))
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = normalized as NSString
         var runs: [NSRange] = []
         var start = 0, count = 0
@@ -381,7 +385,7 @@ final class LogFile: @unchecked Sendable {
                 count += 1
             } else {
                 if count >= 12 { runs.append(NSRange(location: words[start].range.location,
-                    length: words[index - 1].range.upperBound - words[start].range.location)) }
+                                                     length: words[index - 1].range.upperBound - words[start].range.location)) }
                 count = 0
             }
         }
@@ -404,6 +408,7 @@ final class LogFile: @unchecked Sendable {
             guard let decoded = decodedViews(leaf)?.last else { return true }
             let normalized = detectionSkeleton(decoded)
             let words = wordPattern.matches(in: normalized, range: NSRange(normalized.startIndex..., in: normalized))
+            // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
             if !words.isEmpty, words.allSatisfy({ bip39.contains((normalized as NSString).substring(with: $0.range)) }) {
                 count += words.count
                 if count >= 12 { return true }
@@ -425,14 +430,18 @@ final class LogFile: @unchecked Sendable {
         }
         return Set(text.split(whereSeparator: \.isWhitespace).map(String.init))
     }()
+    // swiftlint:disable force_try - NSRegularExpression from constant patterns
     private static let jsonEscapes = try! NSRegularExpression(pattern: #"(?:\\u[0-9a-fA-F]{4})++|\\["\\/bfnrt]"#)
-    private static let encodedEscapes = try! NSRegularExpression(pattern: jsonEscapes.pattern + #"|(?:%[0-9a-fA-F]{2})+|&(?:#[xX][0-9a-fA-F]+;?|#[0-9]+;?|[A-Za-z][A-Za-z0-9]*;)"#)
+    private static let encodedEscapes = try! NSRegularExpression(pattern: jsonEscapes
+        .pattern + #"|(?:%[0-9a-fA-F]{2})+|&(?:#[xX][0-9a-fA-F]+;?|#[0-9]+;?|[A-Za-z][A-Za-z0-9]*;)"#)
     private static let wordPattern = try! NSRegularExpression(pattern: #"[\p{L}\p{M}]+"#)
+    // swiftlint:enable force_try
     // Search once per maximal token, never again at every internal dot/hyphen boundary.
     private static func replaceTokens(in text: String, tokens: NSRegularExpression,
                                       pattern: NSRegularExpression, start: NSRegularExpression = boundary,
                                       template: String = "[redacted]") -> String {
         let full = NSRange(text.startIndex..., in: text)
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         var consumed = 0
         var replacements: [(NSRange, String)] = []
@@ -443,7 +452,8 @@ final class LogFile: @unchecked Sendable {
             }
             guard let beginning = start.firstMatch(in: text, options: .withTransparentBounds, range: token.range),
                   let match = pattern.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
-                    range: NSRange(location: beginning.range.location, length: full.length - beginning.range.location)) else { continue }
+                                                 range: NSRange(location: beginning.range.location, length: full.length - beginning.range.location))
+            else { continue }
             replacements.append((match.range, pattern.replacementString(for: match, in: text, offset: 0, template: template)))
             consumed = match.range.upperBound
         }
@@ -451,6 +461,7 @@ final class LogFile: @unchecked Sendable {
     }
 
     private static func replacing(_ text: String, ranges: [(NSRange, String)]) -> String {
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         var parts: [String] = []
         var offset = 0
@@ -464,6 +475,7 @@ final class LogFile: @unchecked Sendable {
     }
 
     private static func replaceURLs(_ text: String) -> String {
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         let matches = urlTokens.matches(in: text, range: NSRange(text.startIndex..., in: text))
         return replacing(text, ranges: matches.compactMap { match in
@@ -472,6 +484,7 @@ final class LogFile: @unchecked Sendable {
     }
 
     private static func replacePushTokens(_ text: String) -> String {
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         let matches = pushTokens.matches(in: text, range: NSRange(text.startIndex..., in: text))
         return replacing(text, ranges: matches.compactMap { match in
@@ -480,6 +493,7 @@ final class LogFile: @unchecked Sendable {
     }
 
     private static func replaceEmails(_ text: String) -> String {
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         let full = NSRange(location: 0, length: source.length)
         var replacements: [(NSRange, String)] = []
@@ -487,14 +501,15 @@ final class LogFile: @unchecked Sendable {
         for token in emailTokens.matches(in: text, range: full) where token.range.location >= consumed {
             guard let beginning = boundary.firstMatch(in: text, options: .withTransparentBounds, range: token.range),
                   let local = emailLocal.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
-                    range: NSRange(location: beginning.range.location, length: full.length - beginning.range.location)) else { continue }
+                                                    range: NSRange(location: beginning.range.location, length: full.length - beginning.range.location))
+            else { continue }
             var offset = local.range.upperBound
             var end: Int?
             var first = true
             while let part = domainPart.firstMatch(in: text, options: .anchored,
-                range: NSRange(location: offset, length: full.length - offset)) {
+                                                   range: NSRange(location: offset, length: full.length - offset)) {
                 if !first, let tld = domainTLD.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
-                    range: NSRange(location: offset, length: full.length - offset)) { end = tld.range.upperBound }
+                                                          range: NSRange(location: offset, length: full.length - offset)) { end = tld.range.upperBound }
                 first = false
                 offset = part.range.upperBound
                 guard offset < full.length, source.character(at: offset) == 46 else { break }
@@ -509,6 +524,7 @@ final class LogFile: @unchecked Sendable {
     }
 
     private static func redactLabels(_ text: String, addresses: Bool) -> String {
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         let full = NSRange(location: 0, length: source.length)
         let keyword = addresses ? addressKeyword : credentialKeyword
@@ -523,7 +539,7 @@ final class LogFile: @unchecked Sendable {
                 let end = token.range.upperBound
                 if end < source.length, source.character(at: end) == 32,
                    let next = labelTokens.firstMatch(in: text, options: .anchored,
-                     range: NSRange(location: end + 1, length: source.length - end - 1)),
+                                                     range: NSRange(location: end + 1, length: source.length - end - 1)),
                    source.substring(with: next.range).lowercased().hasPrefix(right) {
                     ends.append(next.range.upperBound)
                 }
@@ -531,11 +547,9 @@ final class LogFile: @unchecked Sendable {
             if keyword.firstMatch(in: label, range: NSRange(label.startIndex..., in: label)) != nil {
                 ends.append(token.range.upperBound)
             }
-            for end in ends {
-                if tail.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
-                    range: NSRange(location: end, length: source.length - end)) != nil {
-                    return source.substring(to: beginning.range.location) + "[redacted]"
-                }
+            for end in ends where tail.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
+                                                  range: NSRange(location: end, length: source.length - end)) != nil {
+                return source.substring(to: beginning.range.location) + "[redacted]"
             }
             if !addresses {
                 // Exact key/x-amz alternatives can start after a dot or hyphen inside the token.
@@ -544,7 +558,7 @@ final class LogFile: @unchecked Sendable {
                 let range = NSRange(location: start, length: token.range.upperBound - start)
                 if let special = specialLabel.firstMatch(in: text, options: .withTransparentBounds, range: range),
                    tail.firstMatch(in: text, options: [.anchored, .withTransparentBounds],
-                    range: NSRange(location: token.range.upperBound, length: source.length - token.range.upperBound)) != nil {
+                                   range: NSRange(location: token.range.upperBound, length: source.length - token.range.upperBound)) != nil {
                     return source.substring(to: special.range.location) + "[redacted]"
                 }
             }
@@ -552,6 +566,7 @@ final class LogFile: @unchecked Sendable {
         return text
     }
 
+    // swiftlint:disable force_try - NSRegularExpression from constant patterns
     private static let boundary = try! NSRegularExpression(pattern: #"\b"#)
     private static let labelTokens = try! NSRegularExpression(pattern: #"[\w.-]+"#)
     private static let specialLabel = try! NSRegularExpression(pattern: #"(?i)\b(?:key$|x-amz-[\w-]++)"#)
@@ -578,4 +593,5 @@ final class LogFile: @unchecked Sendable {
         #"(?i)\bBearer\s+[A-Za-z0-9._~+/-]++=*"#,
         #"\b(?:[xt]prv[1-9A-HJ-NP-Za-km-z]{20,}+|[59][1-9A-HJ-NP-Za-km-z]{50}|[KLc][1-9A-HJ-NP-Za-km-z]{51})\b"#,
     ].map { try! NSRegularExpression(pattern: $0) }
+    // swiftlint:enable force_try
 }

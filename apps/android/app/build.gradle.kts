@@ -11,7 +11,8 @@ plugins {
 }
 
 abstract class SentryMappingMetadata : DefaultTask() {
-    @get:InputFile @get:PathSensitive(PathSensitivity.NONE)
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
     abstract val mappingFile: RegularFileProperty
     @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
 
@@ -109,8 +110,12 @@ android {
         val abis = providers.gradleProperty("noahAbis").orNull?.split(',')?.map(String::trim)?.filter(String::isNotEmpty)
             ?: listOf("arm64-v8a", "x86_64")
         require(abis.isNotEmpty() && abis.all { it in setOf("arm64-v8a", "x86_64") }) { "noahAbis must be arm64-v8a and/or x86_64" }
+        // x86_64 is in the default; -PnoahAbis narrows a phone-only build on purpose.
+        //noinspection ChromeOsAbiSupport
         ndk { abiFilters += abis }
     }
+    // Settings switches the app's language at runtime, so a Play bundle must ship every language.
+    bundle { language { enableSplit = false } }
 
     flavorDimensions += "version"
     productFlavors {
@@ -161,6 +166,8 @@ android {
     buildTypes {
         debug { signingConfig = signingConfigs.getByName("debug") }
         release {
+            // L10n finds translated strings by name (getIdentifier), which resource shrinking can't see.
+            //noinspection NotShrinkingResources
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = when {
@@ -181,12 +188,22 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // Every check on and every warning fails; CI runs lintRegtestDebug.
+    lint {
+        checkAllWarnings = true
+        warningsAsErrors = true
+        abortOnError = true
+    }
     // Share the exact RN/iOS snapshots; do not copy 7 MB into another source tree.
-    sourceSets.getByName("main").assets.srcDirs("../../../client/assets/btcmap", "../../../client/assets/geonames")
-    sourceSets.getByName("test").resources.srcDirs("../../../client/assets/btcmap", "../../../client/assets/geonames")
+    sourceSets.getByName("main").assets.directories += listOf("../../../client/assets/btcmap", "../../../client/assets/geonames")
+    sourceSets.getByName("test").resources.directories += listOf("../../../client/assets/btcmap", "../../../client/assets/geonames")
     sourceSets.getByName("test").resources.directories += "../../fixtures"
     sourceSets.getByName("test").resources.directories += "../../../api"
     sourceSets.getByName("androidTest").assets.directories += "../../fixtures"
+}
+
+kotlin {
+    compilerOptions { allWarningsAsErrors.set(true) }
 }
 
 dependencies {
@@ -239,7 +256,7 @@ dependencies {
     testImplementation(libs.compose.ui.test)
     androidTestImplementation(libs.work.testing)
     testImplementation(libs.junit)
-    testImplementation("com.ibm.icu:icu4j:78.3") // JVM bridge for android.icu.text.IDNA.
+    testImplementation(libs.icu4j) // JVM bridge for android.icu.text.IDNA.
     testImplementation(libs.ktor.client.mock)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.junit)

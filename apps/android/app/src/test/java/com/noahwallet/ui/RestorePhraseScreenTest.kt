@@ -8,7 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.Lifecycle
@@ -69,7 +69,9 @@ class RestorePhraseScreenTest {
             val shapes = listOf(ClipData.newPlainText("note", line), ClipData.newPlainText("note", "$line\n"),
                 ClipData.newPlainText("note", words.joinToString("\r\n")), ClipData.newPlainText("note", words.joinToString(" ")),
                 ClipData.newPlainText("note", words.joinToString(" ")), ClipData.newHtmlText("note", "$line\n", "<p>$line</p>"),
-                ClipData.newPlainText("note", words.take(count / 2).joinToString(" ")).apply { addItem(ClipData.Item(words.drop(count / 2).joinToString(" "))) })
+                ClipData.newPlainText("note", words.take(count / 2).joinToString(" ")).apply {
+                    addItem(ClipData.Item(words.drop(count / 2).joinToString(" ")))
+                })
             for ((shape, clip) in shapes.withIndex()) {
                 compose.runOnIdle { clipboard.setPrimaryClip(clip) }
                 compose.onNodeWithText("Paste").performClick()

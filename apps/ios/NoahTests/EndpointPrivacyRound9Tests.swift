@@ -1,14 +1,13 @@
 import Foundation
+@testable import Noah
 import Sentry
 import Testing
-
-@testable import Noah
 
 struct EndpointPrivacyRound9Tests {
     private func cases(_ kind: String) throws -> [[String: Any]] {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appending(path: "fixtures/esplora-log-privacy-r9.json")
-        return try (JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [[String: Any]])
+        return try #require(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [[String: Any]])
             .filter { $0["kind"] as? String == kind }
     }
 

@@ -7,7 +7,7 @@ import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -65,7 +65,8 @@ class PaymentLinkScreensTest {
         compose.activityRule.scenario.onActivity { activity ->
             ViewModelProvider(activity, object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    @Suppress("UNCHECKED_CAST") return SendPresentation(model) as T
+                    @Suppress("UNCHECKED_CAST")
+                    return SendPresentation(model) as T
                 }
             })["send-presentation", SendPresentation::class.java]
             activity.setContent { NoahTheme { SendScreen(app) {} } }
@@ -74,7 +75,10 @@ class PaymentLinkScreensTest {
         return model
     }
     /** An invoice with its own amount goes straight to review, as a scanned one does. */
-    private fun review(model: SendModel) { compose.runOnIdle { main.launch { model.importRecipient(decoderInvoice("10u"), stay = true) } }; compose.waitForIdle() }
+    private fun review(model: SendModel) {
+        compose.runOnIdle { main.launch { model.importRecipient(decoderInvoice("10u"), stay = true) } }
+        compose.waitForIdle()
+    }
 
     @Test fun sendsReviewRejectsLinksUntilItsLeft() {
         val model = mountSend()

@@ -27,7 +27,9 @@ class RecurringOverrideSettlementTest {
             w.controller.reloadForWalletChange()
             w.executor.execute(); w.executor.checkStatus("rent")
             val e = w.journal.load().getValue("rent")
-            assertTrue("terminal=${e.terminal?.outcome}; consumed=${e.consumed}; historyApplied=${e.historyApplied}; released=${e.released}; paid=${w.schedule!!.occurrencesPaid}; successes=${w.schedule!!.runs.count { it.status == "success" }}; sendReceipt=${w.sendJournal.attempt?.receipt}", e.terminal?.outcome == RecurringJournal.Outcome.succeeded && w.schedule!!.occurrencesPaid == 1)
+            assertTrue("terminal=${e.terminal?.outcome}; consumed=${e.consumed}; historyApplied=${e.historyApplied}; released=${e.released}; " +
+                "paid=${w.schedule!!.occurrencesPaid}; successes=${w.schedule!!.runs.count { it.status == "success" }}; " +
+                "sendReceipt=${w.sendJournal.attempt?.receipt}", e.terminal?.outcome == RecurringJournal.Outcome.succeeded && w.schedule!!.occurrencesPaid == 1)
             assertEquals(1, w.wallet.calls)
             assertEquals("Proven paid occurrence was skipped by override", 1, w.schedule!!.occurrencesPaid)
             assertEquals(1, w.schedule!!.runs.count { it.status == "success" })
@@ -81,6 +83,18 @@ class RecurringOverrideSettlementTest {
         }
     }
 
+    /** Whether this journal write is the one that records [boundary]. */
+    private fun reaches(boundary: String, raw: String): Boolean {
+        val e = RecurringStore.json.parseToJsonElement(raw).jsonObject["attempts"]!!.jsonObject.getValue("rent").jsonObject
+        return when (boundary) {
+            "terminal" -> e["terminal"] != null
+            "sendCleared", "consumed" -> e["consumed"]?.jsonPrimitive?.booleanOrNull == true
+            "policy", "historyApplied" -> e["historyApplied"]?.jsonPrimitive?.booleanOrNull == true
+            "released" -> e["released"]?.jsonPrimitive?.booleanOrNull == true
+            else -> false
+        }
+    }
+
     @Test fun deathDuringOverrideRecoversPaidHistoryExactlyOnce() = runBlocking {
         for (boundary in listOf("terminal", "sendCleared", "consumed", "policy", "historyApplied", "released", "resumed")) {
             val w = RecurringWorld(this)
@@ -89,15 +103,7 @@ class RecurringOverrideSettlementTest {
                 assertEquals(SendController.State.storageBlocked, w.controller.state)
                 var crashed = false
                 w.beforeJournalWrite = { raw ->
-                    val e = RecurringStore.json.parseToJsonElement(raw).jsonObject["attempts"]!!.jsonObject.getValue("rent").jsonObject
-                    val matches = when (boundary) {
-                        "terminal" -> e["terminal"] != null
-                        "sendCleared", "consumed" -> e["consumed"]?.jsonPrimitive?.booleanOrNull == true
-                        "policy", "historyApplied" -> e["historyApplied"]?.jsonPrimitive?.booleanOrNull == true
-                        "released" -> e["released"]?.jsonPrimitive?.booleanOrNull == true
-                        else -> false
-                    }
-                    if (matches && !crashed) {
+                    if (reaches(boundary, raw) && !crashed) {
                         crashed = true
                         // Before consumed: Send is already cleared. Before historyApplied: the policy row is durable.
                         if (boundary != "sendCleared" && boundary != "policy") w.journalRaw = raw
@@ -115,7 +121,8 @@ class RecurringOverrideSettlementTest {
                 val row = store.load().schedules.getValue("rent")
                 assertEquals(boundary, 1, row.occurrencesPaid)
                 assertEquals(boundary, 1, row.runs.count { it.status == "success" })
-                assertTrue(journal.load().getValue("rent").let { it.consumed && it.historyApplied && it.released && it.terminal?.outcome == RecurringJournal.Outcome.succeeded })
+                assertTrue(journal.load().getValue("rent").let { it.consumed && it.historyApplied && it.released &&
+                    it.terminal?.outcome == RecurringJournal.Outcome.succeeded })
                 assertEquals(boundary, 1, w.wallet.calls)
                 val again = recover(w).first.load().schedules.getValue("rent")
                 assertEquals(1, again.occurrencesPaid)

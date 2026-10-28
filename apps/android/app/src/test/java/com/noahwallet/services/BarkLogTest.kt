@@ -5,15 +5,15 @@ import com.noahwallet.services.logging.AppLog
 import com.noahwallet.services.logging.BarkLog
 import com.noahwallet.services.logging.LogFile
 import io.github.niteshbalusu11.bark.LogLevel
+import kotlinx.serialization.json.jsonPrimitive
+import org.junit.Assert.*
+import org.junit.Test
 import java.nio.file.Files
 import java.util.ArrayDeque
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
-import kotlinx.serialization.json.jsonPrimitive
-import org.junit.Assert.*
-import org.junit.Test
 
 class BarkLogTest {
     @Test fun customEndpointPathsAreRemovedAtSDKAppAndTelemetryBoundaries() {
@@ -31,6 +31,8 @@ class BarkLogTest {
             assertTrue(file.lines().last().endsWith(expected))
         } finally { directory.deleteRecursively() }
     }
+
+    private fun messageEvent(input: String) = io.sentry.SentryEvent().apply { message = io.sentry.protocol.Message().apply { formatted = input } }
 
     @Test fun relativeAndEscapedProviderErrorsCannotLeakEndpointCredentials() {
         val token = "fakeOpaqueCredential59df"
@@ -57,7 +59,7 @@ class BarkLogTest {
                 assertNotEquals(input, LogFile.redactForTelemetry(input))
                 BarkLog(file).log(LogLevel.WARN, "bark::onchain", input)
                 AppLog("wallet", file).e(input)
-                val event = io.sentry.SentryEvent().apply { message = io.sentry.protocol.Message().apply { formatted = input } }
+                val event = messageEvent(input)
                 val clean = requireNotNull(com.noahwallet.services.logging.AppTelemetry.scrub(event))
                 assertFalse(clean.message!!.formatted!!.contains(token))
                 event.release = input
@@ -75,7 +77,8 @@ class BarkLogTest {
         val file = LogFile(directory, executor = Executor { it.run() }, systemSink = { _, _, text -> received += text })
         try {
             BarkLog(file).log(LogLevel.WARN, "bark::onchain",
-                """fee estimation failed: HttpResponse { status: 404, message: "No route: /unknown/fakeUnregisteredCredential; \"nested\"" }; caused by: upstream unavailable""")
+                """fee estimation failed: HttpResponse { status: 404, message: "No route: /unknown/fakeUnregisteredCredential; \"nested\"" }; caused """ +
+                    """by: upstream unavailable""")
             val expected = "HttpResponse { status: 404 }"
             assertEquals(listOf(expected), received)
             assertTrue(file.lines().single().endsWith(expected))
@@ -107,7 +110,8 @@ class BarkLogTest {
             val logger = BarkLog(file)
             for (text in listOf(
                 "[ONCHAIN] Using Bitcoin Core RPC at http://fake-user:fake-password@localhost:18443",
-                "request failed: error sending request for url (https://example.invalid/x?X-Amz-Signature=fake-presigned-value)\n\nCaused by:\n    transport error",
+                "request failed: error sending request for url (https://example.invalid/x?X-Amz-Signature=fake-presigned-value)\n\nCaused by:\n    " +
+                    "transport error",
                 "sync failed: invalid signature: " + "ab".repeat(64),
                 "wallet failed: private_key=0x" + "cd".repeat(32))) {
                 logger.log(LogLevel.ERROR, "bark::wallet", text)

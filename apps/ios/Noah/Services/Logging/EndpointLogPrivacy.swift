@@ -3,15 +3,17 @@ import Foundation
 /// Register before entering Rust: endpoint paths can be opaque credentials.
 enum EndpointLogPrivacy {
     private static let lock = NSLock()
-    nonisolated(unsafe) private static var unavailable = false
+    private nonisolated(unsafe) static var unavailable = false
     static func failClosed() { lock.withLock { unavailable = true } }
     static var requiresSerializedGuard: Bool { lock.withLock { unavailable || !origins.isEmpty } }
-    nonisolated(unsafe) private static var origins = Set<String>()
-    nonisolated(unsafe) private static var tokens = Set<String>()
-    nonisolated(unsafe) private static var matcher: SecretMatcher?
-    nonisolated(unsafe) private static var hosts = Set<String>()
+    private nonisolated(unsafe) static var origins = Set<String>()
+    private nonisolated(unsafe) static var tokens = Set<String>()
+    private nonisolated(unsafe) static var matcher: SecretMatcher?
+    private nonisolated(unsafe) static var hosts = Set<String>()
+    // swiftlint:disable:next force_try - NSRegularExpression from a constant pattern
     private static let urls = try! NSRegularExpression(pattern: #"(?i)(?<![a-z0-9+.-])[0-9+.-]*+[a-z][a-z0-9+.-]*+://[^\s<>"']*"#)
     // Admit only the SDK error type/status, never provider-controlled response text.
+    // swiftlint:disable:next force_try - NSRegularExpression from a constant pattern
     private static let responseStatus = try! NSRegularExpression(
         pattern: #"HttpResponse(?:\s*\{\s*status:\s*|\()([0-9]{3})\b"#)
 
@@ -24,7 +26,7 @@ enum EndpointLogPrivacy {
         for variant in AppVariant.allCases {
             let config = WalletConfiguration.base(for: variant)
             endpoints += [ServerEndpoint.baseURL(for: variant).absoluteString, config.arkServer]
-            endpoints += [config.esplora, config.bitcoind].compactMap { $0 }
+            endpoints += [config.esplora, config.bitcoind].compactMap(\.self)
         }
         return Set(endpoints.compactMap(origin))
     }()
@@ -33,7 +35,7 @@ enum EndpointLogPrivacy {
         guard let endpoint else { return }
         guard !hasExcessiveCombiningRun(endpoint) else { failClosed(); return }
         guard var url = URLComponents(string: endpoint) else { failClosed(); return }
-        let credentials = [url.percentEncodedUser, url.percentEncodedPassword].compactMap { $0 }
+        let credentials = [url.percentEncodedUser, url.percentEncodedPassword].compactMap(\.self)
         let query = url.percentEncodedQuery
         // Selection validation rejects credentials/query; protect them in legacy registrations too.
         url.user = nil; url.password = nil; url.query = nil; url.fragment = nil
@@ -69,9 +71,41 @@ enum EndpointLogPrivacy {
         }
     }
 
-    private static let commonWords: Set<String> = ["api", "block", "blocks", "tip", "height", "hash", "tx", "txs", "transaction", "transactions", "address", "scripthash", "mempool", "v0", "v1", "v2", "testnet", "signet", "mainnet", "regtest", "esplora", "fee-estimates", "outspend", "outspends", "status", "hex", "raw", "merkle-proof", "merkleblock-proof", "utxo", "broadcast"]
+    private static let commonWords: Set<String> = [
+        "api",
+        "block",
+        "blocks",
+        "tip",
+        "height",
+        "hash",
+        "tx",
+        "txs",
+        "transaction",
+        "transactions",
+        "address",
+        "scripthash",
+        "mempool",
+        "v0",
+        "v1",
+        "v2",
+        "testnet",
+        "signet",
+        "mainnet",
+        "regtest",
+        "esplora",
+        "fee-estimates",
+        "outspend",
+        "outspends",
+        "status",
+        "hex",
+        "raw",
+        "merkle-proof",
+        "merkleblock-proof",
+        "utxo",
+        "broadcast",
+    ]
     private static let publicNames: Set<String> = {
-        var names: Set<String> = ["example", "localhost", "com", "org", "net", "edu", "gov", "co", "ac"]
+        var names: Set = ["example", "localhost", "com", "org", "net", "edu", "gov", "co", "ac"]
         for origin in publicOrigins {
             if let host = authority(origin) { names.formUnion(host.split(separator: ".").map(String.init)) }
         }
@@ -80,12 +114,7 @@ enum EndpointLogPrivacy {
 
     /// Aho–Corasick over boundary-preserving and normalized UTF-16 views; terminal failure links need only a hit bit.
     struct SecretMatcher: Sendable {
-        private struct Node: Sendable {
-            var edges: [UInt16: Int] = [:]
-            var failure = 0
-            var terminal = false
-        }
-        private var nodes = [Node()]
+        private var nodes = [SecretMatcherNode()]
         init(_ tokens: Set<String>) {
             var views = Set<String>()
             for token in tokens {
@@ -98,7 +127,7 @@ enum EndpointLogPrivacy {
                     if let next = nodes[state].edges[unit] { state = next }
                     else {
                         let next = nodes.count
-                        nodes.append(Node()); nodes[state].edges[unit] = next; state = next
+                        nodes.append(SecretMatcherNode()); nodes[state].edges[unit] = next; state = next
                     }
                 }
                 if state != 0 { nodes[state].terminal = true }
@@ -183,6 +212,7 @@ enum EndpointLogPrivacy {
               let parsed = url.host, let ascii = parsed.hasPrefix("[") ? parsed : url.url?.host else { return nil }
         return try? EsploraEndpoint.canonicalHost(ascii.lowercased().replacingOccurrences(of: #"\.+$"#, with: "", options: .regularExpression))
     }
+    // swiftlint:disable:next force_try - NSRegularExpression from a constant pattern
     private static let plainAuthority = try! NSRegularExpression(pattern: #"^(?:\[[0-9a-fA-F:.]+\]|[a-zA-Z0-9.-]+)(?::[0-9]+)?$"#)
     private static func allowed(_ value: String, registered: Set<String>, hosts: Set<String>) -> Bool {
         let parts = value.components(separatedBy: "://")
@@ -196,9 +226,11 @@ enum EndpointLogPrivacy {
             && redactHosts(tail, registered: hosts) == tail
     }
 
+    // swiftlint:disable:next force_try - NSRegularExpression from a constant pattern
     private static let hostTokens = try! NSRegularExpression(
         pattern: #"\[[0-9a-fA-F.]*:[0-9a-fA-F:.]*(?:%[^\[\]\s]+)?\](?::[^\s<>"'()/\\?#,\];{}!$&*=^`|]+)?|[^\s<>"'()/\\?#,\[\];{}!$&*=^`|]+"#)
     private static func redactHosts(_ text: String, registered: Set<String>, failClosed: Bool = true) -> String {
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = text as NSString
         var replacements: [NSRange] = []
         let urlRanges = urls.matches(in: text, range: NSRange(text.startIndex..., in: text)).map(\.range)
@@ -209,11 +241,11 @@ enum EndpointLogPrivacy {
             let token = source.substring(with: match.range)
             guard token.contains(where: { $0.isLetter || $0.isNumber || !$0.isASCII }) else { continue }
             let address = token.prefix { $0 != "%" }
-            if (address.contains("::") || address.filter({ $0 == ":" }).count == 7),
+            if address.contains("::") || address.count(where: { $0 == ":" }) == 7,
                address.allSatisfy({ "0123456789abcdefABCDEF:.".contains($0) }) {
                 replacements.append(match.range); continue
             }
-            let authority = String(token.split(separator: "@", omittingEmptySubsequences: false).last!)
+            let authority = token.lastIndex(of: "@").map { String(token[token.index(after: $0)...]) } ?? token
             let rawHost = authority.hasPrefix("[") ? String(authority.prefix { $0 != "]" }) + "]" : String(authority.prefix { $0 != ":" })
             guard !rawHost.isEmpty else { continue }
             // Plain words need a registration; authority-shaped and encoded tokens require inspection.
@@ -233,7 +265,9 @@ enum EndpointLogPrivacy {
     }
     static func redact(_ text: String) -> String { sanitize(text) ?? "[redacted]" }
 
+    // swiftlint:disable:next force_try - NSRegularExpression from a constant pattern
     private static let recordHeader = try! NSRegularExpression(pattern: #"^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} [VDIWE] "#)
+    // swiftlint:disable:next force_try - NSRegularExpression from a constant pattern
     private static let recordStart = try! NSRegularExpression(pattern: recordHeader.pattern + #"\["#)
 
     /// Keep continuation lines with their endpoint/error context, including historical files.
@@ -266,35 +300,37 @@ enum EndpointLogPrivacy {
 
     /// Only stored headers tolerate authority canonicalization failures (08/09 hours).
     private static func sanitizeLogRecord(_ text: String) -> String? {
-        let (registered, matcher, hosts, unavailable) = snapshot()
-        if unavailable { return "[custom-esplora]" }
+        let state = snapshot()
+        if state.unavailable { return "[custom-esplora]" }
         let hasHeader = recordHeader.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
-        return sanitize(text, registered: registered, matcher: matcher, hosts: hosts, recordReadBack: hasHeader)
+        return sanitize(text, registered: state.registered, matcher: state.matcher, hosts: state.hosts, recordReadBack: hasHeader)
     }
 
-    private static func snapshot() -> (Set<String>, SecretMatcher, Set<String>, Bool) {
+    private struct Snapshot { var registered: Set<String>; var matcher: SecretMatcher; var hosts: Set<String>; var unavailable: Bool }
+    private static func snapshot() -> Snapshot {
         lock.withLock {
-            if matcher == nil { matcher = SecretMatcher(tokens) }
-            return (origins, matcher!, hosts, unavailable)
+            let current = matcher ?? SecretMatcher(tokens)
+            matcher = current
+            return Snapshot(registered: origins, matcher: current, hosts: hosts, unavailable: unavailable)
         }
     }
 
     /// Formatting can join individually safe fields into a registered secret.
     /// Only the token guard runs here: preserve timestamps and provider summaries.
     static func redactRecord(_ text: String) -> String {
-        let (registered, matcher, _, unavailable) = snapshot()
-        if unavailable { return "[custom-esplora]" }
-        guard !registered.isEmpty else { return text }
+        let state = snapshot()
+        if state.unavailable { return "[custom-esplora]" }
+        guard !state.registered.isEmpty else { return text }
         if hasExcessiveCombiningRun(text) { return "[custom-esplora]" }
         guard text.utf8.count <= 2 * LogFile.maxMessageBytes + 128,
               let views = LogFile.decodedViews(text, percentEncoded: true, compatibility: true) else { return "[redacted]" }
-        return views.contains(where: matcher.contains) ? "[custom-esplora]" : text
+        return views.contains(where: state.matcher.contains) ? "[custom-esplora]" : text
     }
 
     static func sanitize(_ text: String) -> String? {
-        let (registered, matcher, hosts, unavailable) = snapshot()
-        if unavailable { return "[custom-esplora]" }
-        return sanitize(text, registered: registered, matcher: matcher, hosts: hosts)
+        let state = snapshot()
+        if state.unavailable { return "[custom-esplora]" }
+        return sanitize(text, registered: state.registered, matcher: state.matcher, hosts: state.hosts)
     }
 
     // Explicit snapshots also let tests cover a clean installation without resetting global history.
@@ -308,11 +344,14 @@ enum EndpointLogPrivacy {
         guard text.utf8.count <= 2 * LogFile.maxMessageBytes + 128 else { return "[oversized log message omitted]" }
         func summary(_ value: String) -> String { matcher.contains(value) ? "[custom-esplora]" : value }
         if let match = responseStatus.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) {
+            // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
             return summary("HttpResponse { status: " + (text as NSString).substring(with: match.range(at: 1)) + " }")
         }
-        guard let views = LogFile.decodedViews(text, percentEncoded: true, compatibility: !registered.isEmpty) else { return text.contains("HttpResponse") ? summary("HttpResponse") : nil }
+        guard let views = LogFile.decodedViews(text, percentEncoded: true, compatibility: !registered.isEmpty)
+        else { return text.contains("HttpResponse") ? summary("HttpResponse") : nil }
         for view in views {
             if let match = responseStatus.firstMatch(in: view, range: NSRange(view.startIndex..., in: view)) {
+                // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
                 return summary("HttpResponse { status: " + (view as NSString).substring(with: match.range(at: 1)) + " }")
             }
         }
@@ -326,7 +365,12 @@ enum EndpointLogPrivacy {
             let plain = LogFile.redactPlain(view)
             if index > 0 && plain != view { return "[redacted]" }
             if index == 0 {
-                result = plain == view ? endpointOnly : redactEndpoints(plain, registered: registered, matcher: matcher, hosts: hosts, recordReadBack: recordReadBack)
+                result = plain == view ? endpointOnly : redactEndpoints(
+                    plain,
+                    registered: registered,
+                    matcher: matcher,
+                    hosts: hosts,
+                    recordReadBack: recordReadBack)
             }
         }
         return result
@@ -336,8 +380,11 @@ enum EndpointLogPrivacy {
         // Match complete raw/decoded views before authority replacement can hide a boundary token.
         if recordReadBack && matcher.contains(text) { return "[custom-esplora]" }
         let headerLength = recordReadBack ? (recordHeader.firstMatch(in: text, range: NSRange(text.startIndex..., in: text))?.range.length ?? 0) : 0
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let prefix = (text as NSString).substring(to: headerLength)
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let body = (text as NSString).substring(from: headerLength)
+        // swiftlint:disable:next legacy_objc_type - NSRegularExpression ranges are UTF-16 offsets; NSString slices them exactly
         let source = body as NSString
         var parts: [String] = [], offset = 0
         for match in urls.matches(in: body, range: NSRange(location: 0, length: source.length)) {
@@ -351,4 +398,10 @@ enum EndpointLogPrivacy {
         clean = redactHosts(prefix, registered: hosts, failClosed: false) + redactHosts(clean, registered: hosts)
         return matcher.contains(clean) ? "[custom-esplora]" : clean
     }
+}
+
+private struct SecretMatcherNode: Sendable {
+    var edges: [UInt16: Int] = [:]
+    var failure = 0
+    var terminal = false
 }

@@ -17,6 +17,7 @@ actor BtcMapRepository {
     private let fetch: Fetch
     private let clock: @Sendable () -> Date
     private var snapshot: BtcMapSnapshot?
+    // swiftlint:disable:next discouraged_optional_collection - nil: not loaded yet / no location to bias by
     private var cities: [CitySearchEntry]?
     private var syncTask: Task<BtcMapSnapshot, Error>?
     private var lastSync: Date?
@@ -81,6 +82,7 @@ actor BtcMapRepository {
         return result
     }
 
+    // swiftlint:disable:next discouraged_optional_collection - nil: not loaded yet / no location to bias by
     func searchCities(_ query: String, bias: [Double]?) throws -> [CitySearchEntry] {
         if cities == nil {
             guard let citiesURL else { throw BtcMapError.invalidData }
@@ -97,7 +99,9 @@ actor BtcMapRepository {
         let fetch = fetch
         let task = Task {
             try await Self.retry {
-                async let data = fetch(Self.url(path: "places/\(place.id)", query: [URLQueryItem(name: "fields", value: Self.detailFields.joined(separator: ","))]))
+                async let data = fetch(Self.url(
+                    path: "places/\(place.id)",
+                    query: [URLQueryItem(name: "fields", value: Self.detailFields.joined(separator: ","))]))
                 async let comments = place.comments ?? 0 > 0
                     ? fetch(Self.url(path: "places/\(place.id)/comments")) : Data("[]".utf8)
                 return try await BtcMapDetail.parse(place: data, comments: comments)
@@ -128,9 +132,9 @@ actor BtcMapRepository {
     }
 
     private static func url(path: String, query: [URLQueryItem] = []) -> URL {
-        var components = URLComponents(string: "https://api.btcmap.org/v4/\(path)")!
-        if !query.isEmpty { components.queryItems = query }
-        return components.url!
+        var url = URL(literal: "https://api.btcmap.org/v4").appending(path: path)
+        if !query.isEmpty { url.append(queryItems: query) }
+        return url
     }
 
     private static func retry<T: Sendable>(_ operation: @Sendable () async throws -> T) async throws -> T {

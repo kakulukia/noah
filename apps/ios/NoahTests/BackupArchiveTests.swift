@@ -1,8 +1,7 @@
 import Foundation
+@testable import Noah
 import Testing
 import ZIPFoundation
-
-@testable import Noah
 
 struct BackupArchiveTests {
     private let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -48,7 +47,8 @@ struct BackupArchiveTests {
         let snapshot = try makeSnapshot()
         let staging = root.appending(path: "staging")
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: false)
-        let rnManifest = #"{"formatVersion":2,"createdAt":"2026-10-19T19:15:37.123Z","snapshotSha256":"ab","network":"regtest","walletFingerprint":"ea8c6cee","serverPubkey":"02ff","mailboxPubkey":null,"barkSchemaVersion":42}"#
+        let rnManifest = #"{"formatVersion":2,"createdAt":"2026-10-19T19:15:37.123Z","snapshotSha256":"ab","network":"regtest","#
+            + #""walletFingerprint":"ea8c6cee","serverPubkey":"02ff","mailboxPubkey":null,"barkSchemaVersion":42}"#
         try Data(rnManifest.utf8).write(to: staging.appending(path: "manifest.json"))
         try FileManager.default.copyItem(at: snapshot, to: staging.appending(path: "db.sqlite"))
         let zip = root.appending(path: "rn.zip")
@@ -58,11 +58,12 @@ struct BackupArchiveTests {
 
         let opened = try BackupArchive.open(encrypted: encrypted, mnemonic: mnemonic, into: root.appending(path: "restore"))
         #expect(opened.manifest == manifest)
-        #expect(String(decoding: try BackupArchive.encode(manifest), as: UTF8.self) == rnManifest)
+        #expect(try #require(String(bytes: BackupArchive.encode(manifest), encoding: .utf8)) == rnManifest)
     }
 
     @Test func manifestParsingIsAsStrictAsReactNative() throws {
-        let valid = #"{"formatVersion":2,"createdAt":"x","snapshotSha256":"a","network":"regtest","walletFingerprint":"f","serverPubkey":null,"mailboxPubkey":null,"barkSchemaVersion":42}"#
+        let valid = #"{"formatVersion":2,"createdAt":"x","snapshotSha256":"a","network":"regtest","walletFingerprint":"f","#
+            + #""serverPubkey":null,"mailboxPubkey":null,"barkSchemaVersion":42}"#
         #expect(try BackupArchive.parseManifest(Data(valid.utf8)).serverPubkey == nil)
         for broken in [
             valid.replacingOccurrences(of: #""formatVersion":2"#, with: #""formatVersion":1"#),
@@ -103,10 +104,9 @@ struct BackupArchiveTests {
         let archive = try Archive(url: url, accessMode: .create)
         for (name, data) in entries {
             try archive.addEntry(
-                with: name, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate
-            ) { position, size in
-                data.subdata(in: Int(position)..<Int(position) + size)
-            }
+                with: name, type: .file, uncompressedSize: Int64(data.count), compressionMethod: .deflate) { position, size in
+                    data.subdata(in: Int(position)..<Int(position) + size)
+                }
         }
         return try Data(contentsOf: url)
     }
@@ -116,17 +116,17 @@ struct BackupArchiveTests {
     private func patch(_ zip: Data, crc: UInt32? = nil, uncompressedSize: UInt32? = nil) -> Data {
         var bytes = [UInt8](zip)
         func read(_ at: Int) -> UInt32 { bytes[at..<at + 4].reversed().reduce(0) { $0 << 8 | UInt32($1) } }
-        func write(_ value: UInt32, _ at: Int) { for i in 0..<4 { bytes[at + i] = UInt8(value >> (8 * i) & 0xff) } }
+        func write(_ value: UInt32, _ at: Int) { for i in 0..<4 { bytes[at + i] = UInt8(value >> (8 * i) & 0xFF) } }
         var offset = 0
         while offset + 30 < bytes.count {
             switch read(offset) {
-            case 0x0403_4b50:  // local file header
+            case 0x0403_4B50: // local file header
                 if let crc { write(crc, offset + 14) }
                 if let uncompressedSize { write(uncompressedSize, offset + 22) }
-            case 0x0201_4b50:  // central directory
+            case 0x0201_4B50: // central directory
                 if let crc { write(crc, offset + 16) }
                 if let uncompressedSize { write(uncompressedSize, offset + 24) }
-            case 0x0807_4b50:  // data descriptor
+            case 0x0807_4B50: // data descriptor
                 if let crc { write(crc, offset + 4) }
                 if let uncompressedSize { write(uncompressedSize, offset + 12) }
             default: break
@@ -173,7 +173,7 @@ struct BackupArchiveTests {
 
     @Test(.fastBackupKeys) func openRejectsACorruptedSnapshot() throws {
         defer { try? FileManager.default.removeItem(at: root) }
-        let manifestJSON = try BackupArchive.encode(manifest)
+        let manifestJSON = BackupArchive.encode(manifest)
         let corrupted = patch(try zip([("manifest.json", manifestJSON), ("db.sqlite", Data("wallet".utf8))]), crc: 0x0BAD_F00D)
         let encrypted = root.appending(path: "corrupt.noahbackup")
         try BackupCrypto.encrypt(corrupted, mnemonic: mnemonic, version: .snapshot).write(to: encrypted)
@@ -237,19 +237,19 @@ struct BackupArchiveTests {
         let fileText: String?
     }
 
-    struct ArchiveExpected: Decodable {
-        struct Manifest: Decodable {
-            let formatVersion: Int
-            let createdAt: String
-            let snapshotSha256: String
-            let network: String
-            let walletFingerprint: String
-            let serverPubkey: String?
-            let mailboxPubkey: String?
-            let barkSchemaVersion: Int
-        }
+    struct ExpectedManifest: Decodable {
+        let formatVersion: Int
+        let createdAt: String
+        let snapshotSha256: String
+        let network: String
+        let walletFingerprint: String
+        let serverPubkey: String?
+        let mailboxPubkey: String?
+        let barkSchemaVersion: Int
+    }
 
-        let manifest: Manifest?
+    struct ArchiveExpected: Decodable {
+        let manifest: ExpectedManifest?
         let files: [String: String]
     }
 
@@ -283,9 +283,9 @@ struct BackupArchiveTests {
             }
             let unpacked = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: [.isRegularFileKey])?
                 .compactMap { $0 as? URL }
-                .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
-                .count
-            let extra = fixture.input.kind == "v2" ? 1 : 0  // manifest.json
+                .count(where: { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true })
+
+            let extra = fixture.input.kind == "v2" ? 1 : 0 // manifest.json
             #expect(unpacked == fixture.expected.files.count + extra, "\(fixture.name): nothing else unpacked")
         }
     }

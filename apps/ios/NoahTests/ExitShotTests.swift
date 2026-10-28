@@ -1,15 +1,16 @@
 import BarkBoltFFI
 import Foundation
+@testable import Noah
 import SwiftUI
 import Testing
 import UIKit
-@testable import Noah
 
 /// Opt-in screenshot fixtures for the emergency exit (docs/native-rewrite/design/exit.md): the real
 /// pages in Settings' stack with fake wallet data shaped like the prototype's (tip 921,345; the
 /// exit followed is ₿31,000, four transactions). Write a state to Documents/exit-shot; "stop" ends
 /// the session. Light and dark follow the simulator; a wide window (the Duo open) shows the panes.
-/// States: warn, warn-live, warn-many, warn-past (only ended exits), warn-late (the exits read 1.5 s after the page opens), choose, choose-all, choose-unfunded, review, review-unfunded,
+/// States: warn, warn-live, warn-many, warn-past (only ended exits), warn-late (the exits read 1.5 s after the page opens), choose, choose-all,
+/// choose-unfunded, review, review-unfunded,
 /// progress-<lift|publish|sending|mempool|confirm|mempool3|onchain|wait|claimable|claiming|claimed>,
 /// progress-<nofunds|feesrose|stuck|shared|stale|canceled|spent>, progress-shared3 (three exits sharing a path),
 /// progress-deep (nine transactions), progress-deep20 and progress-deep20-6 (twenty, folded to fit),
@@ -27,7 +28,7 @@ struct ExitShotTests {
 
     @Test(.timeLimit(.minutes(60))) func presentStates() async throws {
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let window = try #require(scene.windows.first { $0.isKeyWindow })
+        let window = try #require(scene.keyWindow)
         let original = window.rootViewController
         let folder = URL.documentsDirectory
         let request = folder.appending(path: "exit-shot"), ready = folder.appending(path: "exit-shot-ready")
@@ -65,10 +66,10 @@ struct ExitShotTests {
                 host.rootView = AnyView(Color.clear)
                 try await Task.sleep(for: .milliseconds(150))
                 stack.pages = []
-                let (view, root, page) = try fixture(state, stack: stack)
-                roots.append(root)
-                live = page
-                host.rootView = view
+                let shown = try fixture(state, stack: stack)
+                roots.append(shown.root)
+                live = shown.live
+                host.rootView = shown.view
                 try await Task.sleep(for: .milliseconds(2_200))
                 try state.write(to: ready, atomically: true, encoding: .utf8)
                 current = state
@@ -79,10 +80,10 @@ struct ExitShotTests {
 
     // MARK: Wallet data
 
-    typealias Tx = ExitDetails.Transaction
-    nonisolated static func tx(_ id: String, _ kind: String, height: UInt32? = nil, child: String? = nil, origin: String = "wallet") -> Tx {
+    nonisolated static func tx(_ id: String, _ kind: String, height: UInt32? = nil, child: String? = nil, origin: String = "wallet") -> ExitDetails
+        .Transaction {
         .init(txid: ActivityShotTests.hex(id), status: .init(kind: kind, child_txid: child.map { ActivityShotTests.hex($0) },
-              block: height.map { .init(height: $0, hash: ActivityShotTests.hex("h\($0)")) }, origin: origin))
+                                                             block: height.map { .init(height: $0, hash: ActivityShotTests.hex("h\($0)")) }, origin: origin))
     }
 
     /// The exit followed through the states: tip at start 921,345; blocks 921,346–349 for its path.
@@ -91,7 +92,7 @@ struct ExitShotTests {
         // A 4,096-leaf round plus an arkoor hop: nine transactions.
         let names = state == "deep" ? ["root", "l5", "l4", "l3", "l2", "l1", "leaf", "ckpt", "ark"]
             : state.hasPrefix("deep20") ? ["root"] + (1...13).map { "n\($0)" } + ["leaf"] + (1...5).map { "hop\($0)" } : ["root", "l2", "l1", "leaf"]
-        func path(_ confirmed: Int, next: String? = nil, child: String = "c", origin: String = "wallet") -> [Tx] {
+        func path(_ confirmed: Int, next: String? = nil, child: String = "c", origin: String = "wallet") -> [ExitDetails.Transaction] {
             names.enumerated().map { index, name in
                 if index < confirmed { return tx(name, "confirmed", height: tip + 1 + UInt32(index), child: "\(child)\(index)") }
                 if index == confirmed, let next {
@@ -100,7 +101,7 @@ struct ExitShotTests {
                 return tx(name, "verify-inputs")
             }
         }
-        func processing(_ txs: [Tx], tip at: UInt32) -> ExitDetails { .init(kind: "processing", tip_height: at, transactions: txs) }
+        func processing(_ txs: [ExitDetails.Transaction], tip at: UInt32) -> ExitDetails { .init(kind: "processing", tip_height: at, transactions: txs) }
         func model(_ name: String, _ details: ExitDetails, _ history: [ExitDetails] = []) -> ExitModel {
             ExitModel(id: id, amount: 31_000, state: name, details: details, history: history.map { _ in "Processing" },
                       historyDetails: history, claimable: name == "Claimable")
@@ -108,6 +109,40 @@ struct ExitShotTests {
         let leaf = tip + 4, claimable = leaf + 144
         let mined = processing(path(4), tip: leaf)
         let locked = ExitDetails(kind: "awaiting-delta", tip_height: leaf, confirmed_block: .init(height: leaf, hash: "h"), claimable_height: claimable)
+        // Exits that stalled, or have reached the chain's end of the story; the rest follow below.
+        func later() -> ExitModel? {
+            switch state {
+            case "nofunds":
+                let parked = processing(path(1, next: "awaiting-cpfp-broadcast"), tip: tip + 1)
+                return model("Processing", processing(path(1, next: "awaiting-cpfp-broadcast"), tip: tip + 3), [parked])
+            case "feesrose":
+                return model("Processing", processing(path(1, next: "awaiting-confirmation", child: "rbf"), tip: tip + 2),
+                             [processing(path(1, next: "awaiting-confirmation"), tip: tip + 1)])
+            case "stuck":
+                return model("Processing", processing(path(2, next: "awaiting-confirmation"), tip: tip + 5),
+                             [processing(path(2, next: "awaiting-confirmation"), tip: tip + 2)])
+            case "shared": return model("Processing", processing(path(0, next: "awaiting-confirmation", origin: "mempool"), tip: tip))
+            case "stale": return model("Processing", processing(path(2, next: "awaiting-confirmation"), tip: tip - 52))
+            case "wait": return model("AwaitingDelta", .init(kind: "awaiting-delta", tip_height: leaf + 45,
+                                                             confirmed_block: .init(height: leaf, hash: "h"), claimable_height: claimable), [mined])
+            case "claimable": return model("Claimable", .init(kind: "claimable", tip_height: claimable,
+                                                              claimable_since: .init(height: claimable, hash: "h")), [mined, locked])
+            case "claiming", "claiming-other": return model("ClaimInProgress", .init(
+                    kind: "claim-in-progress",
+                    tip_height: claimable,
+                    claimable_since: .init(height: claimable, hash: "h"),
+                    claim_txid: ActivityShotTests.hex("claim")), [mined, locked])
+            case "claimed", "claimed-other": return model(
+                    "Claimed",
+                    .init(kind: "claimed", tip_height: claimable + 1, block: .init(height: claimable + 1, hash: "h"),
+                          txid: ActivityShotTests.hex("claim")),
+                    [.init(kind: "start", tip_height: tip), mined, locked])
+            case "canceled": return model("Canceled", .init(kind: "canceled", tip_height: tip + 2), [processing(path(1), tip: tip + 1)])
+            case "spent": return model("VtxoAlreadySpent", .init(kind: "vtxo-already-spent", tip_height: tip + 1))
+            default: return nil
+            }
+        }
+        if let later = later() { return later }
         switch state {
         case "lift": return model("Start", .init(kind: "start", tip_height: tip))
         case "publish": return model("Processing", processing(path(0), tip: tip))
@@ -118,27 +153,6 @@ struct ExitShotTests {
         case "deep", "deep20": return model("Processing", processing(path(5, next: "awaiting-confirmation"), tip: tip + 5))
         case "deep20-6": return model("Processing", processing(path(6, next: "awaiting-confirmation"), tip: tip + 6))
         case "onchain": return model("Processing", mined)
-        case "nofunds":
-            let parked = processing(path(1, next: "awaiting-cpfp-broadcast"), tip: tip + 1)
-            return model("Processing", processing(path(1, next: "awaiting-cpfp-broadcast"), tip: tip + 3), [parked])
-        case "feesrose":
-            return model("Processing", processing(path(1, next: "awaiting-confirmation", child: "rbf"), tip: tip + 2),
-                         [processing(path(1, next: "awaiting-confirmation"), tip: tip + 1)])
-        case "stuck":
-            return model("Processing", processing(path(2, next: "awaiting-confirmation"), tip: tip + 5),
-                         [processing(path(2, next: "awaiting-confirmation"), tip: tip + 2)])
-        case "shared": return model("Processing", processing(path(0, next: "awaiting-confirmation", origin: "mempool"), tip: tip))
-        case "stale": return model("Processing", processing(path(2, next: "awaiting-confirmation"), tip: tip - 52))
-        case "wait": return model("AwaitingDelta", .init(kind: "awaiting-delta", tip_height: leaf + 45,
-                                  confirmed_block: .init(height: leaf, hash: "h"), claimable_height: claimable), [mined])
-        case "claimable": return model("Claimable", .init(kind: "claimable", tip_height: claimable,
-                                       claimable_since: .init(height: claimable, hash: "h")), [mined, locked])
-        case "claiming", "claiming-other": return model("ClaimInProgress", .init(kind: "claim-in-progress", tip_height: claimable,
-                                      claimable_since: .init(height: claimable, hash: "h"), claim_txid: ActivityShotTests.hex("claim")), [mined, locked])
-        case "claimed", "claimed-other": return model("Claimed", .init(kind: "claimed", tip_height: claimable + 1, block: .init(height: claimable + 1, hash: "h"),
-                                     txid: ActivityShotTests.hex("claim")), [.init(kind: "start", tip_height: tip), mined, locked])
-        case "canceled": return model("Canceled", .init(kind: "canceled", tip_height: tip + 2), [processing(path(1), tip: tip + 1)])
-        case "spent": return model("VtxoAlreadySpent", .init(kind: "vtxo-already-spent", tip_height: tip + 1))
         default: return model("Processing", processing(path(1, next: "awaiting-confirmation"), tip: tip + 1))
         }
     }
@@ -170,16 +184,26 @@ struct ExitShotTests {
                 tx("r1-l1-\(leaf)", "verify-inputs"), tx(leaf, "verify-inputs"),
             ])
         }
-        let done = ExitDetails(kind: "processing", tip_height: tip - 70, transactions: [tx("r2-root", "confirmed", height: tip - 74), tx("r2-leaf", "confirmed", height: tip - 73)])
+        let done = ExitDetails(
+            kind: "processing",
+            tip_height: tip - 70,
+            transactions: [tx("r2-root", "confirmed", height: tip - 74), tx("r2-leaf", "confirmed", height: tip - 73)])
         return [
             exit(3, "Claimable", .init(kind: "claimable", tip_height: tip, claimable_since: .init(height: tip - 15, hash: "h")), history: [done]),
-            exit(6, "AwaitingDelta", .init(kind: "awaiting-delta", tip_height: tip, confirmed_block: .init(height: tip - 83, hash: "h"), claimable_height: tip + 61),
-                 history: [.init(kind: "processing", transactions: [tx("b-board", "confirmed", height: tip - 83)])]),
+            exit(
+                6,
+                "AwaitingDelta",
+                .init(kind: "awaiting-delta", tip_height: tip, confirmed_block: .init(height: tip - 83, hash: "h"), claimable_height: tip + 61),
+                history: [.init(kind: "processing", transactions: [tx("b-board", "confirmed", height: tip - 83)])]),
             exit(0, "Processing", shared("a", sent: 2)), exit(1, "Processing", shared("b", sent: 2)), exit(2, "Processing", shared("c", sent: 1)),
             exit(4, "Processing", .init(kind: "processing", tip_height: tip, transactions: [tx("r3-root", "confirmed", height: tip - 3),
-                 tx("r3-l2", "awaiting-cpfp-broadcast"), tx("r3-leaf", "verify-inputs")]),
+                                                                                            tx("r3-l2", "awaiting-cpfp-broadcast"), tx(
+                                                                                                "r3-leaf",
+                                                                                                "verify-inputs")]),
                  history: [.init(kind: "processing", tip_height: tip - 2, transactions: [tx("r3-root", "confirmed", height: tip - 3),
-                 tx("r3-l2", "awaiting-cpfp-broadcast"), tx("r3-leaf", "verify-inputs")])]),
+                                                                                         tx("r3-l2", "awaiting-cpfp-broadcast"), tx(
+                                                                                             "r3-leaf",
+                                                                                             "verify-inputs")])]),
             exit(5, "Claimed", .init(kind: "claimed", tip_height: tip, block: .init(height: tip - 133, hash: "h"), txid: ActivityShotTests.hex("old"))),
             exit(10, "Canceled", .init(kind: "canceled", tip_height: tip - 200)),
         ]
@@ -203,10 +227,10 @@ struct ExitShotTests {
     nonisolated static func overview(exits: [ExitModel], confirmed: UInt64 = 18_400, tip at: UInt32 = tip, packageFees: [String: UInt64] = [:],
                                      progressing: Bool = true, toPhone: Bool = true) -> OnchainOverview {
         var overview = OnchainOverview(walletID: "fixture", vtxos: vtxos.filter { !Set(exits.map(\.id)).contains($0.id) }
-                                        + [VtxoModel(id: "dust", amount: 290, expiry: tip + 2_000, state: "Spendable", kind: "arkoor", exitDepth: 2,
-                                                     exitWeight: 900, registered: true, serverPubkey: "02", exitDelta: 144, anchorPoint: "a:0",
-                                                     point: "p:0", expiring: false, tip: tip)],
-                                       exits: exits, confirmed: confirmed, tip: at, pendingTotal: 0, claimableHeight: nil)
+            + [VtxoModel(id: "dust", amount: 290, expiry: tip + 2_000, state: "Spendable", kind: "arkoor", exitDepth: 2,
+                         exitWeight: 900, registered: true, serverPubkey: "02", exitDelta: 144, anchorPoint: "a:0",
+                         point: "p:0", expiring: false, tip: tip)],
+            exits: exits, confirmed: confirmed, tip: at, pendingTotal: 0, claimableHeight: nil)
         overview.exitDelta = 144
         overview.packageFees = packageFees
         overview.daemonSince = progressing ? .distantPast : nil
@@ -218,7 +242,7 @@ struct ExitShotTests {
         overview.received = toPhone ? [ActivityShotTests.hex("claim"): 30_738] : [:]
         // What Noah recorded when it built that claim: to this phone, or to another wallet's address.
         overview.claimRecords = [ActivityShotTests.hex("claim"): .init(ids: [vtxos[0].id], fee: 262, toPhone: toPhone,
-                                                                      destination: toPhone ? nil : "bcrt1qx7k2r9d0l3m8p5q2t4w6y8z0a2c4e6g8m4k2")]
+                                                                       destination: toPhone ? nil : "bcrt1qx7k2r9d0l3m8p5q2t4w6y8z0a2c4e6g8m4k2")]
         return overview
     }
 
@@ -259,26 +283,41 @@ struct ExitShotTests {
     static func model(_ overview: OnchainOverview, detail: ExitModel? = nil, quote: Bool = true, reviewFails: Bool = false, live: Live? = nil,
                       slow: Duration? = nil) -> OnchainModel {
         OnchainModel(dependencies: .init(ready: { true }, overview: {
-                if let slow { try await Task.sleep(for: slow) }
-                return live?.overview ?? overview
-            },
-            quote: { action, ids, _, destination in
-                if reviewFails { throw OnchainFailure.changed }
-                guard quote else { throw ExitEstimateUnavailable(review: .init(action: action, walletID: "fixture", ids: ids, amount: 0, confirmed: overview.confirmed)) }
-                let amount = action == .startExit ? overview.vtxos.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.amount }
-                    : overview.exits.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.amount }
-                let fee = estimate(ids)
-                return .init(action: action, walletID: "fixture", ids: ids, destination: destination, destinationIsMine: destination.map { $0.hasPrefix("bcrt1p") },
-                             amount: amount, fee: action == .claim ? 262 : fee.claimFeeSats, chainFee: action == .claim ? 0 : fee.exitBroadcastFeeSats,
-                             confirmed: overview.confirmed, feeRate: fee.feeRateSatPerVb)
-            },
-            execute: { _ in throw OnchainFailure.unavailable }, attempt: { [] }, acknowledge: { _ in },
-            detail: { _ in live?.detail ?? detail },
-            claimAddress: { "bcrt1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297" },
-            claimOwnership: { $0.hasPrefix("bcrt1p") },
-            estimate: { estimate($0) },
-            sightings: .init(read: { String(decoding: try! JSONEncoder().encode(["fixture": sightings]), as: UTF8.self) }, write: { _ in })),
-            detailID: detail?.id)
+                         if let slow { try await Task.sleep(for: slow) }
+                         return live?.overview ?? overview
+                     },
+                     quote: { action, ids, _, destination in
+                         if reviewFails { throw OnchainFailure.changed }
+                         guard quote else { throw ExitEstimateUnavailable(review: .init(
+                             action: action,
+                             walletID: "fixture",
+                             ids: ids,
+                             amount: 0,
+                             confirmed: overview.confirmed)) }
+                         let amount = action == .startExit ? overview.vtxos.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.amount }
+                             : overview.exits.filter { ids.contains($0.id) }.reduce(0) { $0 + $1.amount }
+                         let fee = estimate(ids)
+                         return .init(
+                             action: action,
+                             walletID: "fixture",
+                             ids: ids,
+                             destination: destination,
+                             destinationIsMine: destination.map { $0.hasPrefix("bcrt1p") },
+                             amount: amount,
+                             fee: action == .claim ? 262 : fee.claimFeeSats,
+                             chainFee: action == .claim ? 0 : fee.exitBroadcastFeeSats,
+                             confirmed: overview.confirmed,
+                             feeRate: fee.feeRateSatPerVb)
+                     },
+                     execute: { _ in throw OnchainFailure.unavailable }, attempt: { [] }, acknowledge: { _ in },
+                     detail: { _ in live?.detail ?? detail },
+                     claimAddress: { "bcrt1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297" },
+                     claimOwnership: { $0.hasPrefix("bcrt1p") },
+                     estimate: { estimate($0) },
+                     sightings: .init(
+                         read: { try? String(bytes: JSONEncoder().encode(["fixture": sightings]), encoding: .utf8) },
+                         write: { _ in })),
+                     detailID: detail?.id)
     }
 
     /// The pages pushed over the fixture's page.
@@ -286,7 +325,13 @@ struct ExitShotTests {
         var pages: [SettingsPage] = []
     }
 
-    private func fixture(_ state: String, stack: Stack) throws -> (AnyView, URL, Live?) {
+    private struct Fixture {
+        let view: AnyView
+        let root: URL
+        let live: Live?
+    }
+
+    private func fixture(_ state: String, stack: Stack) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(path: "exit-shot-\(UUID())")
         let storage = try SettingsStorage(rootPath: root.appending(path: "mmkv").path)
         try storage.setPersistedState(PersistedWalletState(isInitialized: true, isWalletLoaded: true), key: PersistedWalletState.key,
@@ -333,8 +378,12 @@ struct ExitShotTests {
         let fixture = SettingsFixture(summary: HomeShotTests.summary(ark: 142_742, onchain: 18_400), storage: storage, onchain: onchain,
                                       phrase: .init(authenticate: { _ in .denied }, hasNoScreenLock: { false }, words: { [] }, generation: { 0 }),
                                       executor: recurring.executor, exitSelection: state == "choose" ? [Self.vtxos[0].id] : nil,
-                                      exitClaimTo: ["claim-other": "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202", "claim-again": "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202", "claim-phone": "phone",
-                                                    "claim-invalid": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT"][state])
+                                      exitClaimTo: [
+                                          "claim-other": "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202",
+                                          "claim-again": "bcrt1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqdku202",
+                                          "claim-phone": "phone",
+                                          "claim-invalid": "1BoatSLRHtKNngkdXEeobR76b53LETtpyT",
+                                      ][state])
         let view = ExitShotHost(page: page, stack: stack)
             .environment(app)
             .environment(app.walletLock)
@@ -342,7 +391,7 @@ struct ExitShotTests {
             .environment(\.settingsFixture, fixture)
             .environment(\.locale, Locale(identifier: app.localeIdentifier))
             .environment(\.scenePhase, .active)
-        return (AnyView(view), root, live)
+        return Fixture(view: AnyView(view), root: root, live: live)
     }
 }
 

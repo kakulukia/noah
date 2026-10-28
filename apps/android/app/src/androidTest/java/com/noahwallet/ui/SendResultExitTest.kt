@@ -4,7 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.noahwallet.send.*
 import com.noahwallet.ui.send.*
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,9 @@ class SendResultExitTest {
             val presentation = SendFixtures.presentation(wallet)
             val controller = presentation.model.controller
             val payment = SendPayment(SendFixtures.onchain, "onchain", 50_000, SendSource.offchain)
-            runBlocking(Dispatchers.Main) { controller.submit(payment, SendQuote(50_000, 420, 50_420, approximate = true, walletIdentity = SendFixtures.owner))?.await() }
+            runBlocking(Dispatchers.Main) {
+                controller.submit(payment, SendQuote(50_000, 420, 50_420, approximate = true, walletIdentity = SendFixtures.owner))?.await()
+            }
             val attempt = checkNotNull(controller.attempt)
             assertTrue(attempt.receipt!!.broadcastRetryPending)
             var leaves = 0; var dones = 0

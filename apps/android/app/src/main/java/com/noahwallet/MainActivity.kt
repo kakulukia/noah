@@ -1,27 +1,31 @@
 package com.noahwallet
 
-import android.os.Bundle
-import android.os.Build
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.*
-import com.noahwallet.ui.loadAppModel
-import com.noahwallet.ui.AppModel
-import androidx.fragment.app.FragmentActivity
+import android.os.Build
+import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import com.noahwallet.ui.AppModel
 import com.noahwallet.ui.LaunchGateView
 import com.noahwallet.ui.NoahTheme
+import com.noahwallet.ui.loadAppModel
+import kotlinx.coroutines.*
+
+// Below API 29 this broadcast is the Home/Recents signal; the receiver is only registered there.
+@Suppress("DEPRECATION")
+private val closeSystemDialogs = Intent.ACTION_CLOSE_SYSTEM_DIALOGS
 
 class MainActivity : FragmentActivity() {
     private var credentialRequestCode: Int? = null
@@ -34,13 +38,13 @@ class MainActivity : FragmentActivity() {
     private val backgroundReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             // Credential confirmation stops our Activity too. Home/Recents/screen-off still invalidate it.
-            if (intent.action == Intent.ACTION_SCREEN_OFF || intent.action == Intent.ACTION_CLOSE_SYSTEM_DIALOGS) {
+            if (intent.action == Intent.ACTION_SCREEN_OFF || intent.action == closeSystemDialogs) {
                 invalidateLock()
             }
         }
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
         if (Build.VERSION.SDK_INT < 29 && intent.action == "android.app.action.CONFIRM_DEVICE_CREDENTIAL") {
             credentialRequestCode = requestCode
@@ -102,7 +106,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         links.receive(intent, savedInstanceState)
         if (Build.VERSION.SDK_INT < 29) ContextCompat.registerReceiver(this, backgroundReceiver,
-            IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS) },
+            IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(closeSystemDialogs) },
             ContextCompat.RECEIVER_EXPORTED)
         enableEdgeToEdge()
         lifecycleScope.launch {
@@ -115,7 +119,11 @@ class MainActivity : FragmentActivity() {
             val recurring = withContext(Dispatchers.IO) { com.noahwallet.recurring.RecurringRuntime.shared(this@MainActivity) }
             lifecycle.addObserver(recurring.syncForegroundAdmission)
             lifecycle.addObserver(recurring.foregroundRunner { current.refresh() })
-            setContent { com.noahwallet.localization.LocalizedContent(current.localeIdentifier) { NoahTheme { Box(Modifier.semantics { testTagsAsResourceId = true }) { LaunchGateView(current) } } } }
+            setContent {
+                com.noahwallet.localization.LocalizedContent(current.localeIdentifier) {
+                    NoahTheme { Box(Modifier.semantics { testTagsAsResourceId = true }) { LaunchGateView(current) } }
+                }
+            }
         }
     }
 }

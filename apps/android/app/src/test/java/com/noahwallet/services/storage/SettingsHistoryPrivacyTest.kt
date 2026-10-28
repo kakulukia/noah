@@ -5,17 +5,17 @@ import android.content.ContextWrapper
 import com.noahwallet.services.logging.EndpointLogPrivacy
 import com.noahwallet.services.logging.LogFile
 import com.noahwallet.services.logging.SafeErrorDescription
-import io.github.niteshbalusu11.bark.BarkError
 import com.noahwallet.services.wallet.EsploraSettings
-import java.io.File
-import java.nio.file.Files
-import java.util.concurrent.Executor
+import io.github.niteshbalusu11.bark.BarkError
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import java.io.File
+import java.nio.file.Files
+import java.util.concurrent.Executor
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class)
@@ -30,7 +30,8 @@ class SettingsHistoryPrivacyTest {
         try {
             val file = NativeSettingsFile(File(context.noBackupFilesDir, "settings.native.json"), sync = {})
             // Previous-process history: never register it in this process.
-            file.save(NativeSettingsFile.State(mapOf(EsploraSettings.key to """{"active":{"variant":"signet"},"logEndpoints":["https://fakeR4LostHistory.example/retiredFakeR4"]}""")))
+            file.save(NativeSettingsFile.State(mapOf(EsploraSettings.key to """{"active":{"variant":"signet"},""" +
+                """"logEndpoints":["https://fakeR4LostHistory.example/retiredFakeR4"]}""")))
             file.file.writeText(file.file.readText().replace("retiredFakeR4", "damagedFakeR4"))
             val logs = File(root, "logs").apply { mkdirs() }
             File(logs, "noah.log.1").writeText("HTTP failure https://fakeR4LostHistory.example/retiredFakeR4")

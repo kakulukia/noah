@@ -7,8 +7,9 @@ struct SendPreparedTransaction: Codable, Equatable, Sendable {
     var txid: String
     var vsize: UInt64
     var inputCount: Int
+    // swiftlint:disable:next discouraged_optional_collection - journals written before inputs were recorded lack it
     var inputs: [SendTransaction.Input]?
-    var createdAt: Date = Date()
+    var createdAt: Date = .init()
     /// When this review opened on `ReviewClock`. Never persisted, so nil once read back from storage.
     var reviewedAt: ContinuousClock.Instant?
     static let reviewLifetime: TimeInterval = 120

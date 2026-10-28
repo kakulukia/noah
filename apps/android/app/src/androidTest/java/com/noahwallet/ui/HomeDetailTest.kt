@@ -4,7 +4,7 @@ import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.noahwallet.history.HistoryTransaction
 import com.noahwallet.ui.activity.*
@@ -63,7 +63,8 @@ class HomeDetailTest {
             compose.onNodeWithTag("activity-detail-status", useUnmergedTree = true).assert(hasAnyDescendant(hasText(case.status)))
             case.shows?.let { compose.onNodeWithText(it, substring = true, useUnmergedTree = true).assertExists() }
             // × closes the sheet; the last payment closes with Back instead.
-            if (i < cases.lastIndex) compose.onNodeWithTag("activity-detail-close").performClick() else InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+            if (i < cases.lastIndex) compose.onNodeWithTag("activity-detail-close").performClick()
+            else InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
             settle()
             compose.onAllNodesWithTag("activity-detail").assertCountEquals(0)
             assertNull(state.selected)

@@ -1,10 +1,9 @@
 import Foundation
 import HTTPTypes
+@testable import Noah
 import OpenAPIRuntime
 import Testing
 import UserNotifications
-
-@testable import Noah
 
 struct PushJobsTests {
     final class Recorder: @unchecked Sendable {
@@ -100,16 +99,16 @@ struct PushJobsTests {
         var dependencies = jobs(recorder).dependencies
         dependencies.refreshWidget = {
             let balance = WalletBalance(ark: .init(spendable: 1234, needsRefresh: 0, pendingLightningSend: 0,
-                claimableLightningReceive: 0, pendingInRound: 0, pendingExit: 0, pendingBoard: 0,
-                pendingArkoorSend: 0, pendingOffboard: 0), onchain: .init(confirmed: 0, pending: 0, total: 0))
+                                                   claimableLightningReceive: 0, pendingInRound: 0, pendingExit: 0, pendingBoard: 0,
+                                                   pendingArkoorSend: 0, pendingOffboard: 0), onchain: .init(confirmed: 0, pending: 0, total: 0))
             WidgetDataWriter.write(balance: balance, closestExpiryBlocks: 123, variant: .regtest)
             recorder.add("widget")
         }
         try await PushJobs(dependencies: dependencies).handle(decode(#"{"notification_type":"recurring_payment_due","due_count":1}"#))
         #expect(recorder.all == ["open", "recurring", "widget"])
         try await center.add(UNNotificationRequest(identifier: "system-lightning",
-            content: PushJobs.receivedContent(sats: 1234, usd: "1.23", unit: .sats),
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: 20, repeats: false)))
+                                                   content: PushJobs.receivedContent(sats: 1234, usd: "1.23", unit: .sats),
+                                                   trigger: UNTimeIntervalNotificationTrigger(timeInterval: 20, repeats: false)))
     }
 
     @Test func maintenanceReportsAndRefreshesTheWidget() async throws {
@@ -260,7 +259,7 @@ struct PushJobsTests {
 
     actor ReportTransport: ClientTransport {
         var operations: [String] = []
-        func send(_ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String) async throws -> (HTTPResponse, HTTPBody?) {
+        func send(_: HTTPRequest, body _: HTTPBody?, baseURL _: URL, operationID: String) -> (HTTPResponse, HTTPBody?) {
             operations.append(operationID)
             return (.init(status: .ok), HTTPBody(#"{"success":true}"#))
         }
@@ -272,8 +271,12 @@ struct PushJobsTests {
         let fake = ServerAuthTests.Fake(nextToken: ServerAuthTests.token(expiresIn: 72 * 3600, now: now))
         fake.holdLogin = true
         let transport = ReportTransport()
-        let client = Client(serverURL: URL(string: "https://noah.invalid")!, transport: transport,
-            middlewares: [ServerFailureMiddleware(), BearerAuthMiddleware(tokens: AuthTokenProvider(dependencies: fake.dependencies(now: now)))])
+        let serverURL = try #require(URL(string: "https://noah.invalid"))
+        let client = Client(serverURL: serverURL, transport: transport,
+                            middlewares: [
+                                ServerFailureMiddleware(),
+                                BearerAuthMiddleware(tokens: AuthTokenProvider(dependencies: fake.dependencies(now: now))),
+                            ])
         var dependencies = jobs(recorder).dependencies
         // The live report: the bearer middleware has to log in first.
         dependencies.reportJob = { _, _, k1 in

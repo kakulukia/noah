@@ -8,17 +8,24 @@ import io.sentry.protocol.Mechanism
 import io.sentry.protocol.SentryException
 import io.sentry.transport.ITransport
 import io.sentry.util.HintUtils
+import kotlinx.serialization.json.*
+import org.junit.Assert.*
+import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.StringReader
 import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import kotlinx.serialization.json.*
-import org.junit.Assert.*
-import org.junit.Test
 
 class TelemetryTransportTest {
     private val serializer = JsonSerializer(SentryOptions.empty())
+    // Sentry's only way to start a scope session; its result type, Scope.SessionPair, is package-private and unused here.
+    @Suppress("INFERRED_INVISIBLE_RETURN_TYPE_WARNING")
+    private fun startedScope(options: SentryOptions): Scope {
+        val scope = Scope(options)
+        scope.startSession()
+        return scope
+    }
     private fun options() = requireNotNull(AppTelemetry.options(AppTelemetry.Variant.mainnet, false,
         "https://public@example.invalid/1", "com.noahwallet.mainnet", "0.2.0", 100))
 
@@ -46,12 +53,14 @@ class TelemetryTransportTest {
             val input = Json.parseToJsonElement(payload).jsonObject.toMutableMap().apply {
                 put("sid", JsonPrimitive(id)); put("did", JsonPrimitive(id))
             }
-            assertNotNull(id, TelemetryTransport.filter(SentryEnvelope(SentryEnvelopeHeader(), listOf(item(SentryItemType.Session, JsonObject(input).toString())))))
+            assertNotNull(id, TelemetryTransport.filter(SentryEnvelope(SentryEnvelopeHeader(),
+                listOf(item(SentryItemType.Session, JsonObject(input).toString())))))
         }
         for (id in listOf("", "1-1-1-1-1", "g".repeat(32), "a".repeat(31), "a".repeat(33), "alice@example.com", "60e12f74-8d9b47cb-a162-903fa0b155a1")) {
             for (key in listOf("sid", "did")) {
                 val input = Json.parseToJsonElement(payload).jsonObject.toMutableMap().apply { put(key, JsonPrimitive(id)) }
-                assertNull("$key=$id", TelemetryTransport.filter(SentryEnvelope(SentryEnvelopeHeader(), listOf(item(SentryItemType.Session, JsonObject(input).toString())))))
+                assertNull("$key=$id", TelemetryTransport.filter(SentryEnvelope(SentryEnvelopeHeader(),
+                    listOf(item(SentryItemType.Session, JsonObject(input).toString())))))
             }
         }
     }
@@ -80,7 +89,7 @@ class TelemetryTransportTest {
         options.setTransportFactory { configured, _ -> TelemetryTransport(received, configured) }
         val client = SentryClient(options)
         try {
-            val scope = Scope(options).apply { startSession() }
+            val scope = startedScope(options)
             val event = failure(mechanism, handled)
             client.captureEvent(event, scope, Hint())
             val envelope = received.envelopes.single()
@@ -100,7 +109,7 @@ class TelemetryTransportTest {
             options.setTransportFactory { _, _ -> captured }
             val client = SentryClient(options)
             try {
-                client.captureEvent(failure("UncaughtExceptionHandler", false), Scope(options).apply { startSession() }, Hint())
+                client.captureEvent(failure("UncaughtExceptionHandler", false), startedScope(options), Hint())
             } finally { client.close() }
             val cached = cache.resolve("crash.envelope")
             cached.outputStream().use { serializer.serialize(captured.envelopes.single(), it) }
@@ -132,46 +141,48 @@ class TelemetryTransportTest {
     }
 
     @Test fun nativeOutboxReplayKeepsOnlyAllowlistedSignalThreadAndFrameFields() {
-        for (signal in listOf("SIGSEGV", "SIGABRT")) for (attachmentFirst in listOf(false, true)) {
-            val outbox = Files.createTempDirectory("noah-native-outbox").toFile()
-            val options = options()
-            val received = RecordingTransport()
-            var hookCalls = 0
-            val hook = requireNotNull(options.beforeSend)
-            options.setBeforeSend { event, hint -> hookCalls++; hook.execute(event, hint) }
-            options.setTransportFactory { configured, _ -> TelemetryTransport(received, configured) }
-            val client = SentryClient(options)
-            try {
-                val event = nativeEvent().apply { exceptions!!.single().type = signal }
-                val attachment = item(SentryItemType.Attachment, "synthetic-sensitive-minidump")
-                val cached = outbox.resolve("native-crash")
-                val eventItem = SentryEnvelopeItem.fromEvent(serializer, event)
-                cached.outputStream().use { serializer.serialize(SentryEnvelope(SentryEnvelopeHeader(event.eventId),
-                    if (attachmentFirst) listOf(attachment, eventItem) else listOf(eventItem, attachment)), it) }
-                val scopes = Scopes(Scope(options).apply { bindClient(client) }, Scope(options), Scope(options), "native-test")
-                OutboxSender(scopes, options.envelopeReader, serializer, NoOpLogger.getInstance(), 100, 10).processDirectory(outbox)
-                assertEquals(1, hookCalls)
-                val envelope = received.envelopes.single()
-                assertEquals(listOf(SentryItemType.Event), envelope.items.map { it.header.type })
-                val clean = requireNotNull(envelope.items.single().getEvent(serializer))
-                assertEquals("native", clean.platform)
-                assertEquals(signal, clean.exceptions!!.single().type)
-                assertEquals("worker", clean.threads!!.single().name)
-                val payload = AppTelemetry.json(clean)
-                val exception = payload["exception"]!!.jsonObject["values"]!!.jsonArray.single().jsonObject
-                assertEquals(setOf("type", "value", "thread_id", "stacktrace", "mechanism"), exception.keys)
-                assertEquals(setOf("type", "handled", "synthetic"), exception["mechanism"]!!.jsonObject.keys)
-                for (trace in listOf(clean.exceptions!!.single().stacktrace!!, clean.threads!!.single().stacktrace!!)) {
-                    assertNull(trace.registers)
-                    val frame = trace.frames!!.single()
-                    assertEquals("libbark_bolt_ffi.so", frame.module)
-                    assertEquals(setOf("function", "module", "filename", "lineno"), AppTelemetry.json(frame).keys)
-                }
-                assertNull(clean.debugMeta); assertNull(clean.extras); assertNull(clean.user); assertNull(clean.request)
-                assertFalse(payload.toString().contains("synthetic-sensitive"))
-                assertFalse(payload.toString().contains("0x1234"))
-            } finally { client.close(); outbox.deleteRecursively() }
-        }
+        for (signal in listOf("SIGSEGV", "SIGABRT")) for (attachmentFirst in listOf(false, true)) replayNative(signal, attachmentFirst)
+    }
+
+    private fun replayNative(signal: String, attachmentFirst: Boolean) {
+        val outbox = Files.createTempDirectory("noah-native-outbox").toFile()
+        val options = options()
+        val received = RecordingTransport()
+        var hookCalls = 0
+        val hook = requireNotNull(options.beforeSend)
+        options.setBeforeSend { event, hint -> hookCalls++; hook.execute(event, hint) }
+        options.setTransportFactory { configured, _ -> TelemetryTransport(received, configured) }
+        val client = SentryClient(options)
+        try {
+            val event = nativeEvent().apply { exceptions!!.single().type = signal }
+            val attachment = item(SentryItemType.Attachment, "synthetic-sensitive-minidump")
+            val cached = outbox.resolve("native-crash")
+            val eventItem = SentryEnvelopeItem.fromEvent(serializer, event)
+            cached.outputStream().use { serializer.serialize(SentryEnvelope(SentryEnvelopeHeader(event.eventId),
+                if (attachmentFirst) listOf(attachment, eventItem) else listOf(eventItem, attachment)), it) }
+            val scopes = Scopes(Scope(options).apply { bindClient(client) }, Scope(options), Scope(options), "native-test")
+            OutboxSender(scopes, options.envelopeReader, serializer, NoOpLogger.getInstance(), 100, 10).processDirectory(outbox)
+            assertEquals(1, hookCalls)
+            val envelope = received.envelopes.single()
+            assertEquals(listOf(SentryItemType.Event), envelope.items.map { it.header.type })
+            val clean = requireNotNull(envelope.items.single().getEvent(serializer))
+            assertEquals("native", clean.platform)
+            assertEquals(signal, clean.exceptions!!.single().type)
+            assertEquals("worker", clean.threads!!.single().name)
+            val payload = AppTelemetry.json(clean)
+            val exception = payload["exception"]!!.jsonObject["values"]!!.jsonArray.single().jsonObject
+            assertEquals(setOf("type", "value", "thread_id", "stacktrace", "mechanism"), exception.keys)
+            assertEquals(setOf("type", "handled", "synthetic"), exception["mechanism"]!!.jsonObject.keys)
+            for (trace in listOf(clean.exceptions!!.single().stacktrace!!, clean.threads!!.single().stacktrace!!)) {
+                assertNull(trace.registers)
+                val frame = trace.frames!!.single()
+                assertEquals("libbark_bolt_ffi.so", frame.module)
+                assertEquals(setOf("function", "module", "filename", "lineno"), AppTelemetry.json(frame).keys)
+            }
+            assertNull(clean.debugMeta); assertNull(clean.extras); assertNull(clean.user); assertNull(clean.request)
+            assertFalse(payload.toString().contains("synthetic-sensitive"))
+            assertFalse(payload.toString().contains("0x1234"))
+        } finally { client.close(); outbox.deleteRecursively() }
     }
 
     @Test fun nativeSecretBearingThreadNamesRejectTheWholeEventAtBothGates() {
@@ -182,7 +193,8 @@ class TelemetryTransportTest {
         }
     }
 
-    @Test(timeout = 2000) fun droppedCachedEnvelopeCompletesSubmissionAndDisablesRetry() {
+    @Test(timeout = 2000)
+    fun droppedCachedEnvelopeCompletesSubmissionAndDisablesRetry() {
         val callback = object : Cached, SubmissionResult, Retryable, Flushable {
             val submitted = CountDownLatch(1)
             var succeeded = false
@@ -201,7 +213,8 @@ class TelemetryTransportTest {
         assertFalse(callback.isRetry())
     }
 
-    @Test(timeout = 2000) fun droppedCrashEnvelopeCompletesSDKDiskFlushHint() {
+    @Test(timeout = 2000)
+    fun droppedCrashEnvelopeCompletesSDKDiskFlushHint() {
         val event = failure("UncaughtExceptionHandler", false).apply { release = "preimage=fake-token" }
         val callback = UncaughtExceptionHandlerIntegration.UncaughtExceptionHint(15_000, NoOpLogger.getInstance())
         callback.setFlushable(event.eventId!!)
@@ -210,7 +223,8 @@ class TelemetryTransportTest {
         assertTrue(callback.waitFlush())
     }
 
-    @Test(timeout = 2000) fun rejectedCacheBatchDoesNotWaitForSDKDefaultTimeoutOrReachDelegate() {
+    @Test(timeout = 2000)
+    fun rejectedCacheBatchDoesNotWaitForSDKDefaultTimeoutOrReachDelegate() {
         val cache = Files.createTempDirectory("noah-rejected-cache").toFile()
         val options = options()
         val received = RecordingTransport()
@@ -282,9 +296,9 @@ class TelemetryTransportTest {
             envelopes += envelope
             HintUtils.runIfHasType(hint, SubmissionResult::class.java) { it.setResult(true) }
         }
-        override fun flush(timeoutMillis: Long) {}
-        override fun close() {}
-        override fun close(isRestarting: Boolean) {}
+        override fun flush(timeoutMillis: Long) = Unit
+        override fun close() = Unit
+        override fun close(isRestarting: Boolean) = Unit
         override fun getRateLimiter(): io.sentry.transport.RateLimiter? = null
     }
 }

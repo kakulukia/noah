@@ -344,7 +344,7 @@ struct ReceiveView: View {
         tilt += 1
     }
 
-    private func copy(_ format: ReceiveFormat, _ value: String) {
+    private func copy(_: ReceiveFormat, _ value: String) {
         UIPasteboard.general.string = value
         haptics.play(.success)
         UIAccessibility.post(notification: .announcement, argument: L10n.text("Copied", locale: locale.identifier))
@@ -435,8 +435,10 @@ struct ReceiveView: View {
     /// its confirmation, or to the replacement that took its place.
     private func watchChain() async {
         guard let address = chainKey else { return }
-        let read: (String, Bool) async throws -> ReceiveChainSnapshot = fixture?.chain.map { chain in { address, _ in try await chain(address) } }
-            ?? { try await WalletSession.shared.receiveChainSnapshot(address: $0, baseline: $1) }
+        let read: (String, Bool) async throws -> ReceiveChainSnapshot
+        if let chain = fixture?.chain { read = { address, _ in try await chain(address) } }
+        else { read = { try await WalletSession.shared.receiveChainSnapshot(address: $0, baseline: $1) } }
+        // swiftlint:disable:next discouraged_optional_collection - nil until the first chain read
         var known: Set<String>?
         while !Task.isCancelled {
             if let snapshot = try? await read(address, known == nil), !Task.isCancelled {
@@ -479,7 +481,7 @@ struct ReceiveQRCode: View {
         if let image = Self.image(uri: uri) {
             Image(uiImage: image).interpolation(.none).resizable().scaledToFit()
                 .overlay {
-                    Image("ReceiveLogo").resizable().scaledToFit()
+                    Image(.receiveLogo).resizable().scaledToFit()
                         .frame(width: 36, height: 36).padding(4)
                         .background(.white, in: RoundedRectangle(cornerRadius: 10))
                 }
@@ -496,7 +498,7 @@ struct ReceiveQRCode: View {
         filter.correctionLevel = #"H"#
         guard let output = filter.outputImage,
               let image = CIContext().createCGImage(output.transformed(by: .init(scaleX: 6, y: 6)),
-                                                   from: output.extent.applying(.init(scaleX: 6, y: 6))) else { return nil }
+                                                    from: output.extent.applying(.init(scaleX: 6, y: 6))) else { return nil }
         return UIImage(cgImage: image)
     }
 }

@@ -5,10 +5,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.noahwallet.ui.loadAppModel
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -17,11 +13,15 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.noahwallet.ui.NoahTheme
 import com.noahwallet.ui.ParityPreviewActivity
-import java.io.File
+import com.noahwallet.ui.loadAppModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /** Only public read-only fixture fields; no seed or wallet operations. */
 @RunWith(AndroidJUnit4::class)
@@ -46,7 +46,8 @@ class WalletParityDeviceTest {
                 fun contains(node: android.view.accessibility.AccessibilityNodeInfo?, text: String): Boolean = node != null &&
                     (node.text?.toString()?.contains(text) == true || (0 until node.childCount).any { contains(node.getChild(it), text) })
                 val deadline = System.currentTimeMillis() + 10_000
-                while (!contains(instrumentation.uiAutomation.rootInActiveWindow, "Fees and amount to receive are unknown") && System.currentTimeMillis() < deadline) Thread.sleep(100)
+                while (!contains(instrumentation.uiAutomation.rootInActiveWindow, "Fees and amount to receive are unknown") &&
+                    System.currentTimeMillis() < deadline) Thread.sleep(100)
                 File(instrumentation.targetContext.getExternalFilesDir(null), "exit-fallback-${action.name}.png").outputStream().use {
                     checkNotNull(instrumentation.uiAutomation.takeScreenshot()).compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
@@ -58,5 +59,4 @@ class WalletParityDeviceTest {
             }
         }
     }
-
 }

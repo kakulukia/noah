@@ -1,11 +1,11 @@
 package com.noahwallet.recurring
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 class RecurringProtectedReadRaceTest {
     @Test fun periodicProtectedReadCannotPoisonReplacementAuthority() = race(false)
@@ -58,7 +58,8 @@ class RecurringProtectedReadRaceTest {
                 ensureOpen = { error("Read paths must not open the wallet") },
                 binding = { bindings++; w.binding }, allowed = {}, quote = { error("unused") }, automationGeneration = { null },
                 withWalletMutation = { work -> entered.complete(Unit); gate.withLock { work() } }), this)
-            val read = async { if (reminder) assertNull(reader.reminderSchedule(schedule.id, schedule.nextRunAt!!)) else assertFalse(reader.hasDuePayments(w.now)) }
+            val read = async { if (reminder)
+                assertNull(reader.reminderSchedule(schedule.id, schedule.nextRunAt!!)) else assertFalse(reader.hasDuePayments(w.now)) }
             withTimeout(5000) { entered.await() }
             assertEquals(0, bindings)
             w.policyDirectory.deleteRecursively()
@@ -86,5 +87,4 @@ class RecurringProtectedReadRaceTest {
             assertNull(reader.error)
         } finally { w.policyDirectory.parentFile!!.deleteRecursively() }
     }
-
 }

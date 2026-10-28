@@ -17,14 +17,20 @@ class PushNotificationsTest {
         org.robolectric.Shadows.shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
     }
     // Only the receipt's sound differs before notification channels (API 26).
-    @Test @Config(sdk = [25, 35]) fun receiptHasSoundLocalizedAmountAndAnAppTapDestination() {
+    @Test
+    @Config(sdk = [25, 35])
+    fun receiptHasSoundLocalizedAmountAndAnAppTapDestination() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("gt_store", Context.MODE_PRIVATE).edit()
             .putString(com.noahwallet.services.storage.LegacyLocale.key, "es").commit()
         PushNotifications.received(context, 1234, "1.23", "presentation-test")
         val posted = context.getSystemService(NotificationManager::class.java).activeNotifications.single().notification
-        if (android.os.Build.VERSION.SDK_INT < 26) assertTrue(posted.defaults and Notification.DEFAULT_SOUND != 0)
-        else assertNotNull(context.getSystemService(NotificationManager::class.java).getNotificationChannel(posted.channelId).sound)
+        if (android.os.Build.VERSION.SDK_INT < 26) {
+            // Before channels (API 26) a notification's sound is in its deprecated defaults.
+            @Suppress("DEPRECATION")
+            val defaults = posted.defaults
+            assertTrue(defaults and Notification.DEFAULT_SOUND != 0)
+        } else assertNotNull(context.getSystemService(NotificationManager::class.java).getNotificationChannel(posted.channelId).sound)
         assertTrue(posted.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("Has recibido"))
         assertTrue(posted.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("US$1.23"))
         assertNotNull(posted.contentIntent)

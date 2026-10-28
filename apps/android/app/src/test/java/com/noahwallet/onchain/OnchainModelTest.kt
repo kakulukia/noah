@@ -11,8 +11,15 @@ class OnchainModelTest {
             var estimates = 0; var submits = 0
             val deps = Fake().dependencies()
             val model = OnchainModel(OnchainModel.Dependencies(deps.ready, deps.overview,
-                { a, ids, _, destination -> estimates++; throw ExitEstimateUnavailable(OnchainQuote(a, "wallet", ids, destination, 30_000, fee = null, chainFee = null)) },
-                { assertTrue(it.hasUnknownFeeConsent); submits++; "submitted" }, deps.attempts, deps.acknowledge, deps.check, deps.override, deps.detail, deps.refreshReceipts))
+                { a, ids, _, destination ->
+                    estimates++
+                    throw ExitEstimateUnavailable(OnchainQuote(a, "wallet", ids, destination, 30_000, fee = null, chainFee = null))
+                },
+                {
+                    assertTrue(it.hasUnknownFeeConsent)
+                    submits++
+                    "submitted"
+                }, deps.attempts, deps.acknowledge, deps.check, deps.override, deps.detail, deps.refreshReceipts))
             model.review(action, listOf("a"), destination = "address")
             assertNotNull(model.estimateFallback); assertNull(model.quote)
             model.confirm(); model.load(); assertEquals(0, submits); assertEquals(1, estimates)
@@ -61,7 +68,10 @@ class OnchainModelTest {
         for (action in listOf(OnchainAction.startExit, OnchainAction.claim)) {
             var refuseAtSubmit = false
             val model = OnchainModel(OnchainModel.Dependencies({ true }, { error("offline") },
-                { a, ids, _, destination -> if (!refuseAtSubmit) throw ExitNotPossible("a", "Swept"); OnchainQuote(a, "wallet", ids, destination, 30_000, fee = 262, chainFee = 0) },
+                { a, ids, _, destination ->
+                    if (!refuseAtSubmit) throw ExitNotPossible("a", "Swept")
+                    OnchainQuote(a, "wallet", ids, destination, 30_000, fee = 262, chainFee = 0)
+                },
                 { throw ExitNotPossible(null, "This VTXO can't be exited.") }, { emptyList() }, {}, { false }, {}, { null }, {}))
             model.review(action, listOf("a"), destination = "address")
             assertEquals("Swept", model.error); assertNull(model.estimateFallback); assertNull(model.quote)
@@ -76,7 +86,10 @@ class OnchainModelTest {
         var saved = listOf(uncertain)
         var proven = false
         val model = OnchainModel(OnchainModel.Dependencies({ true }, { error("offline") }, { _, _, _, _ -> error("unused") }, { "unused" },
-            { saved }, {}, { if (proven) saved = emptyList(); proven }, {}, { null }, {}))
+            { saved }, {}, {
+                if (proven) saved = emptyList()
+                proven
+            }, {}, { null }, {}))
         model.checkStatus(uncertain.id)
         assertEquals("Status remains uncertain. Noah checks again automatically as your wallet syncs.", model.message)
         proven = true
@@ -95,7 +108,8 @@ class OnchainModelTest {
         for (action in listOf(OnchainAction.startExit, OnchainAction.claim)) {
             val original = OnchainQuote(action, "wallet", listOf("a"), amount = 30_000, createdAt = System.currentTimeMillis() - 29_000)
             val model = OnchainModel(OnchainModel.Dependencies({ true }, { error("offline") }, { _, _, _, _ -> original },
-                { throw ExitEstimateUnavailable(original.copy(id = "fresh", createdAt = System.currentTimeMillis(), fee = null, chainFee = null, feeRate = null)) },
+                { throw ExitEstimateUnavailable(original.copy(id = "fresh", createdAt = System.currentTimeMillis(), fee = null,
+                    chainFee = null, feeRate = null)) },
                 { emptyList() }, {}, { false }, {}, { null }, {}))
             model.review(action, original.ids); model.confirm()
             assertEquals(original.id, model.estimateFallback!!.id)
@@ -177,9 +191,19 @@ class OnchainModelTest {
         val overview = OnchainOverview("wallet", emptyList(), emptyList(), 100_000, 100, 0, null)
         fun dependencies() = OnchainModel.Dependencies(
             { ready }, { overviewReads++; overviewGate?.await(); overview }, { action, ids, amount, destination ->
-                entered?.complete(Unit); gate?.await(); if (failPreparation) fail(OnchainFailure.notSynced); OnchainQuote(action, "wallet", ids, destination, amount)
+                entered?.complete(Unit)
+                gate?.await()
+                if (failPreparation) fail(OnchainFailure.notSynced)
+                OnchainQuote(action, "wallet", ids, destination, amount)
             }, { calls++; "submitted" }, { attempts }, { id -> attempts = attempts.filter { it.id != id } },
-            { checks++; if (failStatusRead) error("transport"); false }, {}, { id -> detailCalls++; ExitModel(id, 1, "Canceled", ExitDetails(), listOf("Start", "Canceled"), emptyList()) }, { receiptRefreshes++ }, settle = { settle() }, discard = { discarded.add(it) }, coin = { coin(it) })
+            {
+                checks++
+                if (failStatusRead) error("transport")
+                false
+            }, {}, { id ->
+                detailCalls++
+                ExitModel(id, 1, "Canceled", ExitDetails(), listOf("Start", "Canceled"), emptyList())
+            }, { receiptRefreshes++ }, settle = { settle() }, discard = { discarded.add(it) }, coin = { coin(it) })
     }
     /**
      * exit-v2-notes.md, Approved item 4: Back to the Emergency exit page shows the newest read since your last cancel, claim or
@@ -292,7 +316,13 @@ class OnchainModelTest {
         bump(); assertEquals(2, m.revision); assertNotNull(m.quote)
         watching.cancel()
     }
-    private suspend fun until(condition: () -> Boolean) { repeat(100) { if (condition()) return; yield() }; fail("never happened") }
+    private suspend fun until(condition: () -> Boolean) {
+        repeat(100) {
+            if (condition()) return
+            yield()
+        }
+        fail("never happened")
+    }
     @Test fun aChangeDuringThePagesFirstReadReadsAgain() = runBlocking {
         val f = Fake().apply { overviewGate = CompletableDeferred() }
         val m = OnchainModel(f.dependencies())
@@ -342,7 +372,8 @@ class OnchainModelTest {
     }
     @Test fun loadReconcilesRetainedOriginalsAndNeverAutomaticallySubmits() = runBlocking {
         val f = Fake()
-        f.attempts = listOf(OnchainOperationJournal.Attempt(OnchainQuote(OnchainAction.board, "wallet"), overrideAudit = OnchainOperationJournal.OverrideAudit(1)))
+        f.attempts = listOf(OnchainOperationJournal.Attempt(OnchainQuote(OnchainAction.board, "wallet"),
+            overrideAudit = OnchainOperationJournal.OverrideAudit(1)))
         val m = OnchainModel(f.dependencies())
         repeat(3) { m.load() }
         assertEquals(3, f.checks); assertEquals(3, f.receiptRefreshes); assertEquals(0, f.calls)
@@ -353,7 +384,8 @@ class OnchainModelTest {
         val f = Fake().apply {
             failStatusRead = true
             attempts = listOf(OnchainOperationJournal.Attempt(OnchainQuote(OnchainAction.board, "wallet"),
-                OnchainReceipt("Submitted", "tx", chainStatus = com.noahwallet.services.wallet.ChainStatus(com.noahwallet.services.wallet.ChainStatus.Kind.inMempool))))
+                OnchainReceipt("Submitted", "tx",
+                    chainStatus = com.noahwallet.services.wallet.ChainStatus(com.noahwallet.services.wallet.ChainStatus.Kind.inMempool))))
         }
         val m = OnchainModel(f.dependencies()); m.load()
         assertEquals(com.noahwallet.services.wallet.ChainStatus.errorText, m.error)
@@ -362,7 +394,8 @@ class OnchainModelTest {
     @Test fun directTerminalDetailWorksWithEmptyOverviewAndAcknowledgementStaysHidden() = runBlocking {
         val f = Fake(); val m = OnchainModel(f.dependencies(), "terminal")
         m.load(); assertEquals("Canceled", m.exit!!.state); assertEquals(1, f.detailCalls)
-        f.attempts = listOf(OnchainOperationJournal.Attempt(OnchainQuote(OnchainAction.board, "wallet"), OnchainReceipt("late"), overrideAudit = OnchainOperationJournal.OverrideAudit(1, acknowledgedAt = 2)))
+        f.attempts = listOf(OnchainOperationJournal.Attempt(OnchainQuote(OnchainAction.board, "wallet"), OnchainReceipt("late"),
+            overrideAudit = OnchainOperationJournal.OverrideAudit(1, acknowledgedAt = 2)))
         m.load(); assertTrue(m.attempts.isEmpty())
         m.review(OnchainAction.claim, listOf("different"), destination = "address"); assertNotNull(m.quote)
         assertTrue(m.attempts.isEmpty())
@@ -372,10 +405,13 @@ class OnchainModelTest {
         m.review(OnchainAction.board, amount = 30_000); assertEquals(0, f.calls)
         m.confirm(); m.confirm(); m.load(); assertEquals(1, f.calls)
     }
-    @Test fun automaticPromptHonorsToggleAttemptReadinessAndBlocking() {
-        for (enabled in listOf(false, true)) for (attempted in listOf(false, true)) for (ready in listOf(false, true)) for (blocking in listOf(false, true)) {
+    private fun assertPrompt(enabled: Boolean, attempted: Boolean, ready: Boolean) {
+        for (blocking in listOf(false, true)) {
             assertEquals(enabled && attempted && ready && !blocking, AutoBoardRules.shouldPrompt(enabled, attempted, ready, 100_000, blocking))
         }
+    }
+    @Test fun automaticPromptHonorsToggleAttemptReadinessAndBlocking() {
+        for (enabled in listOf(false, true)) for (attempted in listOf(false, true)) for (ready in listOf(false, true)) assertPrompt(enabled, attempted, ready)
         assertFalse(AutoBoardRules.shouldPrompt(true, true, true, 19_999, false))
     }
     @Test fun fundingDecisionsMatchSharedFixture() {
@@ -429,7 +465,9 @@ class OnchainModelTest {
             val normalStore = AutoBoardFunding({ null }, { error("Must not consume") })
             val review = AutoBoardReview(if (stopAt == "quote") normalStore else store)
             val quote = review.prepare({ allowed }, {
-                reads++; if (stopAt == "funding") allowed = false; funding
+                reads++
+                if (stopAt == "funding") allowed = false
+                funding
             }, {
                 preparations++; allowed = false; OnchainQuote(OnchainAction.board, "wallet")
             }, { discards++ })
@@ -466,13 +504,18 @@ class OnchainModelTest {
         assertTrue(start.contains("in the background when the system lets it")); assertTrue(start.contains("paying fees from your onchain balance"))
         assertFalse(reviewExplanation(OnchainQuote(OnchainAction.startExit, "wallet", fee = null, chainFee = null)).contains("estimates"))
         assertTrue(start.contains("estimates")); assertTrue(start.contains("final exit transaction is broadcast"))
-        assertTrue(reviewExplanation(OnchainQuote(OnchainAction.progress, "wallet")).startsWith("This may broadcast or fee-bump Bitcoin transactions required by the emergency exit process."))
+        assertTrue(reviewExplanation(OnchainQuote(OnchainAction.progress,
+            "wallet")).startsWith("This may broadcast or fee-bump Bitcoin transactions required by the emergency exit process."))
     }
     @Test fun backgroundCounterCountsOverlapsAndDrainsOnFailure() = runBlocking {
         val first = CompletableDeferred<Unit>(); val second = CompletableDeferred<Unit>()
         val entered1 = CompletableDeferred<Unit>(); val entered2 = CompletableDeferred<Unit>()
         val a = launch { com.noahwallet.services.wallet.WalletBackgroundActivity.during { entered1.complete(Unit); first.await() } }
-        val b = launch { runCatching { com.noahwallet.services.wallet.WalletBackgroundActivity.during { entered2.complete(Unit); second.await(); error("failed push") } } }
+        val b = launch { runCatching { com.noahwallet.services.wallet.WalletBackgroundActivity.during {
+            entered2.complete(Unit)
+            second.await()
+            error("failed push")
+        } } }
         entered1.await(); entered2.await(); assertTrue(com.noahwallet.services.wallet.WalletBackgroundActivity.isRunning)
         first.complete(Unit); a.join(); assertTrue(com.noahwallet.services.wallet.WalletBackgroundActivity.isRunning)
         second.complete(Unit); b.join(); assertFalse(com.noahwallet.services.wallet.WalletBackgroundActivity.isRunning)
@@ -555,5 +598,4 @@ class OnchainModelTest {
             OnchainQuote(action, "wallet", ids, destination)
         }, { f.calls++; "submitted" }, { emptyList() }, {}, { false }, {}, { null }, {},
         claimAddress = address, claimOwnership = { false })
-
 }

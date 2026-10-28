@@ -26,12 +26,12 @@ final class ServerRegistration {
         self.registrationAddress = registrationAddress
         self.mailboxAuthorization = mailboxAuthorization
         self.client = client ?? ServerClient.make(variant: variant,
-            tokens: AuthTokenProvider(dependencies: .live(variant: variant)))
+                                                  tokens: AuthTokenProvider(dependencies: .live(variant: variant)))
         state = settings.persistedState(PersistedServerState.self, key: PersistedServerState.key) ?? .init()
     }
 
     func ensureRegistered(completeServices: (@MainActor () async throws -> Void)? = nil) async throws {
-        if let registration { return try await registration.value }
+        if let registration { try await registration.value; return }
         let attempt = Task {
             if !checkedVersion {
                 do {
@@ -78,7 +78,8 @@ final class ServerRegistration {
     func reportLastLogin() async throws {
         let device = DeviceInfo.current()
         let include = state.isRegisteredWithServer == true && DeviceInfo.shouldReport(device,
-            fingerprint: state.lastReportedDeviceFingerprint, reportedAt: state.lastDeviceReportAt)
+                                                                                      fingerprint: state.lastReportedDeviceFingerprint,
+                                                                                      reportedAt: state.lastDeviceReportAt)
         _ = try await client.reportLastLogin(body: .json(.init(deviceInfo: include ? device.loginPayload : nil))).ok
         if include {
             try update {

@@ -1,8 +1,8 @@
 import Foundation
+@testable import Noah
 import SwiftUI
 import Testing
 import UIKit
-@testable import Noah
 
 /// Activity's search in the real tab shell. There, on iOS 27, the system's minimized toolbar search
 /// reopened as soon as its × closed it, so the phone uses Noah's own field instead. Closing it is
@@ -11,7 +11,7 @@ import UIKit
 struct ActivitySearchTests {
     @Test func searchIsNoahsFieldNotTheSystemSearchBar() async throws {
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let window = try #require(scene.windows.first { $0.isKeyWindow })
+        let window = try #require(scene.keyWindow)
         let original = window.rootViewController
         let root = FileManager.default.temporaryDirectory.appending(path: "activity-search-\(UUID())")
         defer {

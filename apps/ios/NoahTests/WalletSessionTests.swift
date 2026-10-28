@@ -1,9 +1,8 @@
 import BarkBoltFFI
 import Foundation
+@testable import Noah
 import SQLite3
 import Testing
-
-@testable import Noah
 
 struct WalletSessionTests {
     private let documents = FileManager.default.temporaryDirectory.appending(path: "session-\(UUID().uuidString)")
@@ -17,9 +16,9 @@ struct WalletSessionTests {
         #expect(sqlite3_open(location.database.path, &db) == SQLITE_OK)
         defer { sqlite3_close(db) }
         let sql = """
-            CREATE TABLE bark_properties (id TEXT PRIMARY KEY, network TEXT NOT NULL, fingerprint TEXT NOT NULL);
-            INSERT INTO bark_properties (id, network, fingerprint) VALUES ('1', '\(network)', 'abcd1234');
-            """
+        CREATE TABLE bark_properties (id TEXT PRIMARY KEY, network TEXT NOT NULL, fingerprint TEXT NOT NULL);
+        INSERT INTO bark_properties (id, network, fingerprint) VALUES ('1', '\(network)', 'abcd1234');
+        """
         #expect(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
     }
 
@@ -28,7 +27,12 @@ struct WalletSessionTests {
         try writeBarkProperties(network: network)
         var db: OpaquePointer?
         #expect(sqlite3_open(location.database.path, &db) == SQLITE_OK)
-        #expect(sqlite3_exec(db, "PRAGMA journal_mode=WAL; INSERT INTO bark_properties VALUES ('2', 'x', 'y'); DELETE FROM bark_properties WHERE id = '2';", nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(
+            db,
+            "PRAGMA journal_mode=WAL; INSERT INTO bark_properties VALUES ('2', 'x', 'y'); DELETE FROM bark_properties WHERE id = '2';",
+            nil,
+            nil,
+            nil) == SQLITE_OK)
         sqlite3_close(db)
         #expect(!FileManager.default.fileExists(atPath: location.database.path + "-wal"))
         #expect(!FileManager.default.fileExists(atPath: location.database.path + "-shm"))
@@ -109,7 +113,8 @@ struct WalletSessionTests {
         #expect(sqlite3_open(location.database.path, &writer) == SQLITE_OK)
         defer { sqlite3_close(writer) }
         // Committed only to the WAL while the writer stays open.
-        #expect(sqlite3_exec(writer, "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; UPDATE bark_properties SET network = 'signet';", nil, nil, nil) == SQLITE_OK)
+        #expect(sqlite3_exec(writer, "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0; UPDATE bark_properties SET network = 'signet';", nil, nil, nil) ==
+            SQLITE_OK)
         #expect(FileManager.default.fileExists(atPath: location.database.path + "-wal"))
         #expect(try WalletDatabase.properties(at: location.database).network == "signet")
     }
@@ -189,7 +194,7 @@ struct WalletSessionTests {
             let previous = EsploraSettings.Selection(variant: "signet")
             let session = offlineSession {
                 if EsploraOpening.selection == candidate {
-                    do { _ = try await URLSession.shared.data(from: URL(string: server.url)!) }
+                    do { _ = try await URLSession.shared.data(from: #require(URL(string: server.url))) }
                     catch { if !lateSuccess { throw error } }
                 }
             }
@@ -253,7 +258,7 @@ struct WalletSessionTests {
                 do {
                     do {
                         try await EsploraOpening.$selection.withValue(candidate) {
-                            try await session.reopen(reservation, mnemonic: mnemonic, appVersion: "test", commit: { try wait.commit({}) })
+                            try await session.reopen(reservation, mnemonic: mnemonic, appVersion: "test", commit: { try wait.commit {} })
                         }
                     } catch {
                         guard wait.timedOut else { throw error }
@@ -361,7 +366,7 @@ struct WalletSessionTests {
         await #expect(throws: CancellationError.self) { try await cancelled.value }
         let budget = RecurringSubmissionBudget()
         budget.revoke()
-        try await RecurringSubmissionBudget.$current.withValue(budget) {
+        await RecurringSubmissionBudget.$current.withValue(budget) {
             // Independent tasks inherit expiry, but not caller cancellation.
             await #expect(throws: CancellationError.self) {
                 try await Task { try await session.withOpenWallet { _ in true } }.value
@@ -411,12 +416,22 @@ struct WalletSessionTests {
                 ReceiveRequest(arkAddress: "unused-ark-address", onchainAddress: "unused-onchain-address"))
             let changes = try await session.stateChanges()
             let receiveReader = Task {
-                do { for try await _ in completions {} }
-                catch is CancellationError {}
+                do {
+                    for try await _ in completions {
+                        // Only waiting for the stream to end.
+                    }
+                } catch is CancellationError {
+                    // Closing cancels the wait.
+                }
             }
             let changeReader = Task {
-                do { for try await _ in changes {} }
-                catch is CancellationError {}
+                do {
+                    for try await _ in changes {
+                        // Only waiting for the stream to end.
+                    }
+                } catch is CancellationError {
+                    // Closing cancels the wait.
+                }
             }
             // Exercise pending SDK waits as well as the immediate-close registration gap.
             try await Task.sleep(for: .milliseconds(10))

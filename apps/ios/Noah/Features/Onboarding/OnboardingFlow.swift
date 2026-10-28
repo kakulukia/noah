@@ -11,7 +11,7 @@ struct OnboardingFlow: View {
         case storedSeed
 
         /// An interrupted onboarding (wallet exists, not initialized) resumes at Name.
-        static func initial(resuming: Bool, storedSeed: Bool) -> Step {
+        static func initial(resuming: Bool, storedSeed: Bool) -> Self {
             storedSeed ? .storedSeed : resuming ? .name : .welcome
         }
 
@@ -65,7 +65,7 @@ struct OnboardingFlow: View {
         _name = State(initialValue: NameAvailability(lookup: NameAvailability.liveLookup(variant: model.variant)))
         let server = model.server
         _email = State(initialValue: EmailVerification(send: { try await server.sendEmail($0) },
-                                                      verify: { try await server.verifyEmail(code: $0, email: $1) }))
+                                                       verify: { try await server.verifyEmail(code: $0, email: $1) }))
     }
 
     var body: some View {

@@ -22,7 +22,7 @@ final class OnchainModel {
         var estimate: @Sendable ([String]) async throws -> EmergencyExitFeeEstimate = { _ in throw OnchainFailure.unavailable }
         var exclusions: @Sendable () async throws -> [ExcludedExitVtxo] = { [] }
         /// Where Noah keeps when it first saw each exit transaction in its status (in memory unless given).
-        var sightings: ExitSightings.Store? = nil
+        var sightings: ExitSightings.Store?
         /// Something these pages show may have changed: the wallet committed (a round or renew, an exit step, an
         /// on-chain sync that found funds) or an on-chain operation moved. Coalesced to the latest.
         var changes: @Sendable () async -> AsyncStream<Void> = { AsyncStream { $0.finish() } }
@@ -30,7 +30,7 @@ final class OnchainModel {
         /// it's ready.
         var settle: @Sendable () async -> Bool = { false }
         /// Where every page's reads and submissions meet, so a page Back returns to never shows an older read.
-        var shared: SharedOverview? = nil
+        var shared: SharedOverview?
         static func live(session: WalletSession = .shared) -> Self {
             @Sendable func wallet(_ rule: (Bool, Bool, Bool, Bool) -> Bool) async -> Bool {
                 let state = SettingsStorage.shared.persistedState(PersistedWalletState.self, key: PersistedWalletState.key)
@@ -101,6 +101,7 @@ final class OnchainModel {
     private let detailID: String?
     private(set) var exit: ExitModel?
     private(set) var claimDestination = ""
+    // swiftlint:disable:next discouraged_optional_boolean - nil until the address is checked
     private(set) var claimDestinationIsMine: Bool?
     private(set) var claimDestinationError: String?
     func editClaimDestination(_ value: String) {
@@ -182,7 +183,7 @@ final class OnchainModel {
     @ObservationIgnored private var reloadPending = false
 
     /// Reloads as soon as `changes` reports one, rather than at the page's next minute. `canLoad` is the page's guard.
-    func observeChanges(canLoad: @escaping () -> Bool) async {
+    func observeChanges(canLoad: () -> Bool) async {
         for await _ in await dependencies.changes() where canLoad() { await load() }
     }
 
@@ -228,12 +229,11 @@ final class OnchainModel {
         } catch {
             self.error =
                 (error as? OnchainFailure)?.errorDescription
-                ?? "Couldn't read wallet status. Pull to refresh."
+                    ?? "Couldn't read wallet status. Pull to refresh."
         }
     }
     func review(
-        _ action: OnchainAction, ids: [String] = [], amount: UInt64 = 0, destination: String? = nil
-    ) async {
+        _ action: OnchainAction, ids: [String] = [], amount: UInt64 = 0, destination: String? = nil) async {
         guard !busy else { return }
         invalidate()
         error = nil
@@ -265,7 +265,7 @@ final class OnchainModel {
             Self.remember(ExitRefusal(error))
             self.error =
                 (error as? OnchainFailure)?.errorDescription ?? ExitRefusal.message(error)
-                ?? "Couldn't prepare the review. Nothing was submitted. Try again when the wallet is ready."
+                    ?? "Couldn't prepare the review. Nothing was submitted. Try again when the wallet is ready."
         }
     }
     /// Explicit first consent opens a separate confirmation for this exact, expiring review.
@@ -327,8 +327,12 @@ final class OnchainModel {
     func progress(_ exit: ExitModel, now: Date = Date()) -> ExitProgress {
         let parkedSince = exit.parkedEpisode.flatMap { sightings.value.seen[$0]?.at }
         let needsFunds = overview.map {
-            ExitFunds.needsFunds(exit, confirmed: $0.confirmed, packageFee: $0.packageFees[exit.id], proven: $0.provenParked,
-                                 parkedSince: parkedSince, daemonSince: $0.daemonSince.map { max($0, sceneChangedAt) }, now: now)
+            ExitFunds.needsFunds(
+                exit,
+                confirmed: $0.confirmed,
+                packageFee: $0.packageFees[exit.id],
+                proven: $0.provenParked,
+                timing: .init(parkedSince: parkedSince, daemonSince: $0.daemonSince.map { max($0, sceneChangedAt) }, now: now))
         } ?? false
         let claimSent = attempts.contains { attempt in
             attempt.quote.action == .claim && attempt.quote.ids.contains(exit.id) && attempt.receipt?.txid.map(exit.awaitsClaim) == true
@@ -418,14 +422,13 @@ final class OnchainModel {
             message = "Repeat protection overridden. The original attempt is still saved. Review the current wallet state before submitting again."
         } catch { self.error = (error as? OnchainFailure)?.errorDescription ?? OnchainFailure.uncertain.errorDescription }
     }
-
 }
 
 /// Native equivalent of RN's isBackgroundJobRunning query gate; counts overlapping pushes.
 actor WalletBackgroundActivity {
     static let shared = WalletBackgroundActivity()
-    private var count = 0
-    var isRunning: Bool { count > 0 }
+    private var running = 0
+    var isRunning: Bool { running > 0 }
     struct Snapshot: Equatable, Sendable {
         var isRunning: Bool
         var completionRevision: UInt64
@@ -447,8 +450,8 @@ actor WalletBackgroundActivity {
     private func removeObserver(_ id: UUID) { observers[id] = nil }
     private func publish() { for observer in observers.values { observer.yield(snapshot) } }
 
-    func begin() { count += 1; revision += 1; publish() }
-    func end() { count -= 1; completionRevision += 1; revision += 1; publish() }
+    func begin() { running += 1; revision += 1; publish() }
+    func end() { running -= 1; completionRevision += 1; revision += 1; publish() }
 }
 
 /// The freshest overview any page's model has read since the last submission one made (an exit started, canceled or
@@ -463,7 +466,7 @@ final class SharedOverview {
     /// Counts submissions: a read that began before the latest one is dropped.
     @ObservationIgnored private(set) var epoch = 0
 
-    nonisolated init() {}
+    nonisolated init() { /* No overview until the first read. */ }
 
     func read(_ overview: OnchainOverview, since: Int) { if since == epoch { self.overview = overview } }
     func changed() {

@@ -3,17 +3,18 @@ package com.noahwallet.services
 import android.content.ContextWrapper
 import android.system.Os
 import androidx.test.platform.app.InstrumentationRegistry
-import com.noahwallet.services.storage.*
 import com.noahwallet.recurring.*
 import com.noahwallet.send.*
-import java.io.File
-import java.util.UUID
+import com.noahwallet.services.storage.*
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
+import java.util.UUID
 
 class SettingsFailureTest {
-    private val restoreSteps = listOf("journal", "previousMoved", "installed", "committing", "seed", "markerRemoved", "previousRemoved", "journalRemoved", "flags", "markerOnly", "stateOnly", "corrupt") +
+    private val restoreSteps = listOf("journal", "previousMoved", "installed", "committing", "seed", "markerRemoved", "previousRemoved", "journalRemoved",
+        "flags", "markerOnly", "stateOnly", "corrupt") +
         (1..6).map { "initializing$it" } + (1..9).map { "settling$it" }
 
     private fun isolatedServices(context: android.content.Context): AppServices =
@@ -40,7 +41,8 @@ class SettingsFailureTest {
             services.ensureWalletOpen()
             fail("Background opened unpersisted fallback")
         } catch (failure: Exception) {
-            assertTrue("Background must reject unhealthy settings before reading the seed: ${failure.javaClass.simpleName}", failure is SettingsStorage.Unavailable)
+            assertTrue("Background must reject unhealthy settings before reading the seed: ${failure.javaClass.simpleName}",
+                failure is SettingsStorage.Unavailable)
             assertEquals("unchanged", location.database.readText())
             assertFalse(services.session.isOpen)
         } finally {
@@ -106,48 +108,54 @@ class SettingsFailureTest {
             if (step == "journalRemoved" || step == "flags") tx.finish()
             if (step != "flags") { file.writeText("damaged"); Os.chmod(file.path, 0) }
             Os.chmod(preferences.path, 320)
-            if (step in listOf("markerOnly", "stateOnly", "corrupt")) {
-                val authority = RecurringAutomationAuthority(location.directory)
-                authority.stop()
-                when (step) {
-                    "markerOnly" -> check(authority.file.delete())
-                    "stateOnly" -> check(authority.marker.delete())
-                    else -> authority.file.writeText("{")
-                }
+            if (step in listOf("markerOnly", "stateOnly", "corrupt")) breakAuthority(step)
+            if (step.startsWith("initializing")) stopAuthorityAt(step, mode)
+            if (step.startsWith("settling")) settleAt(step, mode)
+        }
+        /** Leaves the recurring automation authority stopped with only its marker, only its state, or a corrupt state. */
+        fun breakAuthority(step: String) {
+            val authority = RecurringAutomationAuthority(location.directory)
+            authority.stop()
+            when (step) {
+                "markerOnly" -> check(authority.file.delete())
+                "stateOnly" -> check(authority.marker.delete())
+                else -> authority.file.writeText("{")
             }
-            if (step.startsWith("initializing")) {
-                var count = 0
-                val boundary = step.removePrefix("initializing").toInt()
-                runCatching {
-                    RecurringAutomationAuthority(location.directory) { file, bytes ->
-                        durableRecurringWrite(file, bytes, {
-                            syncDirectory(it); checkpoint(step, mode, ++count, boundary)
-                        }, {
-                            it.sync(); checkpoint(step, mode, ++count, boundary)
-                        })
-                    }.stop()
-                }
-                assertEquals(boundary, count)
+        }
+        /** Dies at the authority's Nth durable write while it first stops. */
+        fun stopAuthorityAt(step: String, mode: String?) {
+            var count = 0
+            val boundary = step.removePrefix("initializing").toInt()
+            runCatching {
+                RecurringAutomationAuthority(location.directory) { file, bytes ->
+                    durableRecurringWrite(file, bytes, {
+                        syncDirectory(it); checkpoint(step, mode, ++count, boundary)
+                    }, {
+                        it.sync(); checkpoint(step, mode, ++count, boundary)
+                    })
+                }.stop()
             }
-            if (step.startsWith("settling")) {
-                var count = 0
-                val boundary = step.removePrefix("settling").toInt()
-                runCatching {
-                    com.noahwallet.services.backup.RestoreTransaction(location, sync = {
-                        com.noahwallet.services.backup.RestoreTransaction.syncFileOrDirectory(it)
-                        checkpoint(step, mode, ++count, boundary)
-                    }).finish()
-                }
-                assertEquals(boundary, count)
+            assertEquals(boundary, count)
+        }
+        /** Dies at the restore's Nth sync while it settles. */
+        fun settleAt(step: String, mode: String?) {
+            var count = 0
+            val boundary = step.removePrefix("settling").toInt()
+            runCatching {
+                com.noahwallet.services.backup.RestoreTransaction(location, sync = {
+                    com.noahwallet.services.backup.RestoreTransaction.syncFileOrDirectory(it)
+                    checkpoint(step, mode, ++count, boundary)
+                }).finish()
             }
+            assertEquals(boundary, count)
         }
         suspend fun recover(step: String) {
             val settings = SettingsStorage(context)
             val services = isolatedServices(context)
             val recovery = services.recoverRestore()
             val expected = if (step in listOf("journalRemoved", "flags", "settling9")) com.noahwallet.services.backup.RestoreTransaction.Recovery.nothingPending
-                else if (committed(step)) com.noahwallet.services.backup.RestoreTransaction.Recovery.completed
-                else com.noahwallet.services.backup.RestoreTransaction.Recovery.rolledBack
+            else if (committed(step)) com.noahwallet.services.backup.RestoreTransaction.Recovery.completed
+            else com.noahwallet.services.backup.RestoreTransaction.Recovery.rolledBack
             assertEquals(step, expected, recovery)
             tx.completeSettings(settings)
             assertFalse(step, location.restorePending)

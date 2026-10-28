@@ -6,12 +6,12 @@ import com.noahwallet.services.server.value
 import com.noahwallet.services.wallet.WalletSession
 import io.github.niteshbalusu11.bark.WalletSnapshotInfo
 import io.ktor.client.HttpClient
-import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.Request
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
+import java.io.File
 
 class BackupService(
     private val session: WalletSession, private val client: HttpClient,
@@ -28,8 +28,7 @@ class BackupService(
             val sealed = withContext(Dispatchers.IO) {
                 BackupArchive.seal(snapshotFile, manifest(snapshot), mnemonic, File(folder, "backup.noahbackup"), folder)
             }
-            val upload = V0BackupV2UploadClient(client).initiateBackupObjectUpload(
-                InitiateBackupUploadPayload(sealed.sha256, sealed.sizeBytes, 2)).value()
+            val upload = V0BackupV2UploadClient(client).initiateBackupObjectUpload(InitiateBackupUploadPayload(sealed.sha256, sealed.sizeBytes, 2)).value()
             val request = Request.Builder().url(upload.uploadUrl)
                 .header("Content-Length", sealed.sizeBytes.toString())
                 .header("Content-Type", "application/octet-stream")
@@ -53,6 +52,7 @@ class BackupService(
     suspend fun exportEncryptedBackup(fileName: String): Export {
         require(fileName.isNotBlank() && '/' !in fileName && fileName != "." && fileName != "..") { """Invalid export name""" }
         val shared = scratch.makeFolder("share-backup")
+        var exported = false
         try {
             val archive = scratch.withFolder("export") { folder ->
                 val snapshotFile = File(folder, "snapshot.sqlite")
@@ -61,10 +61,9 @@ class BackupService(
                     BackupArchive.seal(snapshotFile, manifest(snapshot), mnemonic, File(shared, fileName), folder)
                 }
             }
-            return Export(archive, shared, scratch)
-        } catch (failure: Throwable) {
-            scratch.discard(shared)
-            throw failure
+            return Export(archive, shared, scratch).also { exported = true }
+        } finally {
+            if (!exported) scratch.discard(shared)
         }
     }
     companion object {

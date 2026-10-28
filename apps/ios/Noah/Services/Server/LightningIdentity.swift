@@ -42,7 +42,8 @@ enum Nostr {
         guard let hex, hex.count == 64,
               hex.range(of: "^[0-9a-fA-F]{64}$", options: .regularExpression) != nil else { return "" }
         let chars = Array(hex)
-        let bytes = stride(from: 0, to: 64, by: 2).map { UInt8(String(chars[$0...($0 + 1)]), radix: 16)! }
+        let bytes = stride(from: 0, to: 64, by: 2).compactMap { UInt8(String(chars[$0...($0 + 1)]), radix: 16) }
+        guard bytes.count == 32 else { return "" }
         var words: [UInt8] = []
         var accumulator: UInt32 = 0
         var bits = 0
@@ -58,10 +59,10 @@ enum Nostr {
         let prefix = Array("npub".utf8)
         let expanded = prefix.map { $0 >> 5 } + [0] + prefix.map { $0 & 31 }
         var checksum: UInt32 = 1
-        let generators: [UInt32] = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
+        let generators: [UInt32] = [0x3B6A_57B2, 0x2650_8E6D, 0x1EA1_19FA, 0x3D42_33DD, 0x2A14_62B3]
         for value in expanded + words + Array(repeating: 0, count: 6) {
             let top = checksum >> 25
-            checksum = ((checksum & 0x1ffffff) << 5) ^ UInt32(value)
+            checksum = ((checksum & 0x1FFFFFF) << 5) ^ UInt32(value)
             for i in 0..<5 where ((top >> i) & 1) != 0 { checksum ^= generators[i] }
         }
         checksum ^= 1

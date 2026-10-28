@@ -5,7 +5,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.noahwallet.ui.NoahTheme
 import org.junit.Assert.*
 import org.junit.Rule
@@ -97,7 +97,8 @@ class ActivitySearchTest {
         compose.onNodeWithTag("activity-row-movement-3").assertExists()
     }
 
-    @Test @Config(qualifiers = "w900dp-h600dp-land")
+    @Test
+    @Config(qualifiers = "w900dp-h600dp-land")
     fun wideBackClosesThePaymentBeforeTheSearch() {
         show()
         search("coffee")

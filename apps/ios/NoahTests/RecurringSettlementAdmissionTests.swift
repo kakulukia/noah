@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 @MainActor struct RecurringSettlementAdmissionTests {
     @Test func doneBeforeReservationReturnStillRecordsPaidOccurrence() async throws {
@@ -38,12 +38,7 @@ import Testing
         try await SendPaymentTests.waitUntil { terminal.withLock { $0 } }
         let key = try #require(h.controller.attempt?.recurringOccurrenceKey)
         let result = try #require(h.journal.load()[schedule.id]?.terminal)
-        if change == "failed" { #expect(result.outcome == .failed) }
-        else if change == "ambiguous" { #expect(result.outcome == .uncertain) }
-        else if result.outcome == .succeeded, let receipt = result.attempt.receipt {
-            #expect(receipt.proof == .submitReturnedArkSuccess)
-            #expect(receipt.amount == schedule.amountSat)
-        } else { Issue.record("Expected paid receipt") }
+        expectTerminal(result, change: change, amount: schedule.amountSat)
         h.controller.acknowledge()
         if change == "ambiguous" { #expect(h.controller.locked) }
         else {
@@ -51,19 +46,7 @@ import Testing
             #expect(h.controller.attempt == nil)
             #expect(try h.journal.load()[schedule.id]?.terminal != nil)
         }
-        if change == "replacement" || change == "sameKeyReplacement" {
-            h.beforePay = { throw SendNotSubmitted(reason: .recurringStopped) }
-            let (payment, quote, _) = h.quoted(schedule, fees: RecurringFeePolicy.fallback)
-            await h.controller.submitAndWait(payment, quote: quote,
-                recurringKey: change == "sameKeyReplacement" ? key : "another-occurrence", beforeSubmit: {})
-        } else if change == "reload" { h.controller.reloadForWalletChange() }
-        else if change == "foreignReload" {
-            h.owner.withLock { $0.instance = UUID() }
-            h.saved = nil
-            h.controller.reloadForWalletChange()
-        } else if change == "blocked" {
-            try Data("Storage admission blocked by test".utf8).write(to: h.journal.quarantineFile)
-        }
+        try await apply(change, h, schedule: schedule, key: key)
         let replacement = h.controller.attempt, replacementGeneration = h.controller.generation
         release.continuation.yield(()); release.continuation.finish()
         await run.value
@@ -102,6 +85,33 @@ import Testing
         if change == "ambiguous" { #expect(try h.store.load().schedules[schedule.id]?.status == "needs_attention") }
     }
 
+    private func expectTerminal(_ result: RecurringJournal.TerminalEvidence, change: String, amount: UInt64) {
+        if change == "failed" { #expect(result.outcome == .failed) }
+        else if change == "ambiguous" { #expect(result.outcome == .uncertain) }
+        else if result.outcome == .succeeded, let receipt = result.attempt.receipt {
+            #expect(receipt.proof == .submitReturnedArkSuccess)
+            #expect(receipt.amount == amount)
+        } else { Issue.record("Expected paid receipt") }
+    }
+
+    /// What happens to Send while the finished payment's reservation is still returning.
+    private func apply(_ change: String, _ h: RecurringExecutorTests.Harness, schedule: RecurringPayment, key: String) async throws {
+        if change == "replacement" || change == "sameKeyReplacement" {
+            h.beforePay = { throw SendNotSubmitted(reason: .recurringStopped) }
+            let quoted = h.quoted(schedule, fees: RecurringFeePolicy.fallback)
+            let payment = quoted.payment, quote = quoted.quote
+            await h.controller.submitAndWait(payment, quote: quote,
+                                             recurringKey: change == "sameKeyReplacement" ? key : "another-occurrence", beforeSubmit: {})
+        } else if change == "reload" { h.controller.reloadForWalletChange() }
+        else if change == "foreignReload" {
+            h.owner.withLock { $0.instance = UUID() }
+            h.saved = nil
+            h.controller.reloadForWalletChange()
+        } else if change == "blocked" {
+            try Data("Storage admission blocked by test".utf8).write(to: h.journal.quarantineFile)
+        }
+    }
+
     @Test func acknowledgedReceiptWhileSettlementWaitsStillConsumesOccurrence() async throws {
         try await settlementRace(attended: true, change: "done")
     }
@@ -133,16 +143,19 @@ import Testing
         }
         let owner = h.owner, clock = h.clock
         let executor = RecurringExecutor(dependencies: .init(store: h.store, journal: h.journal,
-            controller: h.controller, ensureOpen: {}, binding: { owner.withLock { $0 } }, allowed: {},
-            quote: { schedule in await h.quoted(schedule, fees: RecurringFeePolicy.fallback) },
-            now: { clock.withLock { $0 } }, mutation: gate))
+                                                             controller: h.controller, ensureOpen: {}, binding: { owner.withLock { $0 } }, allowed: {},
+                                                             quote: { schedule in await h.quoted(schedule, fees: RecurringFeePolicy.fallback) },
+                                                             now: { clock.withLock { $0 } }, mutation: gate))
         let review = attended ? try await executor.review(schedule.id) : nil
         let run = Task { await executor.execute(manual: true, approval: review) }
         while await gate.waitingCount == 0 { await Task.yield() }
         let originalAttempt = h.controller.attempt, originalMessage = h.controller.message
         let paid = change != "failedMessage"
         if paid {
-            if case .succeeded = h.controller.state {} else { Issue.record("Expected a proven terminal receipt") }
+            switch h.controller.state {
+            case .succeeded: break
+            default: Issue.record("Expected a proven terminal receipt")
+            }
         } else { #expect(h.controller.state == .failed) }
         h.controller.acknowledge() // The attended Send sheet's Done action.
         if change == "reloadedAttempt" {
@@ -150,7 +163,8 @@ import Testing
             h.controller.reloadForWalletChange()
         } else if change != "done" {
             h.beforePay = { throw SendNotSubmitted(reason: .recurringStopped) }
-            let (payment, quote, _) = h.quoted(schedule, fees: RecurringFeePolicy.fallback)
+            let quoted = h.quoted(schedule, fees: RecurringFeePolicy.fallback)
+            let payment = quoted.payment, quote = quoted.quote
             let key = change == "sameKeyReplacement" ? originalAttempt?.recurringOccurrenceKey ?? "missing" : "another-occurrence"
             await h.controller.submitAndWait(payment, quote: quote, recurringKey: key, beforeSubmit: {})
             #expect(h.controller.state == .storageBlocked)

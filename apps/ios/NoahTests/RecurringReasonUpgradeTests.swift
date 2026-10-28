@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 /// Pre-reason-code native rows retain their original digest until replay completes.
 @MainActor struct RecurringReasonUpgradeTests {
@@ -34,7 +34,7 @@ import Testing
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             settings = try SettingsStorage(rootPath: directory.appending(path: "settings").path, instanceID: UUID().uuidString)
         }
-        func object<T: Encodable>(_ value: T) throws -> [String: Any] {
+        func object(_ value: some Encodable) throws -> [String: Any] {
             try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) as? [String: Any])
         }
         func oldRow(_ row: RecurringPayment) throws -> [String: Any] {
@@ -51,18 +51,17 @@ import Testing
             var savedRow = try oldRow(before)
             // The pre-A settings writer fills these RN nullable fields even though
             // the typed encoder used for ledger hashes omits nil properties.
-            for key in ["endAt", "maxOccurrences", "nextRunAt", "lastError", "retryNotBefore", "inFlight", "nativeRevision"] {
-                if savedRow[key] == nil { savedRow[key] = NSNull() }
-            }
+            for key in ["endAt", "maxOccurrences", "nextRunAt", "lastError", "retryNotBefore", "inFlight", "nativeRevision"]
+                where savedRow[key] == nil { savedRow[key] = NSNull() }
             let root: [String: Any] = ["version": 0, "state": ["nativeWalletBinding": try object(binding), "serverSyncPending": true,
-                "schedules": [before.id: savedRow]]]
-            try settings.setDurably(String(decoding: JSONSerialization.data(withJSONObject: root), as: UTF8.self), forKey: RecurringStore.key)
+                                                               "schedules": [before.id: savedRow]]]
+            try settings.setDurably(#require(String(bytes: JSONSerialization.data(withJSONObject: root), encoding: .utf8)), forKey: RecurringStore.key)
             let decoded = try #require(RecurringStore(settings: settings).load().schedules[before.id])
             #expect(!decoded.unsupportedStorage)
             #expect(try oldDigest(decoded) == oldDigest(before))
             let target = paid ?? before
             var entry: [String: Any] = ["binding": try object(binding), "scheduleID": target.id, "generation": 1,
-                "status": target.status, "digest": try oldDigest(target)]
+                                        "status": target.status, "digest": try oldDigest(target)]
             if let revision = target.nativeRevision { entry["revision"] = revision.uuidString }
             if let paid {
                 entry["settlementKey"] = UUID().uuidString; entry["pending"] = try oldRow(paid)
@@ -72,7 +71,7 @@ import Testing
             let key = hash(try encoder.encode(binding)) + ":" + target.id
             try JSONSerialization.data(withJSONObject: ["version": 1, "binding": try object(binding)]).write(to: file.appendingPathExtension("initialized"))
             try JSONSerialization.data(withJSONObject: ["version": 1, "binding": try object(binding), "generation": 1,
-                "entries": [key: entry]]).write(to: file)
+                                                        "entries": [key: entry]]).write(to: file)
         }
         func store() -> RecurringStore {
             let settings = settings, faults = faults, directory = directory, owner = binding
@@ -103,7 +102,7 @@ import Testing
         row.nativeRevision = UUID()
         row.lastError = "No payment was submitted."; row.retryNotBefore = 901_000
         let plan = row.plan(now: 1000, ignoreBackoff: true)
-        row.inFlight = .init(occurrenceIndex: plan.occurrenceIndex!, startedAt: 1000)
+        row.inFlight = try .init(occurrenceIndex: #require(plan.occurrenceIndex), startedAt: 1000)
         var paid = row; paid.success(plan, now: 1000)
         try w.install(row, paid: paid)
         let restarted = w.store()
@@ -117,17 +116,17 @@ import Testing
         var row = RecurringScheduleTests.schedule(start: 1000)
         row.nativeRevision = UUID(); row.lastError = "No payment was submitted."; row.retryNotBefore = 901_000
         let plan = row.plan(now: 1000, ignoreBackoff: true)
-        row.inFlight = .init(occurrenceIndex: plan.occurrenceIndex!, startedAt: 1000)
+        row.inFlight = try .init(occurrenceIndex: #require(plan.occurrenceIndex), startedAt: 1000)
         var paid = row; paid.success(plan, now: 1000)
         try w.install(row, paid: paid)
         let oldSettings = try #require(w.settings.string(forKey: RecurringStore.key))
-        if boundary.hasPrefix("settings") { w.faults.crashSettings = Int(boundary.suffix(1))! }
-        else { w.faults.crashLedger = Int(boundary.suffix(1))! }
+        if boundary.hasPrefix("settings") { w.faults.crashSettings = try #require(Int(boundary.suffix(1))) }
+        else { w.faults.crashLedger = try #require(Int(boundary.suffix(1))) }
         #expect(throws: (any Error).self) { _ = try w.store().load() }
         w.faults.crashSettings = 0; w.faults.crashLedger = 0
         for _ in 0..<3 {
             let loaded = try #require(w.store().load().schedules[row.id])
-            #expect(loaded.occurrencesPaid == 1 && loaded.runs.filter { $0.status == "success" }.count == 1)
+            #expect(loaded.occurrencesPaid == 1 && loaded.runs.count(where: { $0.status == "success" }) == 1)
             #expect(loaded.inFlight == nil && !loaded.requiresPolicyApproval)
         }
         let complete = try #require(w.settings.string(forKey: RecurringStore.key))
@@ -143,7 +142,7 @@ import Testing
         let w = try World(); defer { w.cleanup() }
         var row = RecurringScheduleTests.schedule(start: 1000); row.nativeRevision = UUID()
         let plan = row.plan(now: 1000)
-        row.inFlight = .init(occurrenceIndex: plan.occurrenceIndex!, startedAt: 1000)
+        row.inFlight = try .init(occurrenceIndex: #require(plan.occurrenceIndex), startedAt: 1000)
         var paid = row; paid.success(plan, now: 1000)
         try w.install(row, paid: paid)
         var root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: w.file)) as? [String: Any])
@@ -166,8 +165,8 @@ import Testing
     }
     @Test func everyReasonRendersInEveryLanguage() {
         let codes: [RecurringIssue.Code] = [.policyEvidence, .automationStopped, .legacyHistory, .invalidJournal, .interrupted,
-            .tooManyMissed, .quoteExceedsCap, .scheduleExceedsCap, .arkFee, .uncertain, .retryableFailure, .alreadyPaid,
-            .unsupported, .amountLimit, .unknown]
+                                            .tooManyMissed, .quoteExceedsCap, .scheduleExceedsCap, .arkFee, .uncertain, .retryableFailure, .alreadyPaid,
+                                            .unsupported, .amountLimit, .unknown]
         for language in ["en", "es", "ja", "ko", "sv"] {
             for code in codes {
                 let args = code == .quoteExceedsCap || code == .scheduleExceedsCap ? ["500", "200"] : []

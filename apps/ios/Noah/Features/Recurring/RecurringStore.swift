@@ -6,8 +6,8 @@ final class RecurringStore: @unchecked Sendable {
     static let key = "recurring-payment-storage"
     // createRecurringPayment in client/src/lib/recurringSchedule.ts (retryNotBefore is optional).
     private static let requiredRNFields = ["id", "label", "destination", "destinationType", "amountSat", "comment",
-        "interval", "startAt", "endAt", "maxOccurrences", "status", "nextOccurrenceIndex", "nextRunAt",
-        "occurrencesPaid", "consecutiveFailures", "lastError", "inFlight", "runs", "createdAt", "updatedAt"]
+                                           "interval", "startAt", "endAt", "maxOccurrences", "status", "nextOccurrenceIndex", "nextRunAt",
+                                           "occurrencesPaid", "consecutiveFailures", "lastError", "inFlight", "runs", "createdAt", "updatedAt"]
     struct Binding: Codable, Equatable, Sendable {
         var wallet: SendWalletIdentity
         var instance: UUID
@@ -24,20 +24,26 @@ final class RecurringStore: @unchecked Sendable {
     private var policyLedger: RecurringPolicyLedger?
     private var automation: RecurringAutomationAuthority?
     private var policyBinding: (@Sendable () throws -> Binding)?
-    func protectPolicies(file: URL, sync: @escaping @Sendable (URL) throws -> Void = RestoreTransaction.fullSync, binding: @escaping @Sendable () throws -> Binding) {
+    func protectPolicies(
+        file: URL,
+        sync: @escaping @Sendable (URL) throws -> Void = RestoreTransaction.fullSync,
+        binding: @escaping @Sendable () throws -> Binding) {
         lock.withLock {
-            if policyLedger == nil { policyLedger = RecurringPolicyLedger(file: file, sync: sync); policyBinding = binding; automation = RecurringAutomationAuthority(directory: file.deletingLastPathComponent(), sync: sync) }
+            if policyLedger ==
+                nil { policyLedger = RecurringPolicyLedger(file: file, sync: sync); policyBinding = binding; automation = RecurringAutomationAuthority(
+                directory: file.deletingLastPathComponent(),
+                sync: sync) }
         }
     }
     private func protected(_ state: State, automationOverlay: Bool = true) -> State {
-        guard let ledger = policyLedger else { return state }
+        guard let ledger = policyLedger, let policyBinding else { return state }
         let stopped: Set<String>
         let automationStopped: Bool
         do {
             // Welcome has no wallet authority to bootstrap or mark failed.
-            let owner = try policyBinding!()
+            let owner = try policyBinding()
             guard FileManager.default.fileExists(atPath: ledger.file.deletingLastPathComponent().path),
-                  try policyBinding!() == owner else { throw RecurringExecutor.NoWallet() }
+                  try policyBinding() == owner else { throw RecurringExecutor.NoWallet() }
             stopped = ledger.stopped(binding: state.binding ?? owner, schedules: state.schedules)
             automationStopped = automationOverlay && automation?.allowed() == false
         } catch is RecurringExecutor.NoWallet {
@@ -98,10 +104,12 @@ final class RecurringStore: @unchecked Sendable {
             let fields = (try? JSONSerialization.jsonObject(with: Data(raw.utf8))) as? [String: Any]
             // Display only: the original row remains authoritative and is never encoded from this placeholder.
             schedule = decoded ?? RecurringPayment(id: id, label: fields?["label"] as? String ?? "Saved recurring payment",
-                destination: fields?["destination"] as? String ?? "", destinationType: fields?["destinationType"] as? String ?? "",
-                amountSat: (try? RawObject(raw)).flatMap { $0.fields["amountSat"] }
-                    .flatMap { UInt64($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0, comment: fields?["comment"] as? String ?? "",
-                interval: .init(unit: "month", every: 1), startAt: 0, createdAt: 0, updatedAt: 0)
+                                                   destination: fields?["destination"] as? String ?? "",
+                                                   destinationType: fields?["destinationType"] as? String ?? "",
+                                                   amountSat: (try? RawObject(raw)).flatMap { $0.fields["amountSat"] }
+                                                       .flatMap { UInt64($0.trimmingCharacters(in: .whitespacesAndNewlines)) } ?? 0,
+                                                   comment: fields?["comment"] as? String ?? "",
+                                                   interval: .init(unit: "month", every: 1), startAt: 0, createdAt: 0, updatedAt: 0)
             schedule.id = id
             schedule.unsupportedStorage = true
             schedule.status = "needs_attention"
@@ -136,7 +144,7 @@ final class RecurringStore: @unchecked Sendable {
         try numbers(row, 1, Int64.max, ["maxOccurrences"])
         try numbers(row, -timeLimit, timeLimit, ["startAt", "endAt", "nextRunAt", "retryNotBefore", "createdAt", "updatedAt"])
         try numbers(row, 0, Int64(Int32.max), ["nextOccurrenceIndex", "occurrencesPaid", "consecutiveFailures"])
-        let interval = try RawObject(row["interval"]!).fields
+        let interval = try RawObject(row.required("interval")).fields
         guard let rawUnit = interval["unit"], let every = interval["every"] else { throw RecurringError.message(RecurringPayment.unsupportedMessage) }
         let unit = try JSONDecoder().decode(String.self, from: Data(rawUnit.utf8))
         try number(every, 1, unit == "day" ? 365 : 12)
@@ -145,7 +153,7 @@ final class RecurringStore: @unchecked Sendable {
             try numbers(fields, 0, Int64(Int32.max), ["occurrenceIndex"])
             try numbers(fields, -timeLimit, timeLimit, ["startedAt"])
         }
-        for run in try RawObject.arrayObjects(row["runs"]!) {
+        for run in try RawObject.arrayObjects(row.required("runs")) {
             try numbers(run.fields, 0, Int64(Int32.max), ["occurrenceIndex"])
             try numbers(run.fields, -timeLimit, timeLimit, ["scheduledFor", "attemptedAt"])
             try numbers(run.fields, 1, safeInteger, ["amountSat"])
@@ -155,9 +163,9 @@ final class RecurringStore: @unchecked Sendable {
         try settings.requireHealthy()
         return try lock.withLock {
             guard !writeFailed else { throw RecurringError.message("Recurring payment storage failed. Restart Noah; sending is stopped.") }
-            let state = try RawObject(envelope().fields["state"]!)
-            let rows = try RawObject(state.fields["schedules"]!)
-            let schedules = Dictionary(uniqueKeysWithValues: rows.fields.map { (id, raw) in (id, Self.payment(id: id, raw: raw, migrateIssue: migrateIssue)) })
+            let state = try RawObject(envelope().fields.required("state"))
+            let rows = try RawObject(state.fields.required("schedules"))
+            let schedules = Dictionary(uniqueKeysWithValues: rows.fields.map { id, raw in (id, Self.payment(id: id, raw: raw, migrateIssue: migrateIssue)) })
             let binding = try state.fields["nativeWalletBinding"].map {
                 try JSONDecoder().decode(Binding.self, from: Data($0.utf8))
             }
@@ -169,19 +177,21 @@ final class RecurringStore: @unchecked Sendable {
     /// Record submitted money against policy authority, without a temporary wallet display overlay.
     func settlementState() throws -> State { try lock.withLock { try recoverSettlements(); return protected(try rawState(), automationOverlay: false) } }
     private func recoverSettlements() throws {
-        guard let ledger = policyLedger else { return }
+        guard let ledger = policyLedger, let policyBinding else { return }
         func replay() throws {
             guard ledger.hasPending else { return }
-            let before = try rawState(migrateIssue: false), owner = try policyBinding!()
+            let before = try rawState(migrateIssue: false), owner = try policyBinding()
             guard before.binding == nil || before.binding == owner else { throw RecurringError.message(RecurringPolicyLedger.message) }
             let pending = try ledger.pending(binding: before.binding ?? owner, schedules: before.schedules)
             guard !pending.isEmpty else { return }
-            var envelope = try envelope(), state = try RawObject(envelope.fields["state"]!)
-            var rows = try RawObject(state.fields["schedules"]!)
+            var envelope = try envelope(), state = try RawObject(envelope.fields.required("state"))
+            var rows = try RawObject(state.fields.required("schedules"))
             for row in pending {
-                var value = try RawObject(rows.fields[row.id]!)
-                let encoded = try RawObject(String(decoding: JSONEncoder().encode(row), as: UTF8.self))
-                for key in ["endAt", "maxOccurrences", "nextRunAt", "lastError", "issue", "retryNotBefore", "inFlight", "nativeRevision"] { value.fields[key] = "null" }
+                var value = try RawObject(rows.fields.required(row.id))
+                let encoded = try RawObject(RawObject.json(row))
+                for key in ["endAt", "maxOccurrences", "nextRunAt", "lastError", "issue", "retryNotBefore", "inFlight", "nativeRevision"] {
+                    value.fields[key] = "null"
+                }
                 value.fields.merge(encoded.fields) { _, new in new }
                 rows.fields[row.id] = try value.json()
             }
@@ -193,42 +203,57 @@ final class RecurringStore: @unchecked Sendable {
         try replay()
         // Validate and finish original records before reason codes change their representation.
         let before = try rawState(migrateIssue: false)
-        guard let owner = try? policyBinding!(), before.binding == nil || before.binding == owner else { return }
+        guard let owner = try? policyBinding(), before.binding == nil || before.binding == owner else { return }
         if try ledger.migrate(binding: before.binding ?? owner, schedules: before.schedules) { try replay() }
     }
     func settlementApplied(_ id: String, token: String) throws -> Bool {
         try lock.withLock {
             try recoverSettlements()
             let state = try rawState()
-            return try policyLedger?.applied(binding: state.binding ?? policyBinding!(), schedules: state.schedules, id: id, token: token) == true
+            guard let ledger = policyLedger, let policyBinding else { return false }
+            return try ledger.applied(binding: state.binding ?? policyBinding(), schedules: state.schedules, id: id, token: token)
         }
     }
-    private func change(policyID: String? = nil, reapproval: Bool = false, settlementKey: String? = nil, _ mutate: (inout [String: String]) throws -> Void) throws {
+    private func change(
+        policyID: String? = nil,
+        reapproval: Bool = false,
+        settlementKey: String? = nil,
+        _ mutate: (inout [String: String]) throws -> Void) throws {
         try lock.withLock {
             try recoverSettlements()
             let before = try rawState()
             var envelope = try envelope()
-            var state = try RawObject(envelope.fields["state"]!)
+            var state = try RawObject(envelope.fields.required("state"))
             try mutate(&state.fields)
             envelope.fields["state"] = try state.json()
             let raw = try envelope.json()
-            let fields = try RawObject(state.fields["schedules"]!)
-            let after = Dictionary(uniqueKeysWithValues: fields.fields.map { (id, raw) in (id, Self.payment(id: id, raw: raw)) })
-            try policyLedger?.commit(binding: before.binding ?? policyBinding!(), before: before.schedules, after: after, policyID: policyID, reapproval: reapproval, settlementKey: settlementKey)
+            let fields = try RawObject(state.fields.required("schedules"))
+            let after = Dictionary(uniqueKeysWithValues: fields.fields.map { id, raw in (id, Self.payment(id: id, raw: raw)) })
+            // protectPolicies sets the ledger and its binding together.
+            let ledger = policyLedger, policyBinding = policyBinding
+            if let ledger, let policyBinding {
+                try ledger.commit(
+                    binding: before.binding ?? policyBinding(),
+                    before: before.schedules,
+                    after: after,
+                    policyID: policyID,
+                    reapproval: reapproval,
+                    settlementKey: settlementKey)
+            }
             do { try write(raw) }
             catch { writeFailed = true; throw error }
-            if settlementKey != nil { try policyLedger?.finish(binding: before.binding ?? policyBinding!(), schedules: after) }
+            if settlementKey != nil, let ledger, let policyBinding { try ledger.finish(binding: before.binding ?? policyBinding(), schedules: after) }
         }
     }
     func bind(_ binding: Binding) throws {
         try change { state in
-            state["nativeWalletBinding"] = String(decoding: try JSONEncoder().encode(binding), as: UTF8.self)
+            state["nativeWalletBinding"] = try RawObject.json(binding)
             state["serverSyncPending"] = "true"
         }
     }
     func upsert(_ schedule: RecurringPayment, reapproval: Bool = false, settlementKey: String? = nil) throws {
         try change(policyID: schedule.unsupportedStorage ? nil : schedule.id, reapproval: reapproval, settlementKey: settlementKey) { state in
-            var schedules = try RawObject(state["schedules"]!)
+            var schedules = try RawObject(state.required("schedules"))
             let previous = schedules.fields[schedule.id]
             if schedule.unsupportedStorage || previous.map({ Self.payment(id: schedule.id, raw: $0).unsupportedStorage }) == true {
                 guard previous != nil else { throw RecurringError.message(RecurringPayment.unsupportedMessage) }
@@ -236,8 +261,10 @@ final class RecurringStore: @unchecked Sendable {
             }
             // Merge known fields, retaining unknown RN/native fields and their original JSON tokens.
             var value = try RawObject(previous ?? "{}")
-            let fields = try RawObject(String(decoding: JSONEncoder().encode(schedule), as: UTF8.self))
-            for key in ["endAt", "maxOccurrences", "nextRunAt", "lastError", "issue", "retryNotBefore", "inFlight", "nativeRevision"] { value.fields[key] = "null" }
+            let fields = try RawObject(RawObject.json(schedule))
+            for key in ["endAt", "maxOccurrences", "nextRunAt", "lastError", "issue", "retryNotBefore", "inFlight", "nativeRevision"] {
+                value.fields[key] = "null"
+            }
             value.fields.merge(fields.fields) { _, new in new }
             schedules.fields[schedule.id] = try value.json()
             state["schedules"] = try schedules.json()
@@ -246,7 +273,7 @@ final class RecurringStore: @unchecked Sendable {
     }
     func remove(_ id: String) throws {
         try change(policyID: id) { state in
-            var schedules = try RawObject(state["schedules"]!)
+            var schedules = try RawObject(state.required("schedules"))
             schedules.fields.removeValue(forKey: id)
             state["schedules"] = try schedules.json(); state["serverSyncPending"] = "true"
         }
@@ -265,12 +292,14 @@ final class RecurringStore: @unchecked Sendable {
     /// A restore replaces the datadir, including this backup-excluded token. Even a same-seed
     /// restore cannot inherit approval to spend from the previous local wallet instance.
     static func binding(location: WalletDataLocation) throws -> Binding {
-        guard !location.restorePending, !FileManager.default.fileExists(atPath: location.deletionMarker.path) else { throw WalletSession.OpenError.restorePending }
+        guard !location.restorePending,
+              !FileManager.default.fileExists(atPath: location.deletionMarker.path) else { throw WalletSession.OpenError.restorePending }
         let properties = try WalletDatabase.properties(at: location.database)
         let file = location.directory.appending(path: ".noah-recurring-instance")
         let id: UUID
         if FileManager.default.fileExists(atPath: file.path) {
-            guard let saved = UUID(uuidString: try String(contentsOf: file, encoding: .utf8)) else { throw RecurringError.message("Recurring wallet identity couldn't be read. Sending is stopped.") }
+            guard let saved = UUID(uuidString: try String(contentsOf: file, encoding: .utf8))
+            else { throw RecurringError.message("Recurring wallet identity couldn't be read. Sending is stopped.") }
             id = saved
         } else {
             id = UUID()
@@ -296,10 +325,11 @@ struct RawObject {
     var fields: [String: String] = [:]
     init(_ raw: String) throws {
         guard try JSONSerialization.jsonObject(with: Data(raw.utf8)) is [String: Any] else {
-            throw RecurringError.message("Recurring payment data couldn't be read. Your saved schedules have been preserved. Sending is stopped.")
+            throw Self.unreadable
         }
         let bytes = Array(raw.utf8)
-        var index = bytes.firstIndex(of: 123)! + 1
+        guard let open = bytes.firstIndex(of: 123) else { throw Self.unreadable }
+        var index = open + 1
         func whitespace() { while index < bytes.count, [9, 10, 13, 32].contains(bytes[index]) { index += 1 } }
         whitespace()
         while bytes[index] != 125 {
@@ -328,19 +358,20 @@ struct RawObject {
                 }
                 index += 1
             }
-            fields[key] = String(decoding: bytes[valueStart..<index], as: UTF8.self)
+            fields[key] = try Self.text(bytes[valueStart..<index])
             if bytes[index] == 44 { index += 1; whitespace() }
         }
     }
     /// Inspect original keys before Foundation/JSONDecoder choose different duplicate values.
     static func requireUniqueProperties(_ raw: String) throws {
         let bytes = Array(raw.utf8)
-        var objects: [Set<String>?] = []
+        // Keys per open object; arrays push a frame that never holds keys.
+        var objects: [(isObject: Bool, keys: Set<String>)] = []
         var index = 0
         while index < bytes.count {
             switch bytes[index] {
-            case 123: objects.append([])
-            case 91: objects.append(nil)
+            case 123: objects.append((true, []))
+            case 91: objects.append((false, []))
             case 125, 93: objects.removeLast()
             case 34:
                 let start = index
@@ -351,7 +382,7 @@ struct RawObject {
                 while index < bytes.count, [9, 10, 13, 32].contains(bytes[index]) { index += 1 }
                 if index < bytes.count, bytes[index] == 58 {
                     let key = try JSONDecoder().decode(String.self, from: Data(bytes[start..<end]))
-                    guard objects[objects.count - 1]!.insert(key).inserted else {
+                    guard let top = objects.indices.last, objects[top].isObject, objects[top].keys.insert(key).inserted else {
                         throw RecurringError.message(RecurringPayment.unsupportedMessage)
                     }
                 }
@@ -361,14 +392,15 @@ struct RawObject {
             index += 1
         }
     }
-    static func arrayObjects(_ raw: String) throws -> [RawObject] {
+    static func arrayObjects(_ raw: String) throws -> [Self] {
         guard try JSONSerialization.jsonObject(with: Data(raw.utf8)) is [Any] else {
             throw RecurringError.message(RecurringPayment.unsupportedMessage)
         }
         let bytes = Array(raw.utf8)
-        var start = bytes.firstIndex(of: 91)! + 1
+        guard let open = bytes.firstIndex(of: 91) else { throw RecurringError.message(RecurringPayment.unsupportedMessage) }
+        var start = open + 1
         var depth = 0, quoted = false, escaped = false
-        var result: [RawObject] = []
+        var result: [Self] = []
         for index in start..<bytes.count {
             let byte = bytes[index]
             if quoted {
@@ -377,8 +409,8 @@ struct RawObject {
                 else if byte == 34 { quoted = false }
             } else {
                 if depth == 0, byte == 44 || byte == 93 {
-                    let value = String(decoding: bytes[start..<index], as: UTF8.self)
-                    if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { result.append(try RawObject(value)) }
+                    let value = try Self.text(bytes[start..<index])
+                    if !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { result.append(try Self(value)) }
                     start = index + 1
                     if byte == 93 { break }
                 } else if byte == 34 { quoted = true }
@@ -388,10 +420,24 @@ struct RawObject {
         }
         return result
     }
+    func required(_ key: String) throws -> String { try fields.required(key) }
     func json() throws -> String {
-        let entries = try fields.keys.sorted().map { key in
-            String(decoding: try JSONEncoder().encode(key), as: UTF8.self) + ":" + fields[key]!
-        }
+        let entries = try fields.sorted { $0.key < $1.key }.map { key, value in try Self.json(key) + ":" + value }
         return "{" + entries.joined(separator: ",") + "}"
+    }
+    static let unreadable = RecurringError.message("Recurring payment data couldn't be read. Your saved schedules have been preserved. Sending is stopped.")
+    static func json(_ value: some Encodable) throws -> String { try text(JSONEncoder().encode(value)) }
+    /// Slices of validated JSON and JSONEncoder output are UTF-8; anything else reads as corrupt data.
+    static func text(_ bytes: some Sequence<UInt8>) throws -> String {
+        guard let text = String(bytes: bytes, encoding: .utf8) else { throw unreadable }
+        return text
+    }
+}
+
+private extension [String: String] {
+    /// A field the stored format always has; a missing one reads as corrupt data.
+    func required(_ key: String) throws -> String {
+        guard let value = self[key] else { throw RawObject.unreadable }
+        return value
     }
 }

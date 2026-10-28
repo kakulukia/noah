@@ -9,13 +9,13 @@ import com.noahwallet.services.server.*
 import com.noahwallet.services.storage.*
 import com.noahwallet.services.wallet.*
 import io.github.niteshbalusu11.bark.*
-import java.io.File
-import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class BackupIntegrationTest {
@@ -122,7 +122,11 @@ class BackupIntegrationTest {
             stage = "compare"
             val expected = BackupArchive.parseManifest(File(context.cacheDir, "backup-node-fixture/manifest.json").readBytes())
             assertEquals(expected.walletFingerprint, summary.fingerprint); assertEquals(0, summary.movementCount)
-        } catch (failure: Exception) { fail("Node-made backup restore failed at $stage: ${failure.javaClass.simpleName}; ${(failure as? WalletRestorer.Failure)?.reason ?: (failure as? WalletSession.OpenError)?.reason ?: (failure as? BackupCrypto.Failure)?.reason}") }
+        } catch (failure: Exception) {
+            val reason = (failure as? WalletRestorer.Failure)?.reason ?: (failure as? WalletSession.OpenError)?.reason
+                ?: (failure as? BackupCrypto.Failure)?.reason
+            fail("Node-made backup restore failed at $stage: ${failure.javaClass.simpleName}; $reason")
+        }
         finally { runCatching { session.close() }; root.deleteRecursively(); File(context.cacheDir, "backup-node-fixture").deleteRecursively() }
     }
 

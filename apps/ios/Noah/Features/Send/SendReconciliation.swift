@@ -29,7 +29,7 @@ enum SendReconciliation {
             guard subsystem == "bark.lightning_send", kind == "send" else { return false }
         case "onchain":
             guard payment.source == .offchain, ["bark.offboard", "bark.round"].contains(subsystem),
-                kind == (payment.max ? "offboard" : "send_onchain")
+                  kind == (payment.max ? "offboard" : "send_onchain")
             else { return false }
         default: return false
         }
@@ -42,32 +42,35 @@ enum SendReconciliation {
         }
             || (payment.method == "offer" && movement.lightningOffer == payment.destination
                 && movement.sentToAddresses.reduce(UInt64(0)) { $0 + $1.amountSats }
-                    == payment.amount)
+                == payment.amount)
     }
 
     static func ark(_ attempt: SendPaymentController.Attempt, movements: [Movement])
-        -> SendPaymentController.Resolution
-    {
+        -> SendPaymentController.Resolution {
         let payment = attempt.payment
         guard !(payment.method == "onchain" && payment.source == .onchain) else {
             return .uncertain
         }
         let hash =
             ["lightning", "lnurl"].contains(payment.method)
-            ? attempt.paymentHash ?? PaymentEncoding.invoice(payment.destination)?.hash : nil
+                ? attempt.paymentHash ?? PaymentEncoding.invoice(payment.destination)?.hash : nil
         let candidates = movements.filter { movement in
             guard matches(movement, payment: payment, hash: hash) else { return false }
             // A BOLT11 hash identifies the payment even if its pending movement predates this attempt.
             if hash != nil { return true }
             guard !attempt.snapshot.movementIDs.contains(movement.id),
-                let start = attempt.startedAt,
-                let created = timestamp(movement.createdAt), created >= start
+                  let start = attempt.startedAt,
+                  let created = timestamp(movement.createdAt), created >= start
             else { return false }
             return true
         }
         if let hash {
-            return lightningAttempt(candidates, hash: hash, amount: payment.amount, snapshot: attempt.snapshot,
-                                    startedAt: attempt.startedAt, fixed: fixesAmount(attempt.snapshot.resolvedInvoice ?? payment.destination))
+            return lightningAttempt(
+                candidates,
+                paying: .init(hash: hash, amount: payment.amount),
+                snapshot: attempt.snapshot,
+                startedAt: attempt.startedAt,
+                fixed: fixesAmount(attempt.snapshot.resolvedInvoice ?? payment.destination))
         }
         return .candidates(
             candidates.map {
@@ -93,8 +96,7 @@ enum SendReconciliation {
     }
 
     static func lightning(_ candidates: [Movement], hash: String, amount: UInt64, snapshot: SendSnapshot, fixed: Bool)
-        -> SendPaymentController.Resolution
-    {
+        -> SendPaymentController.Resolution {
         guard let (movement, actual) = sent(candidates, hash: hash) else { return .uncertain }
         if movement.status == "successful", actual > 0 {
             let receipt = receipt(movement, actual: actual, hash: hash)
@@ -114,9 +116,11 @@ enum SendReconciliation {
     /// without it go by whether the movement completed after `startedAt`), with the fee its effective balance took
     /// beyond the amount: the fee field keeps the first attempt's. Failure needs the movement to have completed after
     /// `startedAt`; until then the attempt may still be running.
-    static func lightningAttempt(_ candidates: [Movement], hash: String, amount: UInt64, snapshot: SendSnapshot,
-                                 startedAt: Date?, fixed: Bool) -> SendPaymentController.Resolution
-    {
+    /// The invoice's payment hash and the amount Noah meant to pay it.
+    struct PaymentID { var hash: String; var amount: UInt64 }
+    static func lightningAttempt(_ candidates: [Movement], paying: PaymentID, snapshot: SendSnapshot,
+                                 startedAt: Date?, fixed: Bool) -> SendPaymentController.Resolution {
+        let hash = paying.hash, amount = paying.amount
         guard let (movement, actual) = sent(candidates, hash: hash) else { return .uncertain }
         guard snapshot.movementIDs.contains(movement.id) else {
             return lightning(candidates, hash: hash, amount: amount, snapshot: snapshot, fixed: fixed)
@@ -188,8 +192,7 @@ enum SendReconciliation {
 
     static func onchain(_ attempt: SendPaymentController.Attempt, transactions: [WalletTransaction])
         throws
-        -> SendPaymentController.Resolution
-    {
+        -> SendPaymentController.Resolution {
         let originalTxid = attempt.receipt?.txid ?? attempt.broadcastingTxid
         let original = transactions.first { $0.txid == originalTxid }
         let inputs = attempt.quote?.prepared.flatMap { $0.txid == originalTxid ? $0.inputs : nil }
@@ -226,7 +229,7 @@ enum SendReconciliation {
         }
         // Legacy journals have no exact pre-broadcast identity; retain their conservative evidence path.
         guard attempt.payment.method == "onchain", attempt.payment.source == .onchain, !attempt.payment.max,
-            let previous = attempt.snapshot.bdkTxids
+              let previous = attempt.snapshot.bdkTxids
         else { return .uncertain }
         var candidates: [String] = []
         for tx in transactions where !previous.contains(tx.txid) && tx.balanceChangeSats < 0 {
@@ -240,8 +243,7 @@ enum SendReconciliation {
 
     static func chainEvidence(
         _ resolution: SendPaymentController.Resolution, source: SendSource?,
-        lookup: @Sendable (String) async throws -> ChainTransactionStatus
-    ) async -> SendPaymentController.Resolution {
+        lookup: @Sendable (String) async throws -> ChainTransactionStatus) async -> SendPaymentController.Resolution {
         guard case .paid(var receipt) = resolution, let txid = receipt.txid else { return resolution }
         do { receipt = chainEvidence(try await lookup(txid), receipt: receipt, source: source) }
         catch {
@@ -288,7 +290,7 @@ enum SendTransaction {
         return amount
     }
     static func parse(hex: String) throws -> (inputs: [Input], outputs: [(amount: UInt64, script: [UInt8])]) {
-        guard hex.count % 2 == 0 else { throw SendFailure.unresolved }
+        guard hex.count.isMultiple(of: 2) else { throw SendFailure.unresolved }
         var bytes: [UInt8] = []
         var index = hex.startIndex
         while index < hex.endIndex {

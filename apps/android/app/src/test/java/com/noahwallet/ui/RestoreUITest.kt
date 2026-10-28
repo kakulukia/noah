@@ -1,17 +1,17 @@
 package com.noahwallet.ui
 
+import com.noahwallet.fixtures.SharedFixtures
 import com.noahwallet.services.backup.*
 import com.noahwallet.services.launch.LaunchState
-import com.noahwallet.services.server.value
 import com.noahwallet.services.server.ServerFailure
+import com.noahwallet.services.server.value
 import com.noahwallet.services.storage.PersistedWalletState
 import com.noahwallet.services.wallet.WalletSession
-import com.noahwallet.fixtures.SharedFixtures
-import java.io.IOException
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.IOException
 
 class RecoveryPhraseInputTest {
     private val phrase = List(11) { "abandon" }.plus("about").joinToString(" ")
@@ -183,9 +183,17 @@ class RestoreCompletionTest {
         var failSave = false
         var failRecovery = false
         val completion get() = RestoreCompletion(
-            { state }, { if (failSave) error("save"); state = it; events += "flags" },
+            { state }, {
+                if (failSave) error("save")
+                state = it
+                events += "flags"
+            },
             { sha, id -> seeded = sha to id; events += "seed" },
-            { events += "recover"; if (failRecovery) error("recovery"); recovery }, { events += "open" })
+            {
+                events += "recover"
+                if (failRecovery) error("recovery")
+                recovery
+            }, { events += "open" })
     }
     @Test fun savesFlagsSeedsBackupRecoversThenOpens() = runBlocking {
         val fake = Fake()
@@ -330,7 +338,9 @@ class RestoreCompletionReplayTest {
             var state = PersistedWalletState(isInitialized = false)
             val events = mutableListOf<String>()
             val completion = RestoreCompletion({ state }, {
-                events += "flags"; if (unavailable) error("settings write failed"); state = it
+                events += "flags"
+                if (unavailable) error("settings write failed")
+                state = it
             }, { _, _ -> events += "backup" },
                 { events += "recover"; RestoreTransaction.Recovery.completed }, { events += "open" }, journal,
                 { events += "token" }, settingsUnavailable = { unavailable })
@@ -352,7 +362,9 @@ class RestoreCompletionReplayTest {
                 location.directory.mkdirs(); location.database.writeText("committed wallet")
                 var fail = boundary
                 var armed = false
-                val journal = RestoreCompletionJournal(location) { if (armed && fail == "clear" && !java.io.File(location.restoreDirectory, "completion.json").exists()) error("crash") }
+                val journal = RestoreCompletionJournal(location) {
+                    if (armed && fail == "clear" && !java.io.File(location.restoreDirectory, "completion.json").exists()) error("crash")
+                }
                 // Engine callback persists the metadata before the seed commit.
                 journal.write(WalletRestorer.Outcome("backup", "snapshot"))
                 armed = true

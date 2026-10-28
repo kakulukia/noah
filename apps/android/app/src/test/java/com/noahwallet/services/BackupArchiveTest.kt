@@ -1,15 +1,15 @@
 package com.noahwallet.services
 
 import com.noahwallet.services.backup.*
-import java.io.*
-import java.nio.file.Files
-import java.util.Base64
-import java.util.zip.*
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 import okhttp3.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.*
+import java.nio.file.Files
+import java.util.Base64
+import java.util.zip.*
 
 class BackupArchiveTest {
     private val phrase = "test phrase"
@@ -95,22 +95,24 @@ class BackupArchiveTest {
             BackupArchive.extract(byteArrayOf(1).inputStream(), File(root, "crc"), 10, 123)
         }.exceptionOrNull() as BackupArchive.Failure).reason)
     }
+    /** [original] with every zip header's CRC (or, without [crc], its sizes) forged. */
+    private fun forged(original: ByteArray, crc: Boolean): ByteArray {
+        val bytes = original.copyOf()
+        fun u32(at: Int): Long = (0..3).fold(0L) { value, i -> value or ((bytes[at + i].toLong() and 255) shl (8 * i)) }
+        fun write(at: Int, value: Int) { repeat(4) { bytes[at + it] = (value ushr (8 * it)).toByte() } }
+        for (offset in 0 until bytes.size - 46) {
+            when (u32(offset)) {
+                0x04034b50L -> if (crc) write(offset + 14, 123) else write(offset + 22, 16)
+                0x02014b50L -> if (crc) write(offset + 16, 123) else write(offset + 24, 16)
+                0x08074b50L -> if (crc) write(offset + 4, 123) else write(offset + 12, 16)
+            }
+        }
+        return bytes
+    }
     @Test fun forgedSizesAndCrcAreRejectedWhileInflatingArchive() = temp { root ->
         val manifestBytes = BackupArchive.encode(manifest)
         val original = zip("manifest.json" to manifestBytes, "db.sqlite" to ByteArray(256 * 1024))
-        fun patch(crc: Boolean): ByteArray {
-            val bytes = original.copyOf()
-            fun u32(at: Int): Long = (0..3).fold(0L) { value, i -> value or ((bytes[at + i].toLong() and 255) shl (8 * i)) }
-            fun write(at: Int, value: Int) { repeat(4) { bytes[at + it] = (value ushr (8 * it)).toByte() } }
-            for (offset in 0 until bytes.size - 46) {
-                when (u32(offset)) {
-                    0x04034b50L -> if (crc) write(offset + 14, 123) else write(offset + 22, 16)
-                    0x02014b50L -> if (crc) write(offset + 16, 123) else write(offset + 24, 16)
-                    0x08074b50L -> if (crc) write(offset + 4, 123) else write(offset + 12, 16)
-                }
-            }
-            return bytes
-        }
+        fun patch(crc: Boolean) = forged(original, crc)
         val corrupt = File(root, "corrupt").apply { writeBytes(BackupCrypto.encrypt(patch(true), phrase, BackupCrypto.Version.snapshot, testRounds)) }
         assertEquals(BackupArchive.Reason.checksumMismatch, failure { BackupArchive.open(corrupt, phrase, File(root, "bad"), testRounds) })
         assertFalse(File(root, "bad").exists())
@@ -131,7 +133,9 @@ class BackupArchiveTest {
             val entry = org.apache.commons.compress.archivers.zip.ZipArchiveEntry("db.sqlite").apply { unixMode = 0xa1ff }
             zip.putArchiveEntry(entry); zip.write("/other/wallet".toByteArray()); zip.closeArchiveEntry()
         }
-        val encrypted = File(root, "encrypted").apply { writeBytes(BackupCrypto.encrypt(bytes.toByteArray(), phrase, BackupCrypto.Version.snapshot, testRounds)) }
+        val encrypted = File(root, "encrypted").apply {
+            writeBytes(BackupCrypto.encrypt(bytes.toByteArray(), phrase, BackupCrypto.Version.snapshot, testRounds))
+        }
         assertEquals(BackupArchive.Reason.unexpectedEntry, failure { BackupArchive.open(encrypted, phrase, File(root, "out"), testRounds) })
         assertFalse(File(root, "out").exists())
     }
@@ -141,7 +145,8 @@ class BackupArchiveTest {
             listOf(prefix + "db.sqlite", prefix + "a//b") to BackupArchive.Reason.unexpectedEntry,
             listOf(prefix + "other.sqlite") to BackupArchive.Reason.snapshotMissing,
             listOf(prefix + "db.sqlite") + (0..255).map { prefix + "f$it" } to BackupArchive.Reason.tooLarge)) {
-            val sealed = BackupCrypto.encrypt(zip(*entries.map { it to byteArrayOf(1) }.toTypedArray()), phrase, BackupCrypto.Version.legacyDirectory, testRounds)
+            val sealed = BackupCrypto.encrypt(zip(*entries.map { it to byteArrayOf(1) }.toTypedArray()), phrase,
+                BackupCrypto.Version.legacyDirectory, testRounds)
             val out = File(root, "legacy")
             assertEquals(reason, failure { BackupArchive.openLegacy(Base64.getEncoder().encode(sealed), phrase, "regtest", out, testRounds) })
             assertFalse(out.exists())

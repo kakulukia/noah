@@ -39,7 +39,9 @@ struct HomeBanner: Equatable {
             let formatter = DateFormatter()
             formatter.locale = locale
             formatter.setLocalizedDateFormatFromTemplate("jm")
-            return Self(title: "Backup completed", message: #"Last backup \#(formatter.string(from: Date(timeIntervalSince1970: time / 1000)))"#) // Never shown: Home toasts only the title.
+            return Self(title: "Backup completed",
+                        message: #"Last backup \#(formatter.string(from: Date(timeIntervalSince1970: time / 1000)))"#) // Never shown: Home toasts only the
+        // title.
         default: return nil
         }
     }
@@ -121,6 +123,7 @@ final class HomeModel {
     private var backgroundRevision: UInt64?
     private(set) var nextRoundCheck: Date?
     private(set) var bannerNow = Date()
+    // swiftlint:disable:next discouraged_optional_collection - nil until the seen set loads
     private var seenAutoBoards: Set<UUID>?
 
     init(dependencies: Dependencies = .live) { self.dependencies = dependencies }

@@ -18,17 +18,32 @@ internal class RecurringWorld(val scope: CoroutineScope, val wallet: FakeSendWal
     var beforeBinding: () -> Unit = {}
     var beforeGeneration: () -> Unit = {}
     var raw: String? = null
-    val store = RecurringStore({ beforeRead(); raw }, { beforeWrite(it); if (mmkvFails) error("MMKV"); raw = it })
+    val store = RecurringStore({ beforeRead(); raw }, {
+        beforeWrite(it)
+        if (mmkvFails) error("MMKV")
+        raw = it
+    })
     var journalRaw: String? = null
     var journalFails = false; var mmkvFails = false; var auditFails = false
     var quarantineRaw: ByteArray? = null
-    val policyDirectory = File(java.nio.file.Files.createTempDirectory("noah-money-world-").toFile().also { it.deleteOnExit() }, "noah-data-regtest").also { it.mkdir(); it.deleteOnExit() }
-    val journal = RecurringJournal(File(policyDirectory, "journal.json"), { beforeJournalRead(); journalRaw }, { beforeJournalWrite(it); if (journalFails) error("journal"); journalRaw = it },
+    val policyDirectory = File(java.nio.file.Files.createTempDirectory("noah-money-world-").toFile().also { it.deleteOnExit() }, "noah-data-regtest").also {
+        it.mkdir()
+        it.deleteOnExit()
+    }
+    val journal = RecurringJournal(File(policyDirectory, "journal.json"), {
+        beforeJournalRead()
+        journalRaw
+    }, {
+        beforeJournalWrite(it)
+        if (journalFails) error("journal")
+        journalRaw = it
+    },
         quarantine = { if (quarantineRaw == null) quarantineRaw = it })
     init { wallet.owner = SendIdentity("wallet-a", "regtest"); wallet.snapshot = SendSnapshot(walletIdentity = wallet.owner) }
     val sendJournal = TestJournal()
-    val controller = if (reservation == null) controller(wallet, sendJournal, scope) else SendController(SendController.Dependencies(
-        { sendJournal.attempt }, sendJournal::write, recurringReservation = reservation, reservation = reservation), scope)
+    val controller = if (reservation == null)
+        controller(wallet, sendJournal, scope) else SendController(SendController.Dependencies({ sendJournal.attempt }, sendJournal::write,
+        recurringReservation = reservation, reservation = reservation), scope)
     var binding = RecurringStore.Binding(wallet.owner, UUID.randomUUID().toString())
     var allowed = true; var generation: String? = null; var now = 1000L; var zone = TimeZone.getTimeZone("UTC")
     val sentEntries = mutableListOf<List<com.noahwallet.api.generated.models.RecurringPaymentScheduleEntry>>()
@@ -39,13 +54,22 @@ internal class RecurringWorld(val scope: CoroutineScope, val wallet: FakeSendWal
     init { store.protectPolicies(File("${journal.file.path}.policies"), sync = { it.listFiles()?.forEach(File::deleteOnExit) }, syncFile = {}) { binding } }
     val executor = RecurringExecutor(RecurringExecutor.Dependencies(store, journal, controller,
         ensureOpen = {}, binding = { beforeBinding(); binding }, allowed = { check(allowed) },
-        quote = { s -> quotes++; beforeQuote(); SendPayment(s.destination, method, s.amountSat) to SendQuote(s.amountSat, fee, s.amountSat + fee, walletIdentity = binding.wallet, lightningFeeSchedule = feeSchedule) },
+        quote = { s ->
+            quotes++
+            beforeQuote()
+            SendPayment(s.destination, method, s.amountSat) to SendQuote(s.amountSat, fee, s.amountSat + fee, walletIdentity = binding.wallet,
+                lightningFeeSchedule = feeSchedule)
+        },
         automationGeneration = { beforeGeneration(); generation }, now = { now }, zone = { zone },
         sync = { sentEntries.add(it); syncCalls++; sync() }, notify = { _, result -> result?.let { notifications.add(it) } },
-        audit = { _, _, _, _ -> if (auditFails) error("audit"); audits++ }), scope)
+        audit = { _, _, _, _ ->
+            if (auditFails) error("audit")
+            audits++
+        }), scope)
     val schedule get() = store.load().schedules["rent"]
     fun add(start: Long = 1000): RecurringPayment {
-        val schedule = RecurringPayment("rent", "Rent", "recipient", "ark", 1000, interval = RecurringInterval("day", 1), startAt = start, createdAt = 0, updatedAt = 0)
+        val schedule = RecurringPayment("rent", "Rent", "recipient", "ark", 1000, interval = RecurringInterval("day", 1), startAt = start,
+            createdAt = 0, updatedAt = 0)
         store.bind(binding); store.upsert(schedule); return schedule
     }
     suspend fun change(action: String) {
@@ -61,7 +85,7 @@ internal class RecurringWorld(val scope: CoroutineScope, val wallet: FakeSendWal
 }
 
 class RecurringExecutorTest {
-    @Test fun RNImportNeverPaysAndSyncsEmptyAfterAdmissionWithRetry() = runBlocking {
+    @Test fun rnImportNeverPaysAndSyncsEmptyAfterAdmissionWithRetry() = runBlocking {
         val w = RecurringWorld(this)
         val imported = com.noahwallet.services.storage.SettingsStorage.importValues(mapOf(RecurringStore.key to
             """{"state":{"schedules":{"old":{"id":"old"}}},"version":0}"""))
@@ -285,7 +309,8 @@ class RecurringExecutorTest {
         // v1 retained A only as a timestamp after B's proven pre-submission failure.
         val b = RecurringJournal.Entry(w.binding, a.id, a.plan(w.now, w.zone), w.now,
             UUID.randomUUID().toString(), resolved = true)
-        w.journalRaw = """{"version":1,"attempts":${RecurringStore.json.encodeToString(mapOf(a.id to b))},"consumed":${RecurringStore.json.encodeToString(listOf(RecurringJournal.Watermark(w.binding, a.id, w.now)))}}"""
+        w.journalRaw = """{"version":1,"attempts":${RecurringStore.json.encodeToString(mapOf(a.id to b))},""" +
+            """"consumed":${RecurringStore.json.encodeToString(listOf(RecurringJournal.Watermark(w.binding, a.id, w.now)))}}"""
         w.raw = rollback; w.zone = TimeZone.getTimeZone("UTC"); w.now = 1775016000000
         assertEquals(w.now, a.plan(w.now, w.zone).scheduledFor)
         w.executor.execute()
@@ -307,7 +332,8 @@ class RecurringExecutorTest {
                 val w = RecurringWorld(this)
                 val original = w.add(start).copy(status = status, nativeRevision = UUID.randomUUID().toString())
                 w.store.upsert(original)
-                w.journalRaw = """{"version":2,"attempts":{},"consumed":[],"consumedIndices":[],"legacyUncertainty":[${RecurringStore.json.encodeToString(RecurringJournal.Scope(w.binding, "rent"))}]}"""
+                w.journalRaw = """{"version":2,"attempts":{},"consumed":[],"consumedIndices":[],"legacyUncertainty":[""" +
+                    """${RecurringStore.json.encodeToString(RecurringJournal.Scope(w.binding, "rent"))}]}"""
                 w.journal.load() // Finish the in-place v2 upgrade before checking refused mutations.
                 val raw = w.raw; val journal = w.journalRaw
                 for (action in listOf<suspend () -> Unit>({ w.executor.resume("rent") },
@@ -388,7 +414,7 @@ class RecurringExecutorTest {
         raw = RecurringStore.json.encodeToString(mapOf("rent" to a))
         val j = RecurringJournal(File("unused"), { raw }, { raw = it })
         j.save(a.copy(plan = a.plan.copy(scheduledFor = 2000), consumed = false, resolved = false, policyRevision = UUID.randomUUID().toString()))
-        assertTrue(raw!!.contains("\"version\":3")); assertTrue(j.consumed(binding, "rent", 1000)); assertTrue(j.consumed(binding, "rent", 2000))
+        assertTrue(raw.contains("\"version\":3")); assertTrue(j.consumed(binding, "rent", 1000)); assertTrue(j.consumed(binding, "rent", 2000))
     }
     @Test fun failedLegacyMigrationCannotOverwriteConsumption() {
         val binding = RecurringStore.Binding(SendIdentity("wallet", "regtest"), UUID.randomUUID().toString())
@@ -546,7 +572,8 @@ class RecurringExecutorTest {
         w.executor.execute(); assertEquals(0, w.wallet.calls)
     }
     @Test fun timezoneRefreshUpdatesPersistedDatesWakePayloadAndReminders() = runBlocking {
-        val w = RecurringWorld(this); val s = w.add(1772337600000).copy(interval = RecurringInterval("month", 1), nextOccurrenceIndex = 1, nextRunAt = 1774753200000)
+        val w = RecurringWorld(this)
+        val s = w.add(1772337600000).copy(interval = RecurringInterval("month", 1), nextOccurrenceIndex = 1, nextRunAt = 1774753200000)
         w.store.upsert(s); w.zone = TimeZone.getTimeZone("UTC")
         w.executor.execute(); assertEquals(1775016000000, w.schedule!!.nextRunAt)
         assertEquals(1775016000, RecurringExecutor.entries(listOf(w.schedule!!)).single().nextRunAt)
@@ -558,7 +585,8 @@ class RecurringExecutorTest {
         w.store.upsert(w.schedule!!.copy(status = "paused")); val second = async { w.executor.syncServer() }; yield(); release.complete(Unit)
         first.await(); second.await(); assertEquals(2, w.syncCalls); assertFalse(w.store.load().pending)
         w.sync = { error("offline") }; w.executor.syncServer(); assertTrue(w.store.load().pending)
-        val payload = Json.encodeToString(com.noahwallet.api.generated.models.SyncRecurringPaymentsPayload(RecurringExecutor.entries(listOf(w.schedule!!.copy(status = "active")))))
+        val entries = RecurringExecutor.entries(listOf(w.schedule!!.copy(status = "active")))
+        val payload = Json.encodeToString(com.noahwallet.api.generated.models.SyncRecurringPaymentsPayload(entries))
         assertFalse(payload.contains("recipient")); assertFalse(payload.contains("amount")); assertTrue(payload.contains("schedule_id"))
     }
 }

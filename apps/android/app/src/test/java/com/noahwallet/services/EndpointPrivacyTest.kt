@@ -3,12 +3,12 @@ package com.noahwallet.services
 import com.noahwallet.services.logging.*
 import io.sentry.*
 import io.sentry.protocol.Message
-import java.nio.file.Files
-import java.util.concurrent.Executor
+import io.sentry.protocol.SentryException
+import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
-import kotlinx.serialization.json.*
-import io.sentry.protocol.SentryException
+import java.nio.file.Files
+import java.util.concurrent.Executor
 
 class EndpointPrivacyTest {
     @Test fun equivalentAuthoritiesUseSharedFixturesAtEveryBoundary() {
@@ -23,10 +23,7 @@ class EndpointPrivacyTest {
                 val input = test.getValue("input").jsonPrimitive.content
                 val safe = LogFile.redact(input)
                 assertEquals(input, test.getValue("expected").jsonPrimitive.content, safe)
-                val event = SentryEvent().apply {
-                    message = Message().apply { formatted = input }
-                    exceptions = listOf(SentryException().apply { value = input; type = "FakeEndpointError" })
-                }
+                val event = endpointEvent(input)
                 val clean = requireNotNull(AppTelemetry.scrub(event))
                 assertEquals(safe, clean.message?.formatted)
                 assertEquals(safe, clean.exceptions!!.first().value)
@@ -40,7 +37,9 @@ class EndpointPrivacyTest {
             val lines = file.lines()
             assertEquals(persisted.size, lines.size)
             for ((line, safe) in lines.zip(persisted)) assertTrue(line, line.endsWith(safe))
-            directory.resolve("noah.log.1").writeText(cases.filter { it.getValue("redacted").jsonPrimitive.boolean }.joinToString("\n") { it.getValue("input").jsonPrimitive.content })
+            directory.resolve("noah.log.1").writeText(cases.filter { it.getValue("redacted").jsonPrimitive.boolean }.joinToString("\n") {
+                it.getValue("input").jsonPrimitive.content
+            })
             assertFalse(file.lines().joinToString().contains("bücher.example)"))
             assertFalse(file.lines().joinToString().contains("[0:0::1]"))
         } finally { directory.deleteRecursively() }
@@ -57,10 +56,7 @@ class EndpointPrivacyTest {
                 val input = test.getValue("input").jsonPrimitive.content
                 val expected = test.getValue("expected").jsonPrimitive.content
                 assertEquals(input, expected, LogFile.redact(input))
-                val event = SentryEvent().apply {
-                    message = Message().apply { formatted = input }
-                    exceptions = listOf(SentryException().apply { value = input; type = "FakeEndpointError" })
-                }
+                val event = endpointEvent(input)
                 val clean = requireNotNull(AppTelemetry.scrub(event))
                 assertEquals(expected, clean.message?.formatted)
                 assertEquals(expected, clean.exceptions!!.first().value)
@@ -105,7 +101,8 @@ class EndpointPrivacyTest {
         val origin = "https://fakehostcredential73.example.com:8443"
         EndpointLogPrivacy.register("$origin/api")
         EndpointLogPrivacy.register("https://fakepunctcredential92.example.com/api")
-        val inputs = listOf("https://fakepunctcredential92.example.com:443)", origin, "$origin/api/blocks/tip/height", origin.uppercase(), "$origin)", "$origin,", "$origin.",
+        val inputs = listOf("https://fakepunctcredential92.example.com:443)", origin, "$origin/api/blocks/tip/height", origin.uppercase(),
+            "$origin)", "$origin,", "$origin.",
             origin.replace("fake", """\u0066ake"""), origin.replace(":", "%3A").replace("/", "%2F"), origin.replace("/", "%2F"),
             origin.replace("/", "\\/"), origin.replace(":", "&#58;").replace("/", "&#x2f;"))
         for (input in inputs) {
@@ -171,7 +168,8 @@ class EndpointPrivacyTest {
         }
         for (variant in listOf("mainnet", "signet", "regtest")) {
             val config = com.noahwallet.services.wallet.WalletConfiguration.base(variant)
-            for (endpoint in listOfNotNull(com.noahwallet.services.server.ServerEndpoint.baseURL(variant, com.noahwallet.BuildConfig.REGTEST_SERVER_URL), config.arkServer, config.esplora)) {
+            for (endpoint in listOfNotNull(com.noahwallet.services.server.ServerEndpoint.baseURL(variant, com.noahwallet.BuildConfig.REGTEST_SERVER_URL),
+                config.arkServer, config.esplora)) {
                 val origin = endpoint.substringBefore("/api").trimEnd('/')
                 assertEquals(endpoint, EndpointLogPrivacy.sanitize(endpoint, setOf("https://fake-custom.example")))
                 assertEquals("[custom-esplora]", EndpointLogPrivacy.sanitize(endpoint, setOf(origin)))
@@ -187,6 +185,11 @@ class EndpointPrivacyTest {
             assertEquals(expected, EndpointLogPrivacy.sanitize(input, registered, hosts = hosts))
             assertEquals("TransportError HTTP 503: $expected", EndpointLogPrivacy.sanitize("TransportError HTTP 503: $input", registered, hosts = hosts))
         }
+    }
 
+    /** An error event carrying [input] as its message and its exception's value. */
+    private fun endpointEvent(input: String) = SentryEvent().apply {
+        message = Message().apply { formatted = input }
+        exceptions = listOf(SentryException().apply { value = input; type = "FakeEndpointError" })
     }
 }

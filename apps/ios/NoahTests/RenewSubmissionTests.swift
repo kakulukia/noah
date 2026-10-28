@@ -1,7 +1,7 @@
 import Foundation
+@testable import Noah
 import Synchronization
 import Testing
-@testable import Noah
 
 /// Home's Renew rechecks eligibility at submission, under the sync flight and inside the
 /// journal's operation, so a tip that moves while execution waits can't refresh an
@@ -29,23 +29,23 @@ struct RenewSubmissionTests {
         return (OnchainOperationJournal(file: directory.appending(path: "attempt.json")), directory)
     }
 
-    private func submit(_ journal: OnchainOperationJournal, flight: WalletSync, tip: Shared<UInt32>,
-                        coins: [HomeRenewal.Coin] = [coin], failing: Read? = nil, submitted: Shared<Int>) async throws -> String {
+    private func submit(_ journal: OnchainOperationJournal, flight: WalletSync, tip: Shared<UInt32>, submitted: Shared<Int>,
+                        coins: [HomeRenewal.Coin] = [coin], failing: Read? = nil) async throws -> String {
         try await WalletSession.submitRenewal(
-            Self.quote, threshold: 144, journal: journal, flight: flight,
-            requote: { Self.quote },
-            expiring: { _ in
+            Self.quote,
+            threshold: 144,
+            journal: journal,
+            flight: flight,
+            reads: .init(requote: { Self.quote }, expiring: { _ in
                 if failing == .expiring { throw ReadFailed() }
                 return coins
-            },
-            tip: {
+            }, tip: {
                 if failing == .tip { throw ReadFailed() }
                 return tip.current
-            },
-            refresh: { _ in
+            }, refresh: { _ in
                 submitted.set(submitted.current + 1)
                 return OnchainReceipt(message: "submitted")
-            })
+            }))
     }
 
     @Test func expiryWhileWaitingForTheLockSubmitsNothing() async throws {
@@ -83,14 +83,14 @@ struct RenewSubmissionTests {
 
     @Test(arguments: [
         HomeRenewal.Coin(id: "a", sats: 20_000, expiryHeight: 1_010, spendable: false), // locked
-        HomeRenewal.Coin(id: "b", sats: 20_000, expiryHeight: 1_010, spendable: true),  // no longer in the set
+        HomeRenewal.Coin(id: "b", sats: 20_000, expiryHeight: 1_010, spendable: true), // no longer in the set
     ])
     func coinsThatStoppedBeingEligibleSubmitNothing(coin: HomeRenewal.Coin) async throws {
         let (journal, directory) = try journal()
         defer { try? FileManager.default.removeItem(at: directory) }
         let submitted = Shared(0)
         await #expect(throws: OnchainFailure.changed) {
-            try await submit(journal, flight: WalletSync(), tip: Shared<UInt32>(1_000), coins: [coin], submitted: submitted)
+            try await submit(journal, flight: WalletSync(), tip: Shared<UInt32>(1_000), submitted: submitted, coins: [coin])
         }
         #expect(submitted.current == 0)
         #expect(try await journal.loadAll().isEmpty)
@@ -103,7 +103,7 @@ struct RenewSubmissionTests {
         let flight = WalletSync()
         let submitted = Shared(0)
         await #expect(throws: OnchainFailure.changed) {
-            try await submit(journal, flight: flight, tip: Shared<UInt32>(1_000), failing: read, submitted: submitted)
+            try await submit(journal, flight: flight, tip: Shared<UInt32>(1_000), submitted: submitted, failing: read)
         }
         #expect(submitted.current == 0)
         #expect(try await journal.loadAll().isEmpty)

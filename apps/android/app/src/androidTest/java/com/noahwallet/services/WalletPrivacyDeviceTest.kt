@@ -35,7 +35,8 @@ class WalletPrivacyDeviceTest {
         while (!condition() && System.currentTimeMillis() < deadline) Thread.sleep(50)
         assertTrue("Timed out waiting for privacy lifecycle transition", condition())
     }
-    private fun matches(node: android.view.accessibility.AccessibilityNodeInfo?, predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean): Boolean {
+    private fun matches(node: android.view.accessibility.AccessibilityNodeInfo?,
+        predicate: (android.view.accessibility.AccessibilityNodeInfo) -> Boolean): Boolean {
         if (node == null) return false
         if (predicate(node)) return true
         return (0 until node.childCount).any { matches(node.getChild(it), predicate) }
@@ -70,6 +71,8 @@ class WalletPrivacyDeviceTest {
             waitFor { activity.lifecycle.currentState == Lifecycle.State.RESUMED }
             val started = model.walletLock.generation
             prompt()
+            // API 28 only (above), where RecentTaskInfo.taskId (API 29) doesn't exist yet.
+            @Suppress("DEPRECATION")
             val task = (context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager)
                 .appTasks.first { it.taskInfo?.id == activity.taskId }
             automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
@@ -112,7 +115,8 @@ class WalletPrivacyDeviceTest {
             assertEquals(started, model.walletLock.generation)
             shell("am start -W -n ${context.packageName}/com.noahwallet.MainActivity")
             waitFor { activity.lifecycle.currentState == Lifecycle.State.RESUMED }
-            assertTrue("direct relaunch: locked=${model.walletLock.locked}, authenticating=${model.walletLock.authenticating}, generation=${model.walletLock.generation}, started=$started", model.walletLock.locked)
+            assertTrue("direct relaunch: locked=${model.walletLock.locked}, authenticating=${model.walletLock.authenticating}, " +
+                "generation=${model.walletLock.generation}, started=$started", model.walletLock.locked)
             assertNotEquals("unexpected direct relaunch invalidates the request", started, model.walletLock.generation)
             waitFor { matches(automation.rootInActiveWindow) { it.text?.contains("Noah is locked") == true } }
             waitFor { !model.walletLock.authenticating }

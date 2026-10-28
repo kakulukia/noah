@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 /// Advanced: five taps unlock debug mode, its switch turns it off again, and Suspend asks first.
 @MainActor struct SettingsDebugSuspendTests {
@@ -14,7 +14,7 @@ import Testing
         #expect(unlock.remaining == 1)
         let fifth = unlock.tap(at: start.addingTimeInterval(6))
         #expect(fifth)
-        #expect(unlock.count == 0)
+        #expect(unlock.count == 0) // swiftlint:disable:this empty_count - a tap counter, not a collection
 
         var paused = DebugUnlock()
         for tap in 0..<4 { _ = paused.tap(at: start.addingTimeInterval(Double(tap))) }
@@ -45,8 +45,8 @@ import Testing
     @Test func suspendingAsksFirstAndResumingDoesNot() {
         #expect(SuspendSwitch.action(suspended: false, requested: true) == .confirm)
         #expect(SuspendSwitch.action(suspended: true, requested: false) == .resume)
-        #expect(SuspendSwitch.action(suspended: true, requested: true) == .none)
-        #expect(SuspendSwitch.action(suspended: false, requested: false) == .none)
+        #expect(SuspendSwitch.action(suspended: true, requested: true) == .unchanged)
+        #expect(SuspendSwitch.action(suspended: false, requested: false) == .unchanged)
     }
 
     @Test func hideAmountsIsHomesPersistedFlag() throws {

@@ -7,10 +7,15 @@ import org.junit.runners.Parameterized
 @RunWith(Parameterized::class)
 class RecurringNumericGrammarTest(private val name: String, private val row: String, private val supported: Boolean) {
     companion object {
-        @JvmStatic @Parameterized.Parameters(name = "{0}") fun cases() =
-            Json.parseToJsonElement(com.noahwallet.fixtures.SharedFixtures.document("recurring-rn-numeric-grammar").jsonObject.getValue("cases").toString()).jsonArray.map {
+        @JvmStatic
+        @Parameterized.Parameters(name = "{0}")
+        fun cases() =
+            Json.parseToJsonElement(
+                com.noahwallet.fixtures.SharedFixtures.document("recurring-rn-numeric-grammar").jsonObject.getValue("cases").toString(),
+            ).jsonArray.map {
                 val c = it.jsonObject
-                arrayOf<Any>(c.getValue("name").jsonPrimitive.content, c.getValue("rowJSON").jsonPrimitive.content, c.getValue("supported").jsonPrimitive.boolean)
+                arrayOf<Any>(c.getValue("name").jsonPrimitive.content, c.getValue("rowJSON").jsonPrimitive.content,
+                    c.getValue("supported").jsonPrimitive.boolean)
             }
     }
     @Test fun exactTokens() {

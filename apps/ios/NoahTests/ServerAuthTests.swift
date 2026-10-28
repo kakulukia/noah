@@ -1,11 +1,11 @@
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 struct ServerAuthTests {
     /// Unsigned test token with the given expiry.
     static func token(expiresIn seconds: TimeInterval, now: Date) -> String {
+        // swiftlint:disable:next force_try - serializing a [String: Int] can't fail
         let payload = try! JSONSerialization.data(withJSONObject: ["exp": Int(now.timeIntervalSince1970 + seconds)])
         let encoded = payload.base64EncodedString()
             .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
@@ -61,6 +61,7 @@ struct ServerAuthTests {
 
     /// Unsigned test token for a given subject (login key).
     static func token(subject: String, expiresIn seconds: TimeInterval, now: Date) -> String {
+        // swiftlint:disable:next force_try - serializing a [String: String or Int] can't fail
         let payload = try! JSONSerialization.data(withJSONObject: [
             "sub": subject, "exp": Int(now.timeIntervalSince1970 + seconds),
         ])

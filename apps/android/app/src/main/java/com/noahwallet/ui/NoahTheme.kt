@@ -1,11 +1,10 @@
 package com.noahwallet.ui
 
-import com.noahwallet.localization.tr
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -15,6 +14,7 @@ import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.noahwallet.R
+import com.noahwallet.localization.tr
 
 private val inter = FontFamily(Font(R.font.inter_regular), Font(R.font.inter_medium, FontWeight.Medium),
     Font(R.font.inter_semibold, FontWeight.SemiBold), Font(R.font.inter_bold, FontWeight.Bold))
@@ -47,7 +47,7 @@ fun NoahTheme(content: @Composable () -> Unit) {
 }
 
 @Composable
-fun NoahButton(title: String, enabled: Boolean = true, secondary: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun NoahButton(title: String, modifier: Modifier = Modifier, enabled: Boolean = true, secondary: Boolean = false, onClick: () -> Unit) {
     if (secondary) OutlinedButton(onClick, modifier.fillMaxWidth().heightIn(min = 52.dp), enabled = enabled) { Text(tr(title)) }
     else Button(onClick, modifier.fillMaxWidth().heightIn(min = 52.dp), enabled = enabled) { Text(tr(title)) }
 }

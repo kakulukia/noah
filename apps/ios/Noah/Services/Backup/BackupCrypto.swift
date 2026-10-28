@@ -44,8 +44,7 @@ enum BackupCrypto {
 
     /// Deterministic variant for test vectors. Never reuse a salt/nonce pair.
     static func encrypt(
-        _ plaintext: Data, mnemonic: String, version: Version, salt: Data, nonce: Data
-    ) throws -> Data {
+        _ plaintext: Data, mnemonic: String, version: Version, salt: Data, nonce: Data) throws -> Data {
         precondition(salt.count == saltLength && nonce.count == nonceLength)
         let key = try deriveKey(mnemonic: mnemonic, salt: salt)
         let sealed = try AES.GCM.seal(plaintext, using: key, nonce: AES.GCM.Nonce(data: nonce))
@@ -59,7 +58,7 @@ enum BackupCrypto {
     }
 
     static func decrypt(_ envelope: Data, mnemonic: String, expecting version: Version) throws -> Data {
-        let bytes = Data(envelope)  // rebase indices to 0
+        let bytes = Data(envelope) // rebase indices to 0
         guard bytes.count >= headerLength + tagLength else { throw Failure.tooShort }
         guard bytes[0] <= Version.snapshot.rawValue else { throw Failure.newerVersion }
         guard bytes[0] == version.rawValue else { throw Failure.unexpectedVersion(bytes[0]) }
@@ -101,8 +100,8 @@ enum BackupCrypto {
 
     private static func randomBytes(_ count: Int) -> Data {
         var bytes = Data(count: count)
-        let status = bytes.withUnsafeMutableBytes {
-            SecRandomCopyBytes(kSecRandomDefault, count, $0.baseAddress!)
+        let status = bytes.withUnsafeMutableBytes { buffer in
+            buffer.baseAddress.map { SecRandomCopyBytes(kSecRandomDefault, count, $0) } ?? errSecAllocate
         }
         precondition(status == errSecSuccess, "SecRandomCopyBytes failed")
         return bytes

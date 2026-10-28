@@ -1,12 +1,12 @@
 package com.noahwallet.services.backup
 
 import com.noahwallet.services.storage.*
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 internal class FakeSeed(var value: String?) : SecretItem {
     var unavailable = false
@@ -15,7 +15,7 @@ internal class FakeSeed(var value: String?) : SecretItem {
     var lockAfterWrite = false
     var onSave: () -> Unit = {}
     override suspend fun read(): SecretResult = if (unavailable) SecretResult.Unavailable(SecretFailure.storageUnreadable)
-        else value?.let { SecretResult.Found(it) } ?: SecretResult.NotFound
+    else value?.let { SecretResult.Found(it) } ?: SecretResult.NotFound
     override suspend fun save(value: String) {
         if (!fail || lands) this.value = value
         if (lockAfterWrite) unavailable = true
@@ -24,7 +24,7 @@ internal class FakeSeed(var value: String?) : SecretItem {
     }
 }
 internal fun transaction(location: WalletDataLocation, sync: (File) -> Unit = {}): RestoreTransaction =
-    RestoreTransaction(location, sync, { from, to -> Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING); Unit }, {})
+    RestoreTransaction(location, sync, { from, to -> Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING) }, {})
 
 class RestoreTransactionTest {
     private class World {
@@ -57,7 +57,7 @@ class RestoreTransactionTest {
                 "mismatched" -> authority().marker.writeText("{\"version\":1,\"instance\":\"${java.util.UUID.randomUUID()}\"}")
             }
             assertFalse(authority().allowed())
-            val realStop = RestoreTransaction(location, {}, { from, to -> Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING); Unit })
+            val realStop = RestoreTransaction(location, {}, { from, to -> Files.move(from.toPath(), to.toPath(), StandardCopyOption.REPLACE_EXISTING) })
             assertEquals(RestoreTransaction.Recovery.completed, realStop.recover(FakeSeed("new seed")))
             settled(); assertEquals("new", read()); assertTrue(tx.settingsPending)
             assertFalse(authority().allowed())

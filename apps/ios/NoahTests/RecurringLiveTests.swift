@@ -1,9 +1,9 @@
 import BarkBoltFFI
 import Foundation
+@testable import Noah
 import SwiftUI
 import Testing
 import UIKit
-@testable import Noah
 
 /// Opt-in on a new, dedicated simulator only. The host funds the published address exactly once.
 @MainActor @Suite(.enabled(if: ProcessInfo.processInfo.environment["NOAH_RECURRING_LIVE"] == "1"))
@@ -19,20 +19,23 @@ struct RecurringLiveTests {
         try await session.createNew(mnemonic: mnemonic, runDaemon: true, appVersion: "recurring-m7-live")
         try services.seed.save(mnemonic)
         try SettingsStorage.shared.setPersistedState(PersistedWalletState(isInitialized: true, isWalletLoaded: true), key: PersistedWalletState.key, version: 0)
-        let request = try await session.receiveRequest()
-        try request.arkAddress.write(to: URL.documentsDirectory.appending(path: "recurring-live-funding-address.txt"), atomically: true, encoding: .utf8)
-        let deadline = ContinuousClock.now + .seconds(180)
-        while ContinuousClock.now < deadline {
-            try await session.sync()
-            if try await session.summary()?.spendableSats ?? 0 >= 10000 { break }
-            try await Task.sleep(for: .seconds(1))
-        }
-        try #require(try await session.summary()?.spendableSats ?? 0 >= 10000)
+        try await fund(session)
         let registration = ServerRegistration(variant: .regtest, session: session, client: services.client)
         try await registration.ensureRegistered()
         let executor = RecurringExecutor.shared
         let now = RecurringPayment.now
-        var schedule = RecurringPayment(id: UUID().uuidString, label: "Regtest recurring proof", destination: recipient, destinationType: "ark", amountSat: 1000, comment: "", interval: .init(unit: "day", every: 1), startAt: now + 2000, nextRunAt: now + 2000, createdAt: now, updatedAt: now)
+        var schedule = RecurringPayment(
+            id: UUID().uuidString,
+            label: "Regtest recurring proof",
+            destination: recipient,
+            destinationType: "ark",
+            amountSat: 1000,
+            comment: "",
+            interval: .init(unit: "day", every: 1),
+            startAt: now + 2000,
+            nextRunAt: now + 2000,
+            createdAt: now,
+            updatedAt: now)
         try await executor.save(schedule, editing: false)
         try #require(!executor.syncPending)
         let before = try await session.withOpenWallet { try await $0.wallet.history().map(\.id) }
@@ -68,9 +71,29 @@ struct RecurringLiveTests {
             "rail": "Ark", "amountSat": "1000", "newSenderMovements": String(after.count),
             "movementID": String(after[0].id), "movementStatus": after[0].status,
             "repeatedTriggersNewMovements": String(afterAgain.count), "pause": "paused; no additional movement",
-            "cancel": "removed; no additional movement", "serverSync": "authenticated generated client; save/pause/cancel succeeded"
+            "cancel": "removed; no additional movement", "serverSync": "authenticated generated client; save/pause/cancel succeeded",
         ]
         try JSONEncoder().encode(evidence).write(to: URL.documentsDirectory.appending(path: "recurring-live-evidence.json"), options: .atomic)
+        try await showUntilFinished()
+        try await executor.cancel(schedule.id)
+        try await session.closeSettled()
+    }
+
+    /// Publishes an Ark address for the host to fund, then waits for 10,000 spendable sats.
+    private func fund(_ session: WalletSession) async throws {
+        let request = try await session.receiveRequest()
+        try request.arkAddress.write(to: URL.documentsDirectory.appending(path: "recurring-live-funding-address.txt"), atomically: true, encoding: .utf8)
+        let deadline = ContinuousClock.now + .seconds(180)
+        while ContinuousClock.now < deadline {
+            try await session.sync()
+            if try await session.summary()?.spendableSats ?? 0 >= 10000 { break }
+            try await Task.sleep(for: .seconds(1))
+        }
+        try #require(try await session.summary()?.spendableSats ?? 0 >= 10000)
+    }
+
+    /// Shows the real recurring list until the host writes `recurring-live-finish` (or three minutes pass).
+    private func showUntilFinished() async throws {
         let window = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.windows.first)
         let previous = window.rootViewController
         window.rootViewController = UIHostingController(rootView: NavigationStack { RecurringPaymentsView() })
@@ -80,8 +103,6 @@ struct RecurringLiveTests {
             try await Task.sleep(for: .milliseconds(250))
         }
         window.rootViewController = previous
-        try await executor.cancel(schedule.id)
-        try await session.closeSettled()
     }
 }
 
@@ -115,15 +136,25 @@ struct RecurringFeeLiveTests {
         var dependencies = RecurringExecutor.Dependencies.live()
         dependencies.quote = { schedule in
             let result = try await RecurringRecipient.quote(schedule, session: session)
-            let decision = RecurringFeePolicy.evaluate(amount: result.0.amount, method: result.0.method, quoteFee: result.1.fee, schedule: result.2)
-            quoted.withLock { $0 = ["quotedFeeSat": String(result.1.fee), "capSat": String(decision.cap!), "worstCaseFeeSat": String(decision.worstCaseFee!), "decision": decision.reason.rawValue] }
+            let decision = RecurringFeePolicy.evaluate(
+                amount: result.payment.amount,
+                method: result.payment.method,
+                quoteFee: result.quote.fee,
+                schedule: result.fees)
+            let cap = try #require(decision.cap), worstCaseFee = try #require(decision.worstCaseFee)
+            quoted.withLock { $0 = [
+                "quotedFeeSat": String(result.quote.fee),
+                "capSat": String(cap),
+                "worstCaseFeeSat": String(worstCaseFee),
+                "decision": decision.reason.rawValue,
+            ] }
             return result
         }
         let executor = RecurringExecutor(dependencies: dependencies)
         let now = RecurringPayment.now
         let schedule = RecurringPayment(id: UUID().uuidString, label: "Automatic fee cap proof", destination: offer,
-            destinationType: "offer", amountSat: 20_000, comment: "", interval: .init(unit: "day", every: 1),
-            startAt: now - 1000, nextRunAt: now - 1000, createdAt: now, updatedAt: now)
+                                        destinationType: "offer", amountSat: 20_000, comment: "", interval: .init(unit: "day", every: 1),
+                                        startAt: now - 1000, nextRunAt: now - 1000, createdAt: now, updatedAt: now)
         try await executor.save(schedule, editing: false)
         let before = try await session.withOpenWallet { try await $0.wallet.history().map(\.id) }
         await executor.execute(); await executor.execute(manual: true)
@@ -139,7 +170,7 @@ struct RecurringFeeLiveTests {
         evidence.merge([
             "amountSat": "20000", "automaticStatus": "active", "automaticMovements": String(after.count),
             "movementID": String(after[0].id), "movementStatus": after[0].status,
-            "path": "unattended production executor and Send controller/SDK; repeated trigger"
+            "path": "unattended production executor and Send controller/SDK; repeated trigger",
         ]) { _, new in new }
         try JSONEncoder().encode(evidence).write(to: URL.documentsDirectory.appending(path: "recurring-fee-evidence.json"), options: .atomic)
         try await executor.cancel(schedule.id)

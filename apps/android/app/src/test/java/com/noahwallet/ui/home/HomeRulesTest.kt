@@ -3,9 +3,9 @@ package com.noahwallet.ui.home
 import com.noahwallet.fixtures.SharedFixtures
 import com.noahwallet.services.storage.PersistedBackupState
 import kotlinx.serialization.json.*
-import java.util.Locale
 import org.junit.Assert.*
 import org.junit.Test
+import java.util.Locale
 
 class HomeRulesTest {
     @Test fun backupVisibilityMatchesRN() {
@@ -20,7 +20,8 @@ class HomeRulesTest {
     @Test fun activeRoundsMatchRN() {
         SharedFixtures.load("home-status").filter { it.input.jsonObject["operation"]?.jsonPrimitive?.content == "round" }.forEach { case ->
             val i = case.input.jsonObject
-            assertEquals(case.name, case.expected.jsonPrimitive.boolean, HomeRules.activeRound(i.getValue("final").jsonPrimitive.boolean, i.getValue("status").jsonPrimitive.content))
+            assertEquals(case.name, case.expected.jsonPrimitive.boolean,
+                HomeRules.activeRound(i.getValue("final").jsonPrimitive.boolean, i.getValue("status").jsonPrimitive.content))
         }
     }
     @Test fun hiddenFiatDoesNotNeedAPriceAndUsesRNSymbols() {
@@ -61,6 +62,7 @@ class HomeRulesTest {
         assertEquals(HomeRules.State.suspended, HomeRules.state(true, 5_000uL, false, null, true))
     }
 
+    @Suppress("LongParameterList") // Fixture builder: each parameter is a named, defaulted field of the model it builds.
     private fun vtxo(id: String, amount: Long, expiry: Long, expiring: Boolean = true, state: String = "Spendable", tip: Long = 1_000) =
         com.noahwallet.onchain.VtxoModel(id, amount, expiry, state, "", 0, 0, true, "", 0, "", "", expiring, tip)
 
@@ -131,7 +133,7 @@ class HomeRulesTest {
 
     @Test fun arrivingCountsIncomingFundsOnly() {
         fun ark(claimable: ULong = 0u, lightningSend: ULong = 0u, inRound: ULong = 0u, exit: ULong = 0u, board: ULong = 0u, arkoorSend: ULong = 0u,
-                offboard: ULong = 0u, onchainPending: ULong = 0u) = com.noahwallet.services.wallet.WalletBalance(
+            offboard: ULong = 0u, onchainPending: ULong = 0u) = com.noahwallet.services.wallet.WalletBalance(
             com.noahwallet.services.wallet.WalletBalance.Ark(1_000u, 0u, pendingLightningSend = lightningSend, claimableLightningReceive = claimable,
                 pendingInRound = inRound, pendingExit = exit, pendingBoard = board, pendingArkoorSend = arkoorSend, pendingOffboard = offboard),
             com.noahwallet.services.wallet.WalletBalance.Onchain(0u, onchainPending, onchainPending))
@@ -176,7 +178,8 @@ class HomeRulesTest {
             source = "ark", movementStatus = "pending", effectiveBalanceSat = -5_000, offchainFeeSat = 0)
         val base = HomeRules.accounting(listOf(pending, ark))
         // Block times, prices and the re-sorting they cause don't move money.
-        val enriched = listOf(ark.copy(btcPrice = 112_000.0), pending.copy(date = "2026-10-22T09:00:00.000Z", dateLabel = null, sortTimestamp = 1.0, btcPrice = 111_000.0))
+        val enriched = listOf(ark.copy(btcPrice = 112_000.0),
+            pending.copy(date = "2026-10-22T09:00:00.000Z", dateLabel = null, sortTimestamp = 1.0, btcPrice = 111_000.0))
         assertEquals(base, HomeRules.accounting(enriched))
         // The same row confirming, or a pending send settling, does.
         assertNotEquals(base, HomeRules.accounting(listOf(pending.copy(hasConfirmation = true, confirmationHeight = 220u), ark)))

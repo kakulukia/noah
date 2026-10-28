@@ -9,7 +9,7 @@ class ReceiveCompletionTest {
     private fun movement(subsystem: String = "bark.arkoor", status: String = "successful", kind: String = "receive",
         destinations: List<MovementDestination> = listOf(destination("ark-mine", 200u), destination("ark-mine", 300u)),
         hash: String? = null) = Movement(1u, status, subsystem, kind, "{}", 500, 500, 0u,
-            emptyList(), destinations, emptyList(), emptyList(), emptyList(), "now", "now", null, hash, null, null)
+        emptyList(), destinations, emptyList(), emptyList(), emptyList(), "now", "now", null, hash, null, null)
     private fun destination(address: String, sats: ULong) = MovementDestination(PaymentMethod("ark", address), sats)
 
     @Test fun sumsOnlyMatchingArkDestinations() {
@@ -22,9 +22,11 @@ class ReceiveCompletionTest {
     @Test fun lightningMustMatchHashAndTerminalStatus() {
         assertNull(ReceiveCompletion.matching(movement("bark.lightning_receive", hash = "other"), request))
         assertNull(ReceiveCompletion.matching(movement("bark.lightning_receive", "pending", hash = "hash"), request))
-        assertEquals(ReceiveCompletion.Received(500, ReceiveCompletion.Rail.lightning), ReceiveCompletion.matching(movement("bark.lightning_receive", hash = "hash"), request))
+        assertEquals(ReceiveCompletion.Received(500, ReceiveCompletion.Rail.lightning),
+            ReceiveCompletion.matching(movement("bark.lightning_receive", hash = "hash"), request))
         assertEquals(ReceiveCompletion.LightningFailed(false), ReceiveCompletion.matching(movement("bark.lightning_receive", "failed", hash = "hash"), request))
-        assertEquals(ReceiveCompletion.LightningFailed(true), ReceiveCompletion.matching(movement("bark.lightning_receive", "canceled", hash = "hash"), request))
+        assertEquals(ReceiveCompletion.LightningFailed(true),
+            ReceiveCompletion.matching(movement("bark.lightning_receive", "canceled", hash = "hash"), request))
     }
     @Test fun avoidsUnsignedOverflowAndValidatesUtf16Description() {
         assertNull(ReceiveCompletion.matching(movement(destinations = listOf(destination("ark-mine", ULong.MAX_VALUE))), request))

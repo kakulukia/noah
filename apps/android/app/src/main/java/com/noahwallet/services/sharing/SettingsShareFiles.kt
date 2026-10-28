@@ -5,8 +5,8 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import androidx.work.Worker
 import androidx.work.WorkerParameters
-import java.io.File
 import com.noahwallet.services.storage.syncDirectory
+import java.io.File
 
 /** Only encrypted backups and redacted logs belong here; plaintext stays in ScratchSpace. */
 class SettingsShareFiles(private val root: File, private val revoke: (File) -> Unit = {},
@@ -16,8 +16,9 @@ class SettingsShareFiles(private val root: File, private val revoke: (File) -> U
         check(root.isDirectory || root.mkdirs())
         sweep()
         val file = File.createTempFile("noah_", ".${source.extension}", root)
-        try { source.copyTo(file, overwrite = true); return file }
-        catch (failure: Exception) { discard(file); throw failure }
+        var copied = false
+        try { source.copyTo(file, overwrite = true); copied = true; return file }
+        finally { if (!copied) discard(file) }
     }
 
     fun discard(file: File) { revoke(file); file.delete() }

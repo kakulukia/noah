@@ -1,8 +1,7 @@
 import Foundation
+@testable import Noah
 import Sentry
 import Testing
-
-@testable import Noah
 
 struct AppTelemetryTests {
     @Test func mnemonicDictionaryKeysMustNotReachTelemetry() throws {
@@ -12,7 +11,7 @@ struct AppTelemetryTests {
         event.extra = ["restore": phrase.split(separator: " ").enumerated().map { [String($0.element): $0.offset] }]
         let clean = try #require(AppTelemetry.scrub(event))
         #expect(clean.extra == nil)
-        let json = String(decoding: try JSONSerialization.data(withJSONObject: clean.serialize()), as: UTF8.self)
+        let json = try #require(String(bytes: JSONSerialization.data(withJSONObject: clean.serialize()), encoding: .utf8))
         #expect(!json.contains("ozone"))
     }
 
@@ -52,16 +51,16 @@ struct AppTelemetryTests {
         #expect(clean.stacktrace?.frames.first?.vars == nil)
         #expect(clean.stacktrace?.frames.first?.contextLine == nil)
         #expect(clean.stacktrace?.registers.isEmpty == true)
-        let json = String(decoding: try JSONSerialization.data(withJSONObject: clean.serialize()), as: UTF8.self)
+        let json = try #require(String(bytes: JSONSerialization.data(withJSONObject: clean.serialize()), encoding: .utf8))
         #expect(!json.contains("payload") && !json.contains("personal"))
     }
 
     @Test func escapedJSONMustNotReachTelemetry() throws {
         let value = String(repeating: "ab", count: 32)
         let object = try JSONSerialization.data(withJSONObject: ["preimage": value])
-        let wrapped = try JSONSerialization.data(withJSONObject: [String(decoding: object, as: UTF8.self)])
+        let wrapped = try JSONSerialization.data(withJSONObject: [#require(String(bytes: object, encoding: .utf8))])
         let event = Event(level: .error)
-        event.message = SentryMessage(formatted: String(decoding: wrapped, as: UTF8.self))
+        event.message = try SentryMessage(formatted: #require(String(bytes: wrapped, encoding: .utf8)))
         let clean = try #require(AppTelemetry.scrub(event))
         #expect(clean.message?.formatted == "[redacted]")
     }
@@ -88,8 +87,7 @@ struct AppTelemetryTests {
     }
 
     @Test func sharedSecretsAreScrubbedAtEveryTelemetryBoundary() throws {
-        for fixture in try Fixtures.load("log-redaction", input: String.self, expected: String.self)
-            {
+        for fixture in try Fixtures.load("log-redaction", input: String.self, expected: String.self) {
             // Isolate each boundary: duplicating an 11-word excerpt across the event
             // now intentionally constitutes a complete aggregate mnemonic run.
             for boundary in ["message", "exception", "context", "breadcrumb"] {
@@ -123,7 +121,8 @@ struct AppTelemetryTests {
         let clean = try #require(AppTelemetry.scrub(event))
         #expect(clean.extra == nil)
         let unchecked = Event(level: .error)
-        unchecked.releaseName = String(decoding: try JSONSerialization.data(withJSONObject: words), as: UTF8.self)
+        let releaseName = try #require(String(bytes: JSONSerialization.data(withJSONObject: words), encoding: .utf8))
+        unchecked.releaseName = releaseName
         #expect(AppTelemetry.scrub(unchecked) == nil)
     }
 
@@ -149,7 +148,7 @@ struct AppTelemetryTests {
         }
         guard let clean = AppTelemetry.scrub(event) else { return }
         let json = try JSONSerialization.data(withJSONObject: clean.serialize())
-        #expect(!String(decoding: json, as: UTF8.self).contains("abandon"))
+        #expect(try !#require(String(bytes: json, encoding: .utf8)).contains("abandon"))
     }
 
     @Test func addressesAndNestedIdentityFieldsAreScrubbed() throws {
@@ -166,7 +165,7 @@ struct AppTelemetryTests {
         crumb.setData(value: ["email": "fake", "lightningAddress": "fake"], key: "nested")
         event.breadcrumbs = [crumb]
         let clean = try #require(AppTelemetry.scrub(event))
-        let serialized = String(decoding: try JSONSerialization.data(withJSONObject: clean.serialize()), as: UTF8.self)
+        let serialized = try #require(String(bytes: JSONSerialization.data(withJSONObject: clean.serialize()), encoding: .utf8))
         #expect(!serialized.contains("alice@example.com"))
         #expect(!serialized.contains("fake"))
         #expect(clean.user == nil)
@@ -182,9 +181,9 @@ struct AppTelemetryTests {
         }
         #expect(AppTelemetry.options(variant: .regtest, isDebug: false, info: info) == nil)
         #if DEBUG
-        #expect(AppTelemetry.isDebug)
+            #expect(AppTelemetry.isDebug)
         #else
-        #expect(!AppTelemetry.isDebug)
+            #expect(!AppTelemetry.isDebug)
         #endif
     }
 
@@ -245,7 +244,7 @@ struct AppTelemetryTests {
         #expect(clean.exceptions?.first?.value == "[redacted]")
         #expect(clean.context?["wallet"]?["status"] == nil)
         let json = try JSONSerialization.data(withJSONObject: clean.serialize())
-        #expect(!String(decoding: json, as: UTF8.self).contains("synthetic"))
+        #expect(try !#require(String(bytes: json, encoding: .utf8)).contains("synthetic"))
     }
 
     @Test func dropsEventsWithSecretsInUnhandledFields() throws {
@@ -302,6 +301,4 @@ struct AppTelemetryTests {
         requestEvent.request?.headers = ["Authorization": "synthetic-credential"]
         #expect(AppTelemetry.scrub(requestEvent)?.request == nil)
     }
-
-
 }

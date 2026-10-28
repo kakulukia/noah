@@ -55,9 +55,9 @@ struct NativeSettingsFile {
         let envelope = try JSONDecoder().decode(Envelope.self, from: data)
         guard envelope.sha256 == Self.digest(envelope.payload) else { throw SettingsStorage.OpenError() }
         let payload = try RawObject(envelope.payload)
-        guard Set(payload.fields.keys) == ["values", "settingsNoticePending", "recurringNoticePending", "cleanupPending"] else { throw SettingsStorage.OpenError() }
-        let state = try JSONDecoder().decode(State.self, from: Data(envelope.payload.utf8))
-        return state
+        guard Set(payload.fields.keys) == ["values", "settingsNoticePending", "recurringNoticePending", "cleanupPending"]
+        else { throw SettingsStorage.OpenError() }
+        return try JSONDecoder().decode(State.self, from: Data(envelope.payload.utf8))
     }
 
     /// Commits one generation and returns its stamp, taken from the pending file before the rename (which
@@ -66,7 +66,7 @@ struct NativeSettingsFile {
     func save(_ state: State) throws -> Stamp? {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = String(decoding: try encoder.encode(state), as: UTF8.self)
+        let payload = try String(json: encoder.encode(state))
         let data = try encoder.encode(Envelope(version: 1, payload: payload, sha256: Self.digest(payload)))
         let pending = file.appendingPathExtension("pending")
         try data.write(to: pending)

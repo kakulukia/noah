@@ -10,7 +10,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.TextLayoutResult
@@ -49,7 +49,8 @@ class ReviewRowsWrapTest {
                 // A 360 dp phone less Review's 20 dp margins.
                 Column(Modifier.width(320.dp)) {
                     rows.forEachIndexed { index, (label, value, number) ->
-                        ValueRow(label, value, number = number, icon = if (index == 0) HomeIcons.lightning else null, wraps = wraps, modifier = Modifier.testTag("row-$index"))
+                        ValueRow(label, value, number = number, icon = if (index == 0) HomeIcons.lightning else null, wraps = wraps,
+                            modifier = Modifier.testTag("row-$index"))
                     }
                 }
             }

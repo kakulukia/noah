@@ -28,8 +28,7 @@ struct WalletBalance: Equatable, Sendable {
         init(
             spendable: UInt64, needsRefresh: UInt64, pendingLightningSend: UInt64, claimableLightningReceive: UInt64,
             pendingInRound: UInt64, pendingExit: UInt64, pendingBoard: UInt64, pendingArkoorSend: UInt64,
-            pendingOffboard: UInt64, pending: UInt64? = nil, total: UInt64? = nil
-        ) {
+            pendingOffboard: UInt64, pending: UInt64? = nil, total: UInt64? = nil) {
             self.spendable = spendable
             self.needsRefresh = needsRefresh
             self.pendingLightningSend = pendingLightningSend
@@ -45,6 +44,7 @@ struct WalletBalance: Equatable, Sendable {
             self.total = total ?? (spendable + needsRefresh + pending)
         }
 
+        // swiftlint:disable:next nesting - Codable synthesis needs CodingKeys inside the type
         private enum CodingKeys: String, CodingKey {
             case spendable, needsRefresh, pendingLightningSend, claimableLightningReceive, pendingInRound
             case pendingExit, pendingBoard, pendingArkoorSend, pendingOffboard, pending, total

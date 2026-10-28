@@ -8,7 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.Density
@@ -59,18 +59,22 @@ class BalanceFitTest {
     private fun assertLargeBalancesFit() {
         // A book pane on a Pixel Fold leaves about 292 dp for the balance; 200 dp is a narrower stress.
         for (sats in listOf(100_000_000L, 2_100_000_000_000_000L)) for (unit in BitcoinAmountUnit.entries) for (width in listOf(292.dp, 200.dp)) {
-            val text = BitcoinAmount.format(sats, unit, Locale.US)
-            show(text, width)
-            val pane = compose.onNodeWithTag("pane").fetchSemanticsNode()
-            val right = pane.positionInRoot.x + pane.size.width
-            val boxes = chars()
-            // BIP-177 shows ₿ in its own box (the no-break space becomes a 3 dp gap); sats shows every character.
-            val expected = if (unit == BitcoinAmountUnit.bip177) 1 + text.removePrefix("₿ ").length else text.length
-            assertEquals("$text at $width: every character is laid out", expected, boxes.size)
-            for ((start, end) in boxes) {
-                assertTrue("$text at $width: no character squeezed to nothing", end - start > 0.5f)
-                assertTrue("$text at $width: nothing past the pane's edge ($end > $right)", end <= right + 0.5f)
-            }
+            assertFits(sats, unit, width)
+        }
+    }
+
+    private fun assertFits(sats: Long, unit: BitcoinAmountUnit, width: Dp) {
+        val text = BitcoinAmount.format(sats, unit, Locale.US)
+        show(text, width)
+        val pane = compose.onNodeWithTag("pane").fetchSemanticsNode()
+        val right = pane.positionInRoot.x + pane.size.width
+        val boxes = chars()
+        // BIP-177 shows ₿ in its own box (the no-break space becomes a 3 dp gap); sats shows every character.
+        val expected = if (unit == BitcoinAmountUnit.bip177) 1 + text.removePrefix("₿ ").length else text.length
+        assertEquals("$text at $width: every character is laid out", expected, boxes.size)
+        for ((start, end) in boxes) {
+            assertTrue("$text at $width: no character squeezed to nothing", end - start > 0.5f)
+            assertTrue("$text at $width: nothing past the pane's edge ($end > $right)", end <= right + 0.5f)
         }
     }
 

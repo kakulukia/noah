@@ -7,18 +7,18 @@ import androidx.work.WorkManager
 import com.google.android.gms.tasks.Tasks
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.RemoteMessage
+import com.noahwallet.BuildConfig
 import com.noahwallet.api.generated.client.V0RegisterClient
 import com.noahwallet.api.generated.models.RegisterPayload
-import com.noahwallet.services.server.registrationPayload
-import com.noahwallet.services.server.DeviceInfo
-import com.noahwallet.services.server.value
-import com.noahwallet.BuildConfig
 import com.noahwallet.services.push.*
-import com.noahwallet.services.server.ServerFailure
+import com.noahwallet.services.server.DeviceInfo
 import com.noahwallet.services.server.ServerClient
+import com.noahwallet.services.server.ServerFailure
+import com.noahwallet.services.server.registrationPayload
+import com.noahwallet.services.server.value
 import com.noahwallet.services.storage.*
-import com.noahwallet.services.wallet.WalletCreator
 import com.noahwallet.services.wallet.WalletConfiguration
+import com.noahwallet.services.wallet.WalletCreator
 import io.github.niteshbalusu11.bark.derivePublicKeyFromMnemonic
 import kotlinx.coroutines.*
 import org.junit.Assert.*
@@ -66,6 +66,8 @@ class PushIntegrationTest {
             assertEquals(PushRegistration.Outcome.registered, withTimeout(120_000) { PushRuntime(context, services).register() })
             stage = "Expo identity continuity"
             val installation = ExpoInstallationID(context).getOrCreate()
+            // The token PushRuntime registers; FCM 26's register() replacement only hands it to onNewToken.
+            @Suppress("DEPRECATION")
             val fcm = withContext(Dispatchers.IO) { Tasks.await(FirebaseMessaging.getInstance().token, 30, TimeUnit.SECONDS) }
             ServerClient.make("https://exp.host").use { client ->
                 val request = ExpoPushToken.request(installation, context.packageName, fcm)
@@ -107,7 +109,10 @@ class PushIntegrationTest {
                 { services.registration.state.isRegisteredWithServer == true },
                 { PushNotifications.permissionGranted(context) }, { true }, registration::endpoint,
                 { error("UnifiedPush must not fetch FCM") },
-                { com.noahwallet.api.generated.client.V0RegisterPushTokenClient(services.client).registerPushToken(com.noahwallet.api.generated.models.RegisterPushToken(it)).value() })
+                {
+                    com.noahwallet.api.generated.client.V0RegisterPushTokenClient(services.client)
+                        .registerPushToken(com.noahwallet.api.generated.models.RegisterPushToken(it)).value()
+                })
             assertEquals(PushRegistration.Outcome.registered, withTimeout(30_000) { submit.register() })
             stage = "mailbox authorization"
             services.ensureWalletOpen()
@@ -118,7 +123,8 @@ class PushIntegrationTest {
             File(context.noBackupFilesDir, "push-test-public-key").writeText(key)
             File(context.noBackupFilesDir, "push-test-lightning-address").writeText(services.registration.state.lightningAddress!!)
         } catch (error: Exception) {
-            fail("UnifiedPush integration failed at $stage (${error.javaClass.simpleName}, HTTP ${(error as? ServerFailure)?.status}); sensitive details suppressed")
+            fail("UnifiedPush integration failed at $stage (${error.javaClass.simpleName}, HTTP ${(error as? ServerFailure)?.status}); sensitive details " +
+                "suppressed")
         }
     }
 

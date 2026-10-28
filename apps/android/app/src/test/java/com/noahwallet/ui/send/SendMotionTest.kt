@@ -59,7 +59,8 @@ class SendMotionTest {
         assertEquals(20_000L, starts[SendPhase.deliver]); assertEquals(20_350L, starts[SendPhase.finale])
         assertTrue(SendTimeline.resultShown(sent, 60_000))
         // A refund proven later plays the way back.
-        val refunded = SendMotion(SendRoute.lightning, 0).reach(SendMilestone.paying, 100).reach(SendMilestone.stopped, 3_000).reach(SendMilestone.refunded, 15_000)
+        val refunded = SendMotion(SendRoute.lightning, 0).reach(SendMilestone.paying, 100).reach(SendMilestone.stopped,
+            3_000).reach(SendMilestone.refunded, 15_000)
         assertEquals(SendPhase.back, phases(refunded).last())
         // A proven ending is never replaced by a later stop.
         assertEquals(SendMilestone.sent, SendMotion(SendRoute.ark, 0).reach(SendMilestone.sent, 100).reach(SendMilestone.stopped, 200).ending)
@@ -102,8 +103,9 @@ class SendMotionTest {
     private fun lightning(state: SendController.State = SendController.State.failed, before: Set<UInt> = setOf(1u, 2u)) =
         SendAttempt(payment = SendPayment("lnbcrt1invoice", "lightning", 1_000), paymentHash = "hash", failed = state == SendController.State.failed,
             snapshot = SendSnapshot(before, invoicePaid = false))
+    @Suppress("LongParameterList") // Fixture builder: each parameter is a named, defaulted field of the model it builds.
     private fun movement(status: String = "failed", outputs: List<String> = listOf("refund:0"), exited: List<String> = emptyList(),
-                         hash: String? = "hash", subsystem: String = "bark.lightning_send", id: UInt = 7u) =
+        hash: String? = "hash", subsystem: String = "bark.lightning_send", id: UInt = 7u) =
         Movement(id, status, subsystem, "send", "{}", -1_000, 0, 0u, emptyList(), emptyList(), listOf("htlc:0"), outputs, exited,
             "now", "now", null, hash, null, null)
 
@@ -120,7 +122,8 @@ class SendMotionTest {
         assertEquals(SendRefund.none, SendProgressRules.refund(failed, lightning(), emptyList()))
         // Not a failure, or not Lightning.
         assertEquals(SendRefund.none, SendProgressRules.refund(SendController.State.uncertain, lightning(), listOf(movement())))
-        assertEquals(SendRefund.none, SendProgressRules.refund(failed, SendAttempt(payment = SendPayment("tark1x", "ark", 1_000), paymentHash = "hash", failed = true), listOf(movement())))
+        assertEquals(SendRefund.none, SendProgressRules.refund(failed,
+            SendAttempt(payment = SendPayment("tark1x", "ark", 1_000), paymentHash = "hash", failed = true), listOf(movement())))
         // The ending: "Payment failed … back in your wallet" only with the evidence.
         assertEquals(SendEnding.refunded, SendEnding.of(failed, lightning(), SendRefund.recorded, false))
         assertEquals(SendEnding.notSent, SendEnding.of(failed, lightning(), SendRefund.none, false))
@@ -141,7 +144,8 @@ class SendMotionTest {
         assertNull(SendProgressRules.milestone(failed, lightning(), false, SendRefund.untied))
         assertEquals(mapOf(SendMilestone.submitted to 0L, SendMilestone.stopped to 0L), staticMilestones(SendEnding.failed))
         // Off Lightning it's today's "Payment not sent".
-        assertEquals(SendEnding.notSent, SendEnding.of(failed, SendAttempt(payment = SendPayment("tark1x", "ark", 1_000), failed = true), SendRefund.untied, false))
+        assertEquals(SendEnding.notSent,
+            SendEnding.of(failed, SendAttempt(payment = SendPayment("tark1x", "ark", 1_000), failed = true), SendRefund.untied, false))
     }
 
     @Test fun milestonesComeOnlyFromTheControllersState() {
@@ -194,7 +198,8 @@ class SendMotionTest {
     @Test fun backToRecipientAsksForTheRailAgain() = kotlinx.coroutines.runBlocking {
         val m = SendModel(controller(FakeSendWallet(), TestJournal(), this), "regtest", { error("unused") }, { FakeSendWallet.quote }, {}, this)
         m.arkBalance = 10_000; m.amount = "500"; m.continueStage()
-        m.setRecipient("bitcoin:bcrt1q5mq29kaq9kq660m3eepqy8pkv7jhefd69klc22?ark=tark1pj8a9t8ezqqpfdvjfqfst3xzwxnhq7r5lyzg8hp2g7gqdun2vevz5jaaqd7ry7xezqyp6e3ghflqezh7k5hkwav8m4fahfaaqtnuqhykjjf5tsvwyt309xkctc2n22")
+        m.setRecipient("bitcoin:bcrt1q5mq29kaq9kq660m3eepqy8pkv7jhefd69klc22?ark=tark1pj8a9t8ezqqpfdvjfqfst3xzwxnhq7r5lyzg8hp2g7gqdun2vevz5jaaqd7ry7xezqy" +
+            "p6e3ghflqezh7k5hkwav8m4fahfaaqtnuqhykjjf5tsvwyt309xkctc2n22")
         m.continueStage()
         assertEquals(SendStage.method, m.stage)
         m.progress = m.progress.copy(selectedRail = SendRail.ark, railConfirmed = true); m.continueStage()

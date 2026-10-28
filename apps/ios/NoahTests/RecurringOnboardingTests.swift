@@ -1,10 +1,10 @@
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 @MainActor struct RecurringOnboardingTests {
-    @Test(arguments: [nil, false, true] as [Bool?])
-    func liveAdmissionSkipsWelcomeThenRunsTheCreatedWallet(initialized: Bool?) async throws {
+    // swiftlint:disable:next discouraged_optional_boolean - nil is a third case: no saved wallet state at all
+    @Test(arguments: [nil, false, true] as [Bool?]) func liveAdmissionSkipsWelcomeThenRunsTheCreatedWallet(initialized: Bool?) async throws {
         let h = try RecurringExecutorTests.Harness()
         defer { try? FileManager.default.removeItem(at: h.directory) }
         let location = WalletDataLocation(variant: .regtest, documentsDirectory: h.directory.appending(path: "welcome"))
@@ -62,9 +62,10 @@ import Testing
         let journal = RecurringJournal(file: directory.appending(path: "journal.json"))
         store.protectPolicies(file: journal.file.appendingPathExtension("policies"), sync: { _ in }, binding: binding)
         let executor = RecurringExecutor(dependencies: .init(store: store, journal: journal, controller: h.controller,
-            ensureOpen: { if stopped.withLock({ $0 }) { throw AppServices.WalletSuspended() } }, binding: binding,
-            allowed: { if stopped.withLock({ $0 }) { throw AppServices.WalletSuspended() } },
-            quote: { _ in throw SendFailure.invalid }))
+                                                             ensureOpen: { if stopped.withLock({ $0 }) { throw AppServices.WalletSuspended() } },
+                                                             binding: binding,
+                                                             allowed: { if stopped.withLock({ $0 }) { throw AppServices.WalletSuspended() } },
+                                                             quote: { _ in throw SendFailure.invalid }))
         await executor.timeChanged(); await executor.execute()
         #expect(!FileManager.default.fileExists(atPath: directory.path))
         #expect(h.calls.withLock { $0 } == 0)

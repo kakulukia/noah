@@ -1,19 +1,19 @@
 package com.noahwallet.onchain
 
-import com.noahwallet.localization.tr
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.noahwallet.localization.tr
 
 @Composable
 internal fun VtxoSelectionRow(id: String, amount: String, status: String, checked: Boolean,
@@ -27,6 +27,9 @@ internal fun VtxoSelectionRow(id: String, amount: String, status: String, checke
     }
 }
 
+// VtxoSelectionSemanticsTest builds this standalone, so it stays a factory rather than a Modifier extension.
+@android.annotation.SuppressLint("ModifierFactoryExtensionFunction")
+@Suppress("LongParameterList") // the row's toggle state and the parts TalkBack reads
 internal fun vtxoSelectionModifier(id: String, amount: String, status: String, checked: Boolean,
     enabled: Boolean, onCheckedChange: (Boolean) -> Unit): Modifier = Modifier.fillMaxWidth()
     .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onCheckedChange)

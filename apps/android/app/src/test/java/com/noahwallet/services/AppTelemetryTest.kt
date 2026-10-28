@@ -8,12 +8,12 @@ import com.noahwallet.services.logging.TelemetryTransport
 import io.sentry.*
 import io.sentry.android.core.SentryAndroidOptions
 import io.sentry.protocol.*
-import java.io.ByteArrayInputStream
-import java.io.StringReader
-import java.io.StringWriter
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.io.StringReader
+import java.io.StringWriter
 
 class AppTelemetryTest {
     private val serializer = JsonSerializer(SentryOptions.empty())
@@ -88,7 +88,8 @@ class AppTelemetryTest {
         assertFalse(options.feedbackOptions.isEnableAttachScreenshot)
         assertFalse(options.isAttachScreenshot)
         assertFalse(options.isAttachViewHierarchy)
-        assertNull(options.beforeSendTransaction!!.execute(SentryTransaction("synthetic", 0.0, 1.0, emptyList(), emptyMap(), TransactionInfo("custom")), Hint()))
+        assertNull(options.beforeSendTransaction!!.execute(SentryTransaction("synthetic", 0.0, 1.0, emptyList(), emptyMap(),
+            TransactionInfo("custom")), Hint()))
         assertNull(options.beforeSendFeedback!!.execute(event(), Hint()))
         assertNotNull(options.beforeSendReplay)
     }
@@ -192,9 +193,10 @@ class AppTelemetryTest {
         assertFalse(json(clean).contains("payload")); assertFalse(json(clean).contains("private path"))
     }
 
-    @Test fun SDKInfoIsDetachedAndDropsUnknownSDKAndPackageFields() {
+    @Test fun sdkInfoIsDetachedAndDropsUnknownSDKAndPackageFields() {
         val event = event().apply {
-            sdk = serializer.deserialize(StringReader("""{"name":"sentry.java.android","version":"8.57.0","integrations":["ANR"],"packages":[{"name":"maven:io.sentry:sentry","version":"8.57.0","secret":"payload"}],"surprise":"payload"}"""), SdkVersion::class.java)
+            sdk = serializer.deserialize(StringReader("""{"name":"sentry.java.android","version":"8.57.0","integrations":["ANR"],""" +
+                """"packages":[{"name":"maven:io.sentry:sentry","version":"8.57.0","secret":"payload"}],"surprise":"payload"}"""), SdkVersion::class.java)
         }
         val clean = clean(event)
         assertEquals("sentry.java.android", clean.sdk!!.name)
@@ -252,24 +254,29 @@ class AppTelemetryTest {
             val expected = LogFile.redact(input)
             for (boundary in listOf("message", "exception", "context", "breadcrumb")) {
                 val event = event()
-                when (boundary) {
-                    "message" -> event.message = message(input)
-                    "exception" -> event.exceptions = listOf(SentryException().apply { type = "WalletError"; value = input })
-                    "context" -> event.contexts.put("nested", mapOf("text" to input))
-                    else -> event.breadcrumbs = listOf(Breadcrumb().apply { category = "diagnostics"; message = input })
-                }
+                plantText(event, boundary, input)
                 val clean = requireNotNull(AppTelemetry.scrub(event)) { "$boundary ${fixture.name}" }
-                val actual = when (boundary) {
-                    "message" -> clean.message?.formatted
-                    "exception" -> clean.exceptions?.first()?.value
-                    "context" -> clean.contexts["nested"] as? String
-                    else -> clean.breadcrumbs?.first()?.message
-                }
-                assertEquals("$boundary ${fixture.name}", if (boundary == "context") null else expected, actual)
+                assertEquals("$boundary ${fixture.name}", if (boundary == "context") null else expected, plantedText(clean, boundary))
             }
             assertEquals("final ${fixture.name}", input != expected,
                 AppTelemetry.scrub(event().apply { release = input }) == null)
         }
+    }
+
+    private fun plantText(event: SentryEvent, boundary: String, input: String) {
+        when (boundary) {
+            "message" -> event.message = message(input)
+            "exception" -> event.exceptions = listOf(SentryException().apply { type = "WalletError"; value = input })
+            "context" -> event.contexts.put("nested", mapOf("text" to input))
+            else -> event.breadcrumbs = listOf(Breadcrumb().apply { category = "diagnostics"; message = input })
+        }
+    }
+
+    private fun plantedText(clean: SentryEvent, boundary: String) = when (boundary) {
+        "message" -> clean.message?.formatted
+        "exception" -> clean.exceptions?.first()?.value
+        "context" -> clean.contexts["nested"] as? String
+        else -> clean.breadcrumbs?.first()?.message
     }
 
     @Test fun uncertainAndOversizedMessagesAreOmitted() {
@@ -332,21 +339,25 @@ class AppTelemetryTest {
         for (boundary in listOf("release", "context", "frame", "thread", "sdk", "mechanism", "category")) {
             val secret = "preimage=synthetic-sensitive-value"
             val event = event()
-            when (boundary) {
-                "release" -> event.release = secret
-                "context" -> event.contexts.setDevice(Device().apply { model = secret })
-                "frame" -> event.threads = listOf(SentryThread().apply {
-                    stacktrace = SentryStackTrace(listOf(SentryStackFrame().apply { function = secret }))
-                })
-                "thread" -> event.threads = listOf(SentryThread().apply { name = secret })
-                "sdk" -> event.sdk = SdkVersion(secret, "8.57.0")
-                "mechanism" -> event.exceptions = listOf(SentryException().apply {
-                    type = "WalletError"; mechanism = Mechanism().apply { type = secret }
-                })
-                else -> event.breadcrumbs = listOf(Breadcrumb().apply { category = secret })
-            }
+            plantMetadata(event, boundary, secret)
             if (boundary == "category") assertTrue(clean(event).breadcrumbs!!.isEmpty())
             else assertNull(boundary, AppTelemetry.scrub(event))
+        }
+    }
+
+    private fun plantMetadata(event: SentryEvent, boundary: String, secret: String) {
+        when (boundary) {
+            "release" -> event.release = secret
+            "context" -> event.contexts.setDevice(Device().apply { model = secret })
+            "frame" -> event.threads = listOf(SentryThread().apply {
+                stacktrace = SentryStackTrace(listOf(SentryStackFrame().apply { function = secret }))
+            })
+            "thread" -> event.threads = listOf(SentryThread().apply { name = secret })
+            "sdk" -> event.sdk = SdkVersion(secret, "8.57.0")
+            "mechanism" -> event.exceptions = listOf(SentryException().apply {
+                type = "WalletError"; mechanism = Mechanism().apply { type = secret }
+            })
+            else -> event.breadcrumbs = listOf(Breadcrumb().apply { category = secret })
         }
     }
 
@@ -376,7 +387,10 @@ class AppTelemetryTest {
     }
 
     @Test fun releaseHealthSessionsKeepRandomIDsAndStatusButDropIdentityAndUnknownAttributes() {
-        val payload = """{"sid":"60e12f74-8d9b-47cb-a162-903fa0b155a1","did":"22d5eb12-8839-493d-bf9d-f2540d210f30","init":true,"started":"2026-10-20T12:00:00Z","status":"ok","errors":0,"private":"payload","attrs":{"release":"com.noahwallet.mainnet@0.2.0+100","environment":"production","ip_address":"192.0.2.1","user_agent":"personal data"}}"""
+        val payload =
+            """{"sid":"60e12f74-8d9b-47cb-a162-903fa0b155a1","did":"22d5eb12-8839-493d-bf9d-f2540d210f30","init":true,"started":"2026-10-20T12:00:00Z",""" +
+                """"status":"ok","errors":0,"private":"payload","attrs":{"release":"com.noahwallet.mainnet@0.2.0+100","environment":"production",""" +
+                """"ip_address":"192.0.2.1","user_agent":"personal data"}}"""
         val filtered = requireNotNull(TelemetryTransport.filter(envelope(SentryItemType.Session, payload)))
         val actual = Json.parseToJsonElement(filtered.items.single().data.toString(Charsets.UTF_8)).jsonObject
         assertEquals("ok", actual["status"]!!.jsonPrimitive.content)

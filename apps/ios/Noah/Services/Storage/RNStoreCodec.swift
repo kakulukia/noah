@@ -13,18 +13,18 @@ enum RNStoreCodec {
     static var storeKeys: [String] { Array(schemas.keys) + [RecurringStore.key] }
     static let schemas: [String: Schema] = [
         "wallet-storage": .init(fields: ["isInitialized": .bool, "isWalletLoaded": .bool,
-            "staticVtxoPubkey": .string, "isBiometricsEnabled": .bool, "isDebugModeEnabled": .bool,
-            "isWalletSuspended": .bool, "hasSeenBatteryOptimizationPrompt": .bool]),
+                                         "staticVtxoPubkey": .string, "isBiometricsEnabled": .bool, "isDebugModeEnabled": .bool,
+                                         "isWalletSuspended": .bool, "hasSeenBatteryOptimizationPrompt": .bool]),
         "profile-storage": .init(fields: ["displayName": .string, "preferredCurrency": .string, "bitcoinAmountUnit": .string]),
         "privacy-storage": .init(fields: ["isHomeBalanceHidden": .bool]),
         "transaction-storage": .init(version: 1, fields: ["isAutoBoardingEnabled": .bool, "hasAttemptedAutoBoarding": .bool]),
         "server-storage": .init(fields: ["isRegisteredWithServer": .bool, "lightningAddress": .string,
-            "nostrPubkey": .string, "isBackupEnabled": .bool, "emailAddress": .string,
-            "isEmailVerified": .bool, "isEmailPromptDismissed": .bool, "mailboxAuthorizationExpiry": .number,
-            "isMailboxAuthorizationEnabled": .bool, "lastReportedDeviceFingerprint": .string, "lastDeviceReportAt": .number]),
+                                         "nostrPubkey": .string, "isBackupEnabled": .bool, "emailAddress": .string,
+                                         "isEmailVerified": .bool, "isEmailPromptDismissed": .bool, "mailboxAuthorizationExpiry": .number,
+                                         "isMailboxAuthorizationEnabled": .bool, "lastReportedDeviceFingerprint": .string, "lastDeviceReportAt": .number]),
         "backup-storage": .init(fields: ["backupPending": .bool, "lastBackupAt": .number,
-            "lastBackupAttemptAt": .number, "lastBackupStatus": .string, "lastBackupError": .string,
-            "lastBackupId": .string, "lastUploadedSnapshotSha256": .string]),
+                                         "lastBackupAttemptAt": .number, "lastBackupStatus": .string, "lastBackupError": .string,
+                                         "lastBackupId": .string, "lastUploadedSnapshotSha256": .string]),
         "esplora-storage": .init(fields: ["endpointOverride": .string]),
     ]
 
@@ -40,7 +40,18 @@ enum RNStoreCodec {
         guard version <= schema.version else { throw Failure.unsupportedVersion }
         guard let rawState = envelope.fields["state"] else { throw Failure.invalid }
         var state = try RawObject(rawState)
-        let values = try JSONSerialization.jsonObject(with: Data(rawState.utf8)) as! [String: Any]
+        guard let values = try JSONSerialization.jsonObject(with: Data(rawState.utf8)) as? [String: Any] else { throw Failure.invalid }
+        try validate(values, schema: schema)
+        if key == "backup-storage", let status = values["lastBackupStatus"] as? String,
+           PersistedBackupState.Status(rawValue: status) == nil { throw Failure.invalid }
+        if key == "transaction-storage", version < 1 { state.fields["hasAttemptedAutoBoarding"] = "false" }
+        envelope.fields["state"] = try state.json()
+        envelope.fields["version"] = String(schema.version)
+        return envelope
+    }
+
+    /// Each schema field present in the state has its JSON type; only strings may be null, except the backup status.
+    private static func validate(_ values: [String: Any], schema: Schema) throws {
         for (field, kind) in schema.fields {
             guard let value = values[field] else { continue }
             if value is NSNull {
@@ -50,28 +61,27 @@ enum RNStoreCodec {
             }
             switch kind {
             case .bool:
+                // swiftlint:disable:next legacy_objc_type - only NSNumber tells a JSON Bool from a number (CFBoolean)
                 guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { throw Failure.invalid }
             case .string:
                 guard value is String else { throw Failure.invalid }
             case .number:
+                // swiftlint:disable:next legacy_objc_type - only NSNumber tells a JSON Bool from a number (CFBoolean)
                 guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(), number.doubleValue.isFinite else { throw Failure.invalid }
             }
         }
-        if key == "backup-storage", let status = values["lastBackupStatus"] as? String,
-           PersistedBackupState.Status(rawValue: status) == nil { throw Failure.invalid }
-        if key == "transaction-storage", version < 1 { state.fields["hasAttemptedAutoBoarding"] = "false" }
-        envelope.fields["state"] = try state.json()
-        envelope.fields["version"] = String(schema.version)
-        return envelope
     }
 
     static func merging(_ encoded: String, into previous: String?, key: String) throws -> String {
         let incoming = try decode(encoded, key: key)
         guard let previous else { return try incoming.json() }
         var envelope = try decode(previous, key: key)
-        var state = try RawObject(envelope.fields["state"]!)
-        let newState = try RawObject(incoming.fields["state"]!)
-        for field in schemas[key]!.fields.keys { state.fields.removeValue(forKey: field) }
+        // decode() returns only envelopes with a state, for a known key.
+        guard let previousState = envelope.fields["state"], let incomingState = incoming.fields["state"],
+              let schema = schemas[key] else { throw Failure.invalid }
+        var state = try RawObject(previousState)
+        let newState = try RawObject(incomingState)
+        for field in schema.fields.keys { state.fields.removeValue(forKey: field) }
         state.fields.merge(newState.fields) { _, new in new }
         envelope.fields["state"] = try state.json()
         return try envelope.json()

@@ -121,6 +121,7 @@ final class AppModel {
     @ObservationIgnored private let settleRestore: @MainActor () async throws -> RestoreTransaction.Recovery
     @ObservationIgnored private var backupTriggers: (id: UUID, task: Task<Void, Never>)?
     @ObservationIgnored private let lifecycle = WalletLifecycle(dependencies: .live())
+    @ObservationIgnored private var summaryRefresh = UUID()
 
     init(settings: SettingsStorage = .shared, readLaunchState: @escaping () -> LaunchState = { .current() },
          settleRestore: @escaping @MainActor () async throws -> RestoreTransaction.Recovery = { try await AppServices.shared.restoreRecovery.settle() },
@@ -273,7 +274,7 @@ final class AppModel {
             let location = WalletDataLocation(variant: variant)
             // Restoring over data belongs to a separate, explicit recovery flow.
             guard !location.hasAnyData else { throw WalletSession.OpenError.walletDatabaseExists }
-            let variant = self.variant
+            let variant = variant
             let restorer = WalletRestorer(
                 variant: variant, session: session, location: location,
                 seed: KeychainPassword.mnemonic(for: variant),
@@ -323,9 +324,10 @@ final class AppModel {
         await registerPush()
         await reconcileBackupTriggers()
     }
+}
 
-    @ObservationIgnored private var summaryRefresh = UUID()
-
+/// Refresh, sync, the wallet lifecycle, backups and foreground services.
+extension AppModel {
     func refresh() async {
         let generation = UUID()
         summaryRefresh = generation
@@ -470,7 +472,7 @@ final class AppModel {
         guard !isWalletSuspended else { throw BackupCoordinator.NotReady() }
         try await server.reRegister(loadWallet: {
             try await AppServices.shared.openWalletInForeground(mnemonic: AppServices.shared.readMnemonic(),
-                wait: EsploraOpenWait(), lateCompletion: { _ in })
+                                                                wait: EsploraOpenWait(), lateCompletion: { _ in })
         }, registerPush: {
             try await PushRegistration.shared.register().requireCompleted()
         })
@@ -505,7 +507,7 @@ final class AppModel {
     private func startBackupTriggers() {
         guard backupTriggers == nil, canCoordinateBackups else { return }
         let coordinator = AppServices.shared.backupCoordinator
-        let session = self.session
+        let session = session
         let id = UUID()
         // This session observer outlives the foreground activation that creates it.
         let task = Task.detached { @MainActor @Sendable [weak self] in

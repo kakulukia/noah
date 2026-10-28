@@ -7,14 +7,14 @@ import com.noahwallet.services.logging.LogFile
 import com.noahwallet.services.storage.*
 import com.noahwallet.services.wallet.*
 import io.github.niteshbalusu11.bark.*
-import java.io.File
-import java.util.UUID
 import kotlinx.coroutines.*
 import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
 
 /** Opt-in stages for bark-bolt-ffi 0.6.0 on an owned disposable emulator, against a Bark 0.8 stack selected with
  *  -PnoahRegtestArkURL / -PnoahRegtestBitcoindURL / -PnoahRegtestServerURL. The host funds, pays, cancels and
@@ -36,28 +36,7 @@ class Ffi060LiveTest {
         require(BuildConfig.REGTEST_ARK_URL.isNotEmpty() && BuildConfig.REGTEST_BITCOIND_URL.isNotEmpty())
         val seed = SeedStorage(context, "regtest")
         val marker = File(context.filesDir, "ffi060-owned")
-        if (stage == "create") {
-            check(!location.hasAnyData && seed.read() == SecretResult.NotFound && !marker.exists())
-            val phrase = generateMnemonic()
-            check(seed.save(phrase) is SecretResult.Found)
-            session.createNew(phrase, false, "ffi060-live")
-            val fingerprint = session.summary()!!.fingerprint
-            marker.writeText(fingerprint)
-            SettingsStorage(context).apply {
-                setPersistedState(PersistedWalletState(isInitialized = true, isWalletLoaded = true,
-                    staticVtxoPubkey = session.peekPublicKey(0u), isBiometricsEnabled = false,
-                    hasSeenBatteryOptimizationPrompt = true), PersistedWalletState.key, 0)
-                set(SettingsPreferences.autoBoard(string("transaction-storage"), false), "transaction-storage")
-                set(SettingsPreferences.update(string("profile-storage"), mapOf("bitcoinAmountUnit" to JsonPrimitive("sats"))), "profile-storage")
-                sync()
-            }
-            evidence("create", buildJsonObject {
-                put("fingerprint", fingerprint); put("onchainAddress", session.receiveRequest().onchainAddress)
-                put("arkServer", WalletConfiguration.base("regtest").arkServer); put("serverPubkey", session.arkInfo()?.serverPubkey)
-            })
-            session.closeSettled()
-            return@runBlocking
-        }
+        if (stage == "create") return@runBlocking create(seed, marker)
         check(marker.exists())
         val mnemonic = (seed.read() as SecretResult.Found).value
         session.ensureOpen(mnemonic, false, "ffi060-live")
@@ -74,6 +53,29 @@ class Ffi060LiveTest {
                 else -> error("Unknown stage $stage")
             }
         } finally { session.closeSettled(); scope.cancel() }
+    }
+
+    /** A fresh disposable wallet, set up as onboarding leaves it (amounts in sats), marked as this test's own. */
+    private suspend fun create(seed: SeedStorage, marker: File) {
+        check(!location.hasAnyData && seed.read() == SecretResult.NotFound && !marker.exists())
+        val phrase = generateMnemonic()
+        check(seed.save(phrase) is SecretResult.Found)
+        session.createNew(phrase, false, "ffi060-live")
+        val fingerprint = session.summary()!!.fingerprint
+        marker.writeText(fingerprint)
+        SettingsStorage(context).apply {
+            setPersistedState(PersistedWalletState(isInitialized = true, isWalletLoaded = true,
+                staticVtxoPubkey = session.peekPublicKey(0u), isBiometricsEnabled = false,
+                hasSeenBatteryOptimizationPrompt = true), PersistedWalletState.key, 0)
+            set(SettingsPreferences.autoBoard(string("transaction-storage"), false), "transaction-storage")
+            set(SettingsPreferences.update(string("profile-storage"), mapOf("bitcoinAmountUnit" to JsonPrimitive("sats"))), "profile-storage")
+            sync()
+        }
+        evidence("create", buildJsonObject {
+            put("fingerprint", fingerprint); put("onchainAddress", session.receiveRequest().onchainAddress)
+            put("arkServer", WalletConfiguration.base("regtest").arkServer); put("serverPubkey", session.arkInfo()?.serverPubkey)
+        })
+        session.closeSettled()
     }
 
     /** Core paid the onchain address (one block mined); LND pays the invoice written here through the server. */
@@ -123,7 +125,8 @@ class Ffi060LiveTest {
             poll(120) { session.sync(); session.movements().any { it.subsystemName == "bark.arkoor" && it.subsystemKind == "receive" } }
             // 60 s is also captaind's default, so a distinct value shows the SDK forwards retryForSecs (host greps its span).
             val probe = args.getString("probe")
-            val probed = probe != null && peer.wallet.payLightningInvoice(probe, null, LightningSendOptions(wait = true, retryForSecs = 45u)) is LightningSendStatus.Paid
+            val probed = probe != null && peer.wallet.payLightningInvoice(probe, null,
+                LightningSendOptions(wait = true, retryForSecs = 45u)) is LightningSendStatus.Paid
             evidence("ark", buildJsonObject {
                 put("movementID", id.toLong()); put("journalMovementID", journal?.receipt?.movementID?.toLong())
                 put("peerSendMovementID", peerMovement.toLong()); put("spendable", session.summary()!!.spendableSats.toLong())
@@ -245,7 +248,10 @@ class Ffi060LiveTest {
 
     private suspend fun poll(seconds: Int, done: suspend () -> Boolean) {
         val deadline = System.currentTimeMillis() + seconds * 1000L
-        while (System.currentTimeMillis() < deadline) { if (done()) return; delay(2000) }
+        while (System.currentTimeMillis() < deadline) {
+            if (done()) return
+            delay(2000)
+        }
         check(done()) { "Timed out after $seconds s" }
     }
 

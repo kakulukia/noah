@@ -4,7 +4,7 @@ import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.noahwallet.ui.activity.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -96,7 +96,7 @@ class ActivityTransitionTest {
         compose.setContent {
             NoahTheme {
                 state = rememberActivityState()
-                remember { state.open("movement-103") }
+                remember { state.apply { open("movement-103") } }
                 ActivityPreviewHost(ui, state, ActivityActions(shown = { reads += it.id }))
             }
         }

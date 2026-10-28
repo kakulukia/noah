@@ -140,6 +140,16 @@
 
       };
 
+      # Native lint and format tools; `just native-lint` and the pre-commit hook run them.
+      nativeLintPackagesFor =
+        pkgs: with pkgs; [
+          detekt
+          ktlint
+          lefthook
+          swiftformat
+          swiftlint
+        ];
+
       # System-specific shell configuration
       mkShellFor =
         system:
@@ -160,7 +170,10 @@
             (cocoapodsFor pkgs)
             (darwinDerivations.xcode-wrapper pkgs)
             maestro
-          ];
+          ]
+          # Native app work happens on macOS; elsewhere use `nix develop .#native-lint`. Kept out of the Linux shell the
+          # RN Android CI build runs in.
+          ++ nativeLintPackagesFor pkgs;
 
           darwinHook = ''
             export LC_ALL=en_US.UTF-8
@@ -218,6 +231,13 @@
         {
           default = mkShellFor system;
           server = mkServerShellFor system;
+          native-lint =
+            let
+              pkgs = pkgsFor system;
+            in
+            pkgs.mkShellNoCC {
+              buildInputs = [ pkgs.just ] ++ nativeLintPackagesFor pkgs;
+            };
           android-ci =
             let
               pkgs = pkgsFor system;

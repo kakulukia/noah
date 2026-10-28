@@ -2,9 +2,9 @@ package com.noahwallet.btcmap
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
-import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.json.JsonObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -30,16 +30,13 @@ internal object BtcMapLimits {
         var depth = 0
         var quoted = false
         var escaped = false
-        for (char in text) {
-            if (quoted) {
-                if (escaped) escaped = false
-                else if (char == '\\') escaped = true
-                else if (char == '"') quoted = false
-            } else when (char) {
-                '"' -> quoted = true
-                '[', '{' -> { depth++; if (depth > nestingDepth) throw BtcMapResourceLimit() }
-                ']', '}' -> depth--
-            }
+        for (char in text) when {
+            // Escapes only happen inside strings.
+            escaped -> escaped = false
+            quoted -> if (char == '\\') escaped = true else if (char == '"') quoted = false
+            char == '"' -> quoted = true
+            char == '[' || char == '{' -> if (++depth > nestingDepth) throw BtcMapResourceLimit()
+            char == ']' || char == '}' -> depth--
         }
     }
 

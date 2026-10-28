@@ -12,21 +12,22 @@ struct RecurringJournal {
         var markedAt: Double
         var policyRevision: UUID?
         var resolved = false
+        // swiftlint:disable discouraged_optional_boolean - journal files omit these until set; nil keeps that format
         var consumed: Bool?
         var policyApplied: Bool? // Legacy v2 claim; never used as the history completion flag.
         var terminal: TerminalEvidence?
         var historyApplied: Bool?
         var released: Bool?
+        // swiftlint:enable discouraged_optional_boolean
         var policy: RecurringPayment?
-        var key: String { "\(scheduleID):\(plan.occurrenceIndex!)" }
+        var key: String { "\(scheduleID):\(plan.due.index)" }
     }
     struct TerminalEvidence: Codable, Sendable {
-        enum Outcome: String, Codable, Sendable { case succeeded, alreadyPaid, failed, uncertain }
         var settlementID: UUID
         var attempt: SendPaymentController.Attempt
         var generation: Int
         var walletGeneration: Int
-        var outcome: Outcome
+        var outcome: TerminalOutcome
         var message: String?
         var recordedAt: Double
         var paid: Bool { outcome == .succeeded || outcome == .alreadyPaid }
@@ -85,33 +86,39 @@ struct RecurringJournal {
         }
         func scope(_ binding: RecurringStore.Binding, _ id: String) throws {
             try require(!id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        && !binding.wallet.fingerprint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        && !binding.wallet.network.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                && !binding.wallet.fingerprint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                && !binding.wallet.network.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             // Binding.instance and policyRevision are decoded as UUIDs.
         }
         for (id, entry) in state.attempts {
             try scope(entry.binding, id)
             try require(id == entry.scheduleID && entry.plan.kind == "pay"
-                        && entry.plan.occurrenceIndex.map { $0 >= 0 } == true
-                        && entry.plan.scheduledFor?.isFinite == true && entry.markedAt.isFinite
-                        && (entry.consumed != true || entry.resolved) && (entry.policyApplied != true || entry.resolved))
+                && entry.plan.occurrenceIndex.map { $0 >= 0 } == true
+                && entry.plan.scheduledFor?.isFinite == true && entry.markedAt.isFinite
+                && (entry.consumed != true || entry.resolved) && (entry.policyApplied != true || entry.resolved))
             if let terminal = entry.terminal {
                 try require(terminal.attempt.recurringOccurrenceKey == entry.key && terminal.attempt.walletIdentity == entry.binding.wallet
-                            && terminal.generation >= 0 && terminal.walletGeneration >= 0 && terminal.recordedAt.isFinite)
+                    && terminal.generation >= 0 && terminal.walletGeneration >= 0 && terminal.recordedAt.isFinite)
                 if terminal.outcome == .succeeded {
-                    try require(terminal.attempt.receipt.map { !$0.isUnresolved && $0.broadcastRetryPending != true && $0.isProven(for: terminal.attempt.payment, knownHash: terminal.attempt.paymentHash) } == true)
+                    try require(terminal.attempt.receipt.map { !$0.isUnresolved && $0.broadcastRetryPending != true && $0.isProven(
+                        for: terminal.attempt.payment,
+                        knownHash: terminal.attempt.paymentHash) } == true)
                 }
                 if terminal.outcome == .alreadyPaid {
-                    try require(terminal.attempt.alreadyPaid.map { $0.isProven(for: terminal.attempt.payment, knownHash: terminal.attempt.paymentHash, alreadyPaid: true) } == true)
+                    try require(terminal.attempt.alreadyPaid.map { $0.isProven(
+                        for: terminal.attempt.payment,
+                        knownHash: terminal.attempt.paymentHash,
+                        alreadyPaid: true) } == true)
                 }
                 try require(terminal.outcome != .failed || terminal.attempt.failed)
             }
             try require(entry.historyApplied != true || entry.terminal != nil && entry.resolved)
             try require(entry.released != true || entry.historyApplied == true)
             if complete, entry.consumed == true {
-                try require(state.consumed.contains { $0.binding == entry.binding && $0.scheduleID == id && $0.through >= entry.plan.scheduledFor! }
-                            && state.consumedIndices.contains { $0.binding == entry.binding && $0.scheduleID == id
-                                && $0.policyRevision == entry.policyRevision && $0.indices.contains(entry.plan.occurrenceIndex!) })
+                try require(state.consumed.contains { $0.binding == entry.binding && $0.scheduleID == id && $0.through >= entry.plan.due.at }
+                    && state.consumedIndices.contains { $0.binding == entry.binding && $0.scheduleID == id
+                        && $0.policyRevision == entry.policyRevision && $0.indices.contains(entry.plan.due.index)
+                    })
             }
         }
         for watermark in state.consumed {
@@ -121,12 +128,12 @@ struct RecurringJournal {
         for indices in state.consumedIndices {
             try scope(indices.binding, indices.scheduleID)
             try require(!indices.indices.isEmpty && indices.indices.allSatisfy { $0 >= 0 }
-                        && indices.indices == Array(Set(indices.indices)).sorted())
+                && indices.indices == Array(Set(indices.indices)).sorted())
         }
         for uncertain in state.legacyUncertainty { try scope(uncertain.binding, uncertain.scheduleID) }
     }
     private struct Header: Decodable { var version: Int }
-    private struct V1: Decodable { var attempts: [String: Entry]; var consumed: [Watermark] }
+    private struct Version1: Decodable { var attempts: [String: Entry]; var consumed: [Watermark] }
     var file: URL
     var persist: @Sendable (Data, URL) throws -> Void = { try RecurringStore.durableWrite($0, to: $1) }
     private func state() throws -> State {
@@ -155,9 +162,11 @@ struct RecurringJournal {
                 migrated = try decoder.decode(State.self, from: bytes)
                 migrated.version = 3
                 // Old consumption claimed history before writing it: preserve it, never guess.
-                migrated.legacyUncertainty += migrated.attempts.values.filter { $0.resolved || $0.consumed == true || $0.policyApplied == true }.map { Scope(binding: $0.binding, scheduleID: $0.scheduleID) }
+                migrated.legacyUncertainty += migrated.attempts.values.filter { $0.resolved || $0.consumed == true || $0.policyApplied == true }.map { Scope(
+                    binding: $0.binding,
+                    scheduleID: $0.scheduleID) }
             case 1:
-                let old = try decoder.decode(V1.self, from: bytes)
+                let old = try decoder.decode(Version1.self, from: bytes)
                 migrated = State(attempts: old.attempts, consumed: old.consumed)
                 // Watermarks can cover overwritten revisions whose indices are unknowable.
                 migrated.legacyUncertainty = old.consumed.map { Scope(binding: $0.binding, scheduleID: $0.scheduleID) }
@@ -175,10 +184,13 @@ struct RecurringJournal {
         return migrated
     }
     /// Durable handoff before Send publishes a terminal result.
-    func record(_ attempt: SendPaymentController.Attempt, generation: Int, walletGeneration: Int,
+    /// The Send controller's generations when the attempt finished.
+    struct Generations { var generation: Int; var walletGeneration: Int }
+    func record(_ attempt: SendPaymentController.Attempt, generations: Generations,
                 message: String?, binding: RecurringStore.Binding, now: Double) throws {
+        let generation = generations.generation, walletGeneration = generations.walletGeneration
         Self.lock.lock(); defer { Self.lock.unlock() }
-        let outcome: TerminalEvidence.Outcome
+        let outcome: TerminalOutcome
         if attempt.alreadyPaid != nil { outcome = .alreadyPaid }
         else if let receipt = attempt.receipt, !receipt.isUnresolved, receipt.broadcastRetryPending != true { outcome = .succeeded }
         else if attempt.failed { outcome = .failed }
@@ -193,8 +205,14 @@ struct RecurringJournal {
             let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
             if old.outcome == outcome, try encoder.encode(old.attempt) == encoder.encode(attempt) { return }
         }
-        entry.terminal = .init(settlementID: entry.terminal?.settlementID ?? UUID(), attempt: attempt, generation: generation, walletGeneration: walletGeneration,
-                               outcome: outcome, message: message, recordedAt: now)
+        entry.terminal = .init(
+            settlementID: entry.terminal?.settlementID ?? UUID(),
+            attempt: attempt,
+            generation: generation,
+            walletGeneration: walletGeneration,
+            outcome: outcome,
+            message: message,
+            recordedAt: now)
         try save(entry)
     }
     func load() throws -> [String: Entry] { try withLock { try state().attempts } }
@@ -223,4 +241,9 @@ struct RecurringJournal {
         try state.remember(entry)
         try write(state)
     }
+}
+
+extension RecurringJournal {
+    // swiftlint:disable:next raw_value_for_camel_cased_codable_enum - case names are the wire strings; SwiftFormat strips equal raw values
+    enum TerminalOutcome: String, Codable, Sendable { case succeeded, alreadyPaid, failed, uncertain }
 }

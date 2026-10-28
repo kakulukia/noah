@@ -5,6 +5,7 @@ struct SendDestination: Equatable, Sendable {
     var amount: Decimal?
     var isAmountEditable = true
     var error: SendDestinationError?
+    // swiftlint:disable:next discouraged_optional_collection - nil: not a BIP-321 request
     var bip321: [String: String]?
 
     static func cleaned(_ value: String) -> String {
@@ -26,7 +27,7 @@ struct SendDestination: Equatable, Sendable {
         let port = url.port.map { $0 == 443 ? "" : ":\($0)" } ?? ""
         let path = removingDotSegments(url.percentEncodedPath)
         guard let canonical = URL(string: "https://\(host)\(port)\(path)" + (url.percentEncodedQuery.map { "?" + $0 } ?? "")
-                                  + (url.percentEncodedFragment.map { "#" + $0 } ?? ""))?.absoluteString
+            + (url.percentEncodedFragment.map { "#" + $0 } ?? ""))?.absoluteString
         else { return nil }
         let lnurl = PaymentEncoding.encodeBech32("lnurl", Array(canonical.utf8))
         return lnurl.count <= 1023 ? lnurl : nil
@@ -78,7 +79,7 @@ struct SendDestination: Equatable, Sendable {
         }
         let labels = (host.hasSuffix(".") ? host.dropLast() : host[...]).split(separator: ".", omittingEmptySubsequences: false)
         guard labels.allSatisfy({ (1...63).contains($0.count) }),
-              host.unicodeScalars.allSatisfy({ (0x21..<0x7f).contains($0.value) && !"#%/:?@[\\]".unicodeScalars.contains($0) })
+              host.unicodeScalars.allSatisfy({ (0x21..<0x7F).contains($0.value) && !"#%/:?@[\\]".unicodeScalars.contains($0) })
         else { return nil }
         return host
     }
@@ -102,10 +103,10 @@ struct SendDestination: Equatable, Sendable {
             while index < text.endIndex {
                 let c = text[index].value
                 index += 1
-                if c == 0x5c {
-                    guard index < text.endIndex, (0x21...0x7e).contains(text[index].value) else { return false }
+                if c == 0x5C {
+                    guard index < text.endIndex, (0x21...0x7E).contains(text[index].value) else { return false }
                     index += 1
-                } else if !(c == 0x20 || c == 0x09 || c == 0x21 || (0x23...0x5b).contains(c) || (0x5d...0x7e).contains(c) || c >= 0x80) {
+                } else if !(c == 0x20 || c == 0x09 || c == 0x21 || (0x23...0x5B).contains(c) || (0x5D...0x7E).contains(c) || c >= 0x80) {
                     return false
                 }
             }
@@ -116,7 +117,7 @@ struct SendDestination: Equatable, Sendable {
             : local.split(separator: ".", omittingEmptySubsequences: false).allSatisfy(atom))
         guard localValid, !domain.isEmpty, size(domain) <= 254 else { return false }
         if domain.first == "[" && domain.last == "]" {
-            return domain.dropFirst().dropLast().allSatisfy { (0x21...0x5a).contains($0.value) || (0x5e...0x7e).contains($0.value) }
+            return domain.dropFirst().dropLast().allSatisfy { (0x21...0x5A).contains($0.value) || (0x5E...0x7E).contains($0.value) }
         }
         return domain.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { label in
             guard let first = label.first, let last = label.last else { return false }
@@ -134,6 +135,8 @@ struct SendDestination: Equatable, Sendable {
         actual == expected || (type == "ark" && actual == "testnet" && expected != "mainnet")
             || (type == "onchain" && actual == "testnet" && expected == "signet")
     }
+    /// The BIP-321 request key holding each method's destination.
+    static let requestKeys = ["ark": "arkAddress", "lightning": "lightningInvoice", "offer": "offer", "onchain": "onchainAddress"]
     static func parse(_ value: String, network: String = AppVariant.current.rawValue) -> Self {
         if value.lowercased().hasPrefix("bitcoin:") { return uri(value, network: network) }
         let value = cleaned(value)
@@ -160,7 +163,7 @@ struct SendDestination: Equatable, Sendable {
         // Raw LNURL-pay links are supported by the FFI, in addition to RN's LUD-16 input.
         if let decoded = PaymentEncoding.bech32(value), decoded.prefix == "lnurl", !decoded.isM,
            let bytes = PaymentEncoding.bytes(decoded.words),
-           let url = urlText(String(decoding: bytes, as: UTF8.self)).flatMap(URLComponents.init(string:)), allowsLnurl(url) {
+           let url = String(bytes: bytes, encoding: .utf8).flatMap(urlText).flatMap(URLComponents.init(string:)), allowsLnurl(url) {
             // LNURL-auth logs in rather than pays: refuse it here instead of at the fetch. The query is read decoded, as the
             // LNURL client reads it, so encoding or case can't hide `tag=login`.
             let login = url.queryItems?.contains {
@@ -195,51 +198,67 @@ struct SendDestination: Equatable, Sendable {
     }
     private static func uri(_ value: String, network: String) -> Self {
         let parts = value.dropFirst(8).split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
-        var methods: [String: String] = [:], errors: [SendDestinationError] = [], seen: Set<String> = []
-        var amount: Decimal?, invalid = false
-        func add(_ raw: String, type: String) {
-            let parsed = parse(raw, network: network)
-            if parsed.destinationType == type {
-                methods[["ark":"arkAddress", "lightning":"lightningInvoice", "offer":"offer", "onchain":"onchainAddress"][type]!] = raw
-            } else if case .networkMismatch(let expected, let actual) = parsed.error {
-                errors.append(.networkMismatch(expected: expected, actual: actual)); invalid = true
-            } else if type == "offer" {
-                errors.append(.invalidOffer)
-            }
-        }
+        var request = URIRequest(network: network)
         if let address = parts.first, !address.isEmpty {
-            if PaymentEncoding.bitcoinNetwork(String(address)) == nil { errors.append(.invalidBitcoinAddress); invalid = true }
-            else { add(String(address), type: "onchain") }
+            if PaymentEncoding.bitcoinNetwork(String(address)) == nil { request.errors.append(.invalidBitcoinAddress); request.invalid = true }
+            else { request.add(String(address), type: "onchain") }
         }
         if parts.count > 1 {
             for pair in parts[1].split(separator: "&", omittingEmptySubsequences: false) {
                 let pair = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
                 guard let key = pair.first.flatMap({ String($0).removingPercentEncoding }),
                       let decoded = (pair.count > 1 ? String(pair[1]) : "").removingPercentEncoding else { return Self(error: .invalidURI) }
-                // BIP-321 `req-` parameters must be understood or refused; Send understands these two.
-                let lower = ["req-ark", "req-amount"].contains(key.lowercased()) ? String(key.lowercased().dropFirst(4)) : key.lowercased()
-                if ["amount", "label", "message"].contains(lower), !seen.insert(lower).inserted {
-                    errors.append(.duplicateParameter(lower)); invalid = true; continue
-                }
-                switch lower {
-                case "amount":
-                    if let sats = uriAmount(decoded) {
-                        amount = sats
-                    } else { errors.append(.invalidAmount); invalid = true }
-                case "ark": add(decoded, type: "ark")
-                case "lightning": add(decoded, type: "lightning")
-                case "lno": add(decoded, type: "offer")
-                case "bc", "tb", "tbs", "bcrt":
-                    let expected = ["bc":"mainnet","tb":"testnet","tbs":"signet","bcrt":"regtest"][lower]!
-                    if let actual = PaymentEncoding.bitcoinNetwork(decoded), matches(actual, expected, type: "onchain") { add(decoded, type: "onchain") }
-                    else { errors.append(.addressNetworkMismatch(lower)); invalid = true }
-                case "label", "message", "pop": break
-                default: if lower.hasPrefix("req-") { errors.append(.unknownRequiredParameter(key)); invalid = true }
-                }
+                request.apply(key: key, decoded: decoded)
             }
         }
-        if invalid || methods.isEmpty { return Self(error: errors.isEmpty ? .noPaymentMethods : .invalidMethods(errors)) }
-        return Self(destinationType: "bip321", amount: amount.flatMap { $0 > 0 ? $0 : nil }, isAmountEditable: (amount ?? 0) <= 0, bip321: methods)
+        let amount = request.amount
+        if request.invalid || request.methods.isEmpty {
+            return Self(error: request.errors.isEmpty ? .noPaymentMethods : .invalidMethods(request.errors))
+        }
+        return Self(destinationType: "bip321", amount: amount.flatMap { $0 > 0 ? $0 : nil }, isAmountEditable: (amount ?? 0) <= 0, bip321: request.methods)
+    }
+
+    /// A BIP-321 URI's methods, amount and failures, built up one parameter at a time.
+    private struct URIRequest {
+        let network: String
+        var methods: [String: String] = [:], errors: [SendDestinationError] = [], seen: Set<String> = []
+        var amount: Decimal?, invalid = false
+
+        mutating func add(_ raw: String, type: String) {
+            let parsed = SendDestination.parse(raw, network: network)
+            if parsed.destinationType == type {
+                if let key = SendDestination.requestKeys[type] { methods[key] = raw }
+            } else if case .networkMismatch(let expected, let actual) = parsed.error {
+                errors.append(.networkMismatch(expected: expected, actual: actual)); invalid = true
+            } else if type == "offer" {
+                errors.append(.invalidOffer)
+            }
+        }
+
+        /// One parameter: `key` as written, `decoded` percent-decoded.
+        mutating func apply(key: String, decoded: String) {
+            // BIP-321 `req-` parameters must be understood or refused; Send understands these two.
+            let lower = ["req-ark", "req-amount"].contains(key.lowercased()) ? String(key.lowercased().dropFirst(4)) : key.lowercased()
+            if ["amount", "label", "message"].contains(lower), !seen.insert(lower).inserted {
+                errors.append(.duplicateParameter(lower)); invalid = true; return
+            }
+            switch lower {
+            case "amount":
+                if let sats = SendDestination.uriAmount(decoded) {
+                    amount = sats
+                } else { errors.append(.invalidAmount); invalid = true }
+            case "ark": add(decoded, type: "ark")
+            case "lightning": add(decoded, type: "lightning")
+            case "lno": add(decoded, type: "offer")
+            case "bc", "tb", "tbs", "bcrt":
+                let expected = switch lower { case "bc": "mainnet"; case "tb": "testnet"; case "tbs": "signet"; default: "regtest" }
+                if let actual = PaymentEncoding.bitcoinNetwork(decoded), SendDestination.matches(actual, expected, type: "onchain") {
+                    add(decoded, type: "onchain")
+                } else { errors.append(.addressNetworkMismatch(lower)); invalid = true }
+            case "label", "message", "pop": break
+            default: if lower.hasPrefix("req-") { errors.append(.unknownRequiredParameter(key)); invalid = true }
+            }
+        }
     }
 }
 
@@ -248,7 +267,7 @@ indirect enum SendDestinationError: LocalizedError, Equatable, Sendable {
     case networkMismatch(expected: String, actual: String)
     case subSatoshiInvoice, invalidOffer, invalidBitcoinAddress, invalidURI, invalidAmount, noPaymentMethods
     case duplicateParameter(String), addressNetworkMismatch(String), unknownRequiredParameter(String)
-    case invalidMethods([SendDestinationError])
+    case invalidMethods([Self])
     case lnurlAuth
 
     var errorDescription: String? { message() }

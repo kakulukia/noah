@@ -7,13 +7,13 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.noahwallet.services.storage.*
 import com.noahwallet.services.wallet.EsploraSettings
 import com.tencent.mmkv.*
-import java.io.File
-import java.util.UUID
-import java.util.concurrent.Executors
+import kotlinx.serialization.json.*
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import kotlinx.serialization.json.*
+import java.io.File
+import java.util.UUID
+import java.util.concurrent.Executors
 
 /** Actual JNI importer; every test has its own files/no-backup directories. */
 @RunWith(AndroidJUnit4::class)
@@ -30,20 +30,22 @@ class MMKVRecoveryTest {
             override fun getNoBackupFilesDir() = noBackup
         }
         try {
-            if (realRN) {
-                check(root.mkdir())
-                listOf(id, "$id.crc").forEach { name ->
-                    instrumentation.context.assets.open("rn-mmkv/$name").use { input -> File(root, name).outputStream().use { input.copyTo(it) } }
-                }
-            }
+            if (realRN) copyRN(root)
             test(context, root)
         } finally { check(parent.deleteRecursively()) }
+    }
+    /** The real RN-written MMKV files, copied into [root]. */
+    private fun copyRN(root: File) {
+        check(root.mkdir())
+        listOf(id, "$id.crc").forEach { name ->
+            instrumentation.context.assets.open("rn-mmkv/$name").use { input -> File(root, name).outputStream().use { input.copyTo(it) } }
+        }
     }
     private fun bytes(root: File) = listOf(id, "$id.crc").map { File(root, it).readBytes().toList() }
     private fun writeRN(root: File, values: Map<String, String>) {
         check(root.isDirectory || root.mkdir())
         MMKV.initialize(app, root.path, null, MMKVLogLevel.LevelNone, null)
-        val rn = MMKV.mmkvWithID(id, MMKV.SINGLE_PROCESS_MODE, null, root.path)!!
+        val rn = MMKV.mmkvWithID(id, MMKV.SINGLE_PROCESS_MODE, null, root.path)
         rn.clearAll(); values.forEach { (key, raw) -> check(rn.encode(key, raw)) }; rn.sync(); rn.close()
     }
     @Test fun realRNImportAndThousandsOfNativeWritesPreserveSource() = isolated { context, root ->
@@ -140,7 +142,8 @@ class MMKVRecoveryTest {
             }
             if (wallet != "absent") {
                 writeRN(root, raw?.let { mapOf(PersistedWalletState.key to it) }.orEmpty())
-                if (wallet == "damaged") File(root, "$id.crc").let { file -> file.writeBytes(file.readBytes().apply { this[0] = (this[0].toInt() xor 255).toByte() }) }
+                if (wallet == "damaged") File(root, "$id.crc").let { file ->
+                    file.writeBytes(file.readBytes().apply { this[0] = (this[0].toInt() xor 255).toByte() }) }
             }
             val settings = SettingsStorage(context)
             val state = settings.persistedState<PersistedWalletState>(PersistedWalletState.key)

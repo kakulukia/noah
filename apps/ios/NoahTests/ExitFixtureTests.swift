@@ -1,7 +1,6 @@
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 struct ExitFixtureTests {
     struct FeeInput: Decodable {
@@ -10,7 +9,7 @@ struct ExitFixtureTests {
         var amount: UInt64?
         var claimFee: UInt64?
         var totalFee: UInt64?
-        var claimOnly: Bool?
+        var claimOnly: Bool? // swiftlint:disable:this discouraged_optional_boolean - fixture field only some operations carry
         var reviewedAt: Double?
         var now: Double?
         var inputs: ExitReviewInputs?
@@ -18,27 +17,32 @@ struct ExitFixtureTests {
     }
     @Test func feesMatchRN() throws {
         for test in try Fixtures.load(
-            "exit-fee-estimate", input: FeeInput.self, expected: SendFixtureTests.JSON.self)
-        {
+            "exit-fee-estimate", input: FeeInput.self, expected: SendFixtureTests.JSON.self) {
             let i = test.input
             switch i.operation {
             case "eligible":
+                let state = try #require(i.state), amount = try #require(i.amount)
                 #expect(
-                    try ExitRules.eligible(state: i.state!, amount: i.amount!)
+                    try ExitRules.eligible(state: state, amount: amount)
                         == test.expected.decode(Bool.self), "\(test.name)")
             case "receive":
+                let amount = try #require(i.amount), claimFee = try #require(i.claimFee)
                 #expect(
-                    try ExitRules.received(amount: i.amount!, claimFee: i.claimFee!)
+                    try ExitRules.received(amount: amount, claimFee: claimFee)
                         == test.expected.decode(UInt64.self), "\(test.name)")
             case "warning":
+                let amount = try #require(i.amount), claimFee = try #require(i.claimFee)
+                let totalFee = try #require(i.totalFee)
+                try #require(i.claimOnly != nil)
+                let claimOnly = i.claimOnly == true
                 #expect(
                     try ExitRules.warning(
-                        amount: i.amount!, claimFee: i.claimFee!, totalFee: i.totalFee!, claimOnly: i.claimOnly!
-                    ) == test.expected.decode(String?.self), "\(test.name)")
+                        amount: amount, claimFee: claimFee, totalFee: totalFee, claimOnly: claimOnly) == test.expected.decode(String?.self),
+                    "\(test.name)")
             case "current":
-                let actual =
-                    i.inputs!.matches(i.current!)
-                    && ExitRules.current(elapsed: .milliseconds(i.now! - i.reviewedAt!))
+                let inputs = try #require(i.inputs), current = try #require(i.current)
+                let now = try #require(i.now), reviewedAt = try #require(i.reviewedAt)
+                let actual = inputs.matches(current) && ExitRules.current(elapsed: .milliseconds(now - reviewedAt))
                 #expect(try actual == test.expected.decode(Bool.self), "\(test.name)")
             default: Issue.record("Unknown exit fixture")
             }
@@ -73,8 +77,7 @@ struct ExitFixtureTests {
     }
     @Test func timelinesMatchRN() throws {
         for test in try Fixtures.load(
-            "exit-timeline", input: TimelineInput.self, expected: [TimelineExpected].self)
-        {
+            "exit-timeline", input: TimelineInput.self, expected: [TimelineExpected].self) {
             let i = test.input
             let actual = ExitTimeline.build(
                 history: i.history, historyDetails: i.historyDetails, state: i.currentState,
@@ -103,8 +106,7 @@ struct ExitFixtureTests {
     }
     @Test func overviewCoordinationMatchesRN() throws {
         for test in try Fixtures.load(
-            "exit-overview-coordination", input: ReadyInput.self, expected: ReadyExpected.self)
-        {
+            "exit-overview-coordination", input: ReadyInput.self, expected: ReadyExpected.self) {
             let i = test.input
             let ready = ExitRules.ready(
                 initialized: i.isInitialized, loaded: i.isWalletLoaded, suspended: i.isWalletSuspended,

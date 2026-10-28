@@ -1,8 +1,8 @@
 import Foundation
+@testable import Noah
 import SwiftUI
 import Testing
 import UIKit
-@testable import Noah
 
 /// Opt-in screenshot fixtures for Activity: the real tab shell on the Activity tab with fake
 /// history, balance and prices (no wallet, server writes or recovery phrase). Write a state
@@ -15,7 +15,7 @@ import UIKit
 struct ActivityShotTests {
     @Test(.timeLimit(.minutes(60))) func presentStates() async throws {
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let window = try #require(scene.windows.first { $0.isKeyWindow })
+        let window = try #require(scene.keyWindow)
         let original = window.rootViewController
         let folder = URL.documentsDirectory
         let request = folder.appending(path: "act-shot"), ready = folder.appending(path: "act-shot-ready")

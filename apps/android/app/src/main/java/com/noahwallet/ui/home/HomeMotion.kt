@@ -23,7 +23,8 @@ internal class SpringCurve(response: Float, private val damping: Float) {
         while (t < 3f) {
             var ok = true
             var s = t
-            while (s < t + .25f) { if (abs(1 - value(s)) > .002f) { ok = false; break }; s += .01f }
+            while (s < t + .25f) { if (abs(1 - value(s)) > .002f) { ok = false; break }
+                s += .01f }
             if (ok) break
             t += .01f
         }
@@ -69,7 +70,7 @@ internal fun lerp(from: Float, to: Float, fraction: Float) = from + (to - from) 
  * with the receipt, and once it has finished the card fades out on its own, 180 ms, without folding.
  */
 internal data class ReceiptFrame(val qrOut: Float, val gotIn: Float, val ring: Float, val check: Float, val amountIn: Float,
-                                 val fromIn: Float, val buttonsOut: Float, val folding: Float, val collapse: Boolean)
+    val fromIn: Float, val buttonsOut: Float, val folding: Float, val collapse: Boolean)
 
 internal object Receipt {
     const val receiptMillis = 2_400L

@@ -1,7 +1,7 @@
 package com.noahwallet.services.wallet
 
-import com.noahwallet.services.storage.*
 import com.noahwallet.services.backup.*
+import com.noahwallet.services.storage.*
 import com.noahwallet.ui.RestoreCompletion
 import com.noahwallet.ui.RestoreCompletionJournal
 import kotlinx.coroutines.*
@@ -33,7 +33,8 @@ class WalletLifecycleTest {
         fun lifecycle(session: WalletSession = this.session, drainTimeoutMillis: Long = 30_000) = WalletLifecycle(session, location,
             setSuspended = { suspended = it; events.add("flag:$it") },
             deregister = { events.add("deregister"); if (deregisterFails) error("Offline") },
-            readSeed = { if (seedUnreadable) SecretResult.Unavailable(SecretFailure.storageUnreadable) else if (seed) SecretResult.Found(seedValue) else SecretResult.NotFound },
+            readSeed = { if (seedUnreadable) SecretResult.Unavailable(SecretFailure.storageUnreadable) else if (seed)
+                SecretResult.Found(seedValue) else SecretResult.NotFound },
             deleteSeed = {
                 assertFalse(location.directory.exists()); assertFalse(location.restoreDirectory.exists())
                 assertTrue(runCatching { session.reserve() }.isFailure)
@@ -48,7 +49,10 @@ class WalletLifecycleTest {
             settleBackground = { settleBackground() },
             finishBackground = { finishBackground() },
             syncIdentityDirectory = {}, drainTimeoutMillis = drainTimeoutMillis,
-            syncFiles = { if (syncFails) error("Directory sync failed"); events.add("sync") })
+            syncFiles = {
+                if (syncFails) error("Directory sync failed")
+                events.add("sync")
+            })
         fun files() { location.directory.mkdirs(); location.database.writeText("fake"); location.restoreDirectory.mkdirs() }
         fun clean() { root.deleteRecursively() }
     }
@@ -144,10 +148,12 @@ class WalletLifecycleTest {
         val world = World()
         try {
             world.files()
-            val binding = com.noahwallet.recurring.RecurringStore.Binding(com.noahwallet.send.SendIdentity("wallet", "regtest"), java.util.UUID.randomUUID().toString())
+            val binding = com.noahwallet.recurring.RecurringStore.Binding(com.noahwallet.send.SendIdentity("wallet", "regtest"),
+                java.util.UUID.randomUUID().toString())
             val ledger = File(world.location.directory, "noah-recurring-journal.json.policies")
             var raw: String? = null
-            fun store(owner: com.noahwallet.recurring.RecurringStore.Binding) = com.noahwallet.recurring.RecurringStore({ raw }, { raw = it }).also { it.protectPolicies(ledger, sync = {}) { owner } }
+            fun store(owner: com.noahwallet.recurring.RecurringStore.Binding) =
+                com.noahwallet.recurring.RecurringStore({ raw }, { raw = it }).also { it.protectPolicies(ledger, sync = {}) { owner } }
             store(binding).load()
             assertTrue(ledger.exists()); assertTrue(File("${ledger.path}.initialized").exists())
             world.lifecycle().delete()
@@ -464,7 +470,8 @@ class WalletLifecycleTest {
             world.location.writeDeletionIdentity(SecretResult.Found("wallet B")) {}
             world.seedUnreadable = true
             val secret = object : SecretItem {
-                override suspend fun read(): SecretResult = if (world.seedUnreadable) SecretResult.Unavailable(SecretFailure.storageUnreadable) else SecretResult.Found("wallet B")
+                override suspend fun read(): SecretResult = if (world.seedUnreadable)
+                    SecretResult.Unavailable(SecretFailure.storageUnreadable) else SecretResult.Found("wallet B")
                 override suspend fun save(value: String) = error("Recovery must not write a seed")
             }
             val lifecycle = world.lifecycle()

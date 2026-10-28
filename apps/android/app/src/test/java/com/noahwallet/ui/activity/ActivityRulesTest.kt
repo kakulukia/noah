@@ -16,10 +16,12 @@ import java.util.TimeZone
 
 /** Activity's list, search, filter, export and receipt rules (docs/native-rewrite/design/activity.md, Testing). */
 class ActivityRulesTest {
+    private val lenient = Json { ignoreUnknownKeys = true }
     private fun at(zone: TimeZone, day: Int, hour: Int, minute: Int = 0) =
         Calendar.getInstance(zone).apply { clear(); set(2026, Calendar.OCTOBER, day, hour, minute) }.time
+    @Suppress("LongParameterList") // Fixture builder: each parameter is a named, defaulted field of the model it builds.
     private fun record(id: String, date: Date?, status: String = "successful", type: String = "Arkoor", direction: String = "outgoing",
-                       amount: Long = 2_500, destination: String = "", source: String = "ark", confirmed: Boolean? = null) =
+        amount: Long = 2_500, destination: String = "", source: String = "ark", confirmed: Boolean? = null) =
         HistoryTransaction(id, type, amount, if (date == null) HistoryRules.isoDate(Date(0)) else HistoryRules.isoDate(date), direction,
             dateLabel = if (date == null) "Unconfirmed" else null, sortTimestamp = date?.time?.toDouble(), source = source, txid = "tx-$id",
             destination = destination, movementId = id.hashCode().toUInt(), movementStatus = if (source == "ark") status else null,
@@ -148,7 +150,9 @@ class ActivityRulesTest {
     }
 
     @Test fun settledLightningFeesComeFromTheBalanceTheyTook() {
-        val fixed = "lnbc15u1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvtgjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq4gj5hs"
+        val fixed =
+            "lnbc15u1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvt" +
+                "gjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq4gj5hs"
         fun fees(record: HistoryTransaction) = rows(record).single().let { ActivityRules.fees(record, it.home) to ActivityRules.total(record, it.home) }
         // A retried invoice: bark kept the first attempt's fee field (12), but the movement took 1,530 for 1,500.
         val retried = record("ln", Date(), type = "Bolt11", amount = 1_500).copy(subsystemName = "bark.lightning_send", offchainFeeSat = 12,
@@ -180,7 +184,9 @@ class ActivityRulesTest {
         assertEquals("", rowAmount(unproven.home, false, BitcoinAmountUnit.sats, Locale.US))
         assertEquals("Sent\nDate: Today\nVia: Lightning\nProof of payment: $proof", ActivityRules.receipt(unproven, null, "Today", null, words))
         // An invoice that sets its amount, and anything still in flight, keep the recorded amount.
-        val fixed = "lnbc15u1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvtgjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq4gj5hs"
+        val fixed =
+            "lnbc15u1p3xnhl2pp5jptserfk3zk4qy42tlucycrfwxhydvlemu9pqr93tuzlv9cc7g3sdqsvfhkcap3xyhx7un8cqzpgxqzjcsp5f8c52y2stc300gl6s4xswtjpc37hrnnr3c9wvt" +
+                "gjfuvqmpm35evq9qyyssqy4lgd8tj637qcjp05rdpxxykjenthxftej7a2zzmwrmrl70fyj9hvj0rewhzj7jfyuwkwcg9g2jpwtk3wkjtwnkdks84hsnu8xps5vsq4gj5hs"
         assertEquals(1_000L, rows(retried.copy(sentTo = listOf(HistoryTransaction.Destination(fixed, 1_000, "invoice")))).single().home.amount)
         assertEquals(1_000L, rows(retried.copy(movementStatus = "pending")).single().home.amount)
     }
@@ -262,7 +268,7 @@ class ActivityRulesTest {
         fun fees(record: HistoryTransaction) = ActivityRules.fees(record, rows(record).single().home)
         // The shared fixture's successful board without metadata: no network fee, a 500-sat Ark fee.
         val case = SharedFixtures.load("transaction-history").single { it.name == "bark.board:board successful" }
-        val board = Json { ignoreUnknownKeys = true }.decodeFromJsonElement(HistoryTransaction.serializer(), case.expected.jsonObject.getValue("transaction"))
+        val board = lenient.decodeFromJsonElement(HistoryTransaction.serializer(), case.expected.jsonObject.getValue("transaction"))
         assertEquals(listOf(ActivityRules.FeeLine("Fee", ActivityRules.FeeValue.Sats(500))), fees(board))
         // A board that recorded no fee shows none ("Free" is a claim for sends).
         assertEquals(emptyList<ActivityRules.FeeLine>(), fees(board.copy(offchainFeeSat = 0)))

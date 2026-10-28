@@ -3,8 +3,8 @@ package com.noahwallet.history
 import android.content.Context
 import androidx.work.Worker
 import androidx.work.WorkerParameters
-import java.io.File
 import com.noahwallet.services.storage.syncDirectory
+import java.io.File
 
 /** Share receivers may read asynchronously; expire successful exports after one day. */
 class HistoryExportFiles(private val root: File, private val revoke: (File) -> Unit = {},
@@ -16,8 +16,8 @@ class HistoryExportFiles(private val root: File, private val revoke: (File) -> U
         check(root.isDirectory || root.mkdirs())
         sweep()
         val file = File.createTempFile("noah_transactions_", ".csv", root)
-        try { file.writeText(content, Charsets.UTF_8); return file }
-        catch (failure: Exception) { file.delete(); throw failure }
+        runCatching { file.writeText(content, Charsets.UTF_8) }.onFailure { file.delete() }.getOrThrow()
+        return file
     }
     fun deleteAll() {
         if (!root.exists()) return

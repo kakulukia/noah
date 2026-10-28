@@ -1,8 +1,7 @@
 import BarkBoltFFI
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 /// BOLT12 offers that fix their amount (ffi-phase-b.md row 12): Bark's parser supplies the amount, the quote enforces it.
 @MainActor struct SendOfferTests {
@@ -64,7 +63,7 @@ import Testing
 
     @Test func theQuoteRefusesAnotherAmountForAFixedOffer() async throws {
         let thousand = request(1000), amountless = request(nil)
-        let fixed: @Sendable (String) async throws -> PaymentRequest = { _ in thousand }
+        let fixed: @Sendable (String) async -> PaymentRequest = { _ in thousand }
         try await SendOfferAmount.require(SendPayment(destination: offer, method: "offer", amount: 1000), parse: fixed)
         for amount: UInt64 in [999, 1001] {
             await #expect(throws: SendFailure.invalid) {
@@ -150,8 +149,8 @@ import Testing
             mnemonic, datadir, _, _, create in
             let onchain = try await OnchainWallet.default(network: .regtest, mnemonic: mnemonic, config: config, datadir: datadir)
             let wallet = try await Wallet.openWithOnchain(network: .regtest, mnemonicOrSeed: mnemonic, config: config,
-                args: WalletOpenArgs(runDaemon: false, datadir: datadir, createIfNotExists: create,
-                    createWithoutServer: true, skipRecovery: true), onchain: onchain)
+                                                          args: WalletOpenArgs(runDaemon: false, datadir: datadir, createIfNotExists: create,
+                                                                               createWithoutServer: true, skipRecovery: true), onchain: onchain)
             return .init(wallet: wallet, onchain: onchain)
         }
         try await session.createNew(mnemonic: try generateMnemonic(), runDaemon: false, appVersion: "test")

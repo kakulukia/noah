@@ -1,10 +1,9 @@
 import BarkBoltFFI
 import Foundation
+@testable import Noah
 import SwiftUI
 import Testing
 import UIKit
-
-@testable import Noah
 
 /// Leaves the successful Ark journal unacknowledged for host-driven kill/relaunch verification.
 /// Only run on a fresh dedicated simulator; fund its published address exactly once.
@@ -44,7 +43,7 @@ struct SendRoundFourLiveTests {
         let restarted = SendPaymentController(dependencies: .live(session: session, variant: .regtest))
         #expect(restarted.state == controller.state && restarted.locked && !restarted.canOverride)
         let scene = try #require(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let window = try #require(scene.windows.first { $0.isKeyWindow })
+        let window = try #require(scene.keyWindow)
         window.rootViewController = UIHostingController(rootView: SendOutcomeView(controller: controller, done: {}, onLeave: {}))
         window.makeKeyAndVisible()
         try JSONEncoder().encode(try #require(controller.attempt)).write(to: documents.appending(path: "send-round4-ark-evidence.json"))

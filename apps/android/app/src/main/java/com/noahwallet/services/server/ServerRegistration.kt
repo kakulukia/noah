@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+@Suppress("LongParameterList") // dependency seams: tests inject device, clock and mailbox fakes
 class ServerRegistration(
     private val client: HttpClient,
     private val storage: ServerStateStorage,
@@ -44,8 +45,7 @@ class ServerRegistration(
     private suspend fun register(completeServices: (suspend () -> Unit)? = null) {
         if (state.isRegisteredWithServer == true) return
         val info = device()
-        val response = V0RegisterClient(client).register(RegisterPayload(
-            arkAddress = peekAddress(), deviceInfo = info.registrationPayload())).value()
+        val response = V0RegisterClient(client).register(RegisterPayload(arkAddress = peekAddress(), deviceInfo = info.registrationPayload())).value()
         completeServices?.invoke()
         apply(response, info)
     }

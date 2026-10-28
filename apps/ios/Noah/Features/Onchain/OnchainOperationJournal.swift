@@ -4,13 +4,14 @@ import Foundation
 actor OnchainOperationJournal {
     struct OverrideAudit: Codable, Sendable {
         static let titleText = "Override repeat protection?"
+        // swiftlint:disable:next line_length - one literal: translations.mjs reads copy as a single string
         static let warningText = "This does not cancel the original operation. Submitting again may spend additional funds or fees. Noah keeps this attempt and checks its status as your wallet syncs."
         static let confirmationText = "I understand this may repeat the operation"
         var overriddenAt: Date
         var title = OverrideAudit.titleText
         var warning = OverrideAudit.warningText
         var confirmation = OverrideAudit.confirmationText
-        var statusMessage = OnchainFailure.uncertain.errorDescription!
+        var statusMessage = OnchainFailure.uncertain.message
         var acknowledgedAt: Date?
     }
     // Bound audit storage without aging out sparse history or pruning active attempts.
@@ -19,13 +20,14 @@ actor OnchainOperationJournal {
         var quote: OnchainQuote
         var receipt: OnchainReceipt?
         var txid: String?
-        var chainStatusError: String? = nil
+        var chainStatusError: String?
+        // swiftlint:disable:next nesting - Codable synthesis needs CodingKeys inside the type
         private enum CodingKeys: String, CodingKey { case quote, receipt, txid, overrideAudit, uncertainBoard }
         var overrideAudit: OverrideAudit?
         /// FFI 0.7.0's `uncertain` board: bark may have partly recorded it, so repeat protection can't be
         /// overridden; only Check status resolves it (boarded, or proven never boarded). A crash before the
         /// SDK answered leaves no flag, and today's override.
-        var uncertainBoard: Bool?
+        var uncertainBoard: Bool? // swiftlint:disable:this discouraged_optional_boolean - absent unless the SDK reported one
         var id: UUID { quote.id }
 
         func blocks(_ action: OnchainAction, ids: [String]) -> Bool {
@@ -56,7 +58,7 @@ actor OnchainOperationJournal {
             if let txid = attempt.txid, transactionIDs.contains(txid) {
                 if attempt.quote.action == .board, attempt.quote.prepared != nil {
                     var receipt = OnchainReceipt(message: OnchainReceipt.boardingMessage(fee: attempt.quote.chainFee),
-                                                txid: txid, onchainFee: attempt.quote.chainFee)
+                                                 txid: txid, onchainFee: attempt.quote.chainFee)
                     receipt.arkFee = attempt.quote.fee
                     receipt.broadcastRetryPending = true
                     return receipt
@@ -82,7 +84,10 @@ actor OnchainOperationJournal {
                 }
             case .board: resolved = false // No ID means no safe correlation; never match by amount.
             }
-            return resolved ? .init(message: "The selected items have reached a state that resolves this attempt. Review their current status and history before continuing.") : nil
+            return resolved ?
+                .init(
+                    message: "The selected items have reached a state that resolves this attempt. Review their current status and history before continuing.") :
+                nil
         }
     }
     static let shared = OnchainOperationJournal(
@@ -107,10 +112,9 @@ actor OnchainOperationJournal {
     }
     func load() throws -> Attempt? { try loadAll().first }
     private func save(_ values: [Attempt]) throws {
-        let retainedOverrides = Set(values.filter { $0.overrideAudit != nil }.sorted {
-            let left = $0.overrideAudit!.overriddenAt
-            let right = $1.overrideAudit!.overriddenAt
-            return left == right ? $0.id.uuidString > $1.id.uuidString : left > right
+        let audited = values.compactMap { value in value.overrideAudit.map { (id: value.id, at: $0.overriddenAt) } }
+        let retainedOverrides = Set(audited.sorted {
+            $0.at == $1.at ? $0.id.uuidString > $1.id.uuidString : $0.at > $1.at
         }.prefix(Self.maxOverriddenAttempts).map(\.id))
         let retained = values.filter { $0.overrideAudit == nil || retainedOverrides.contains($0.id) }
         try JSONEncoder().encode(retained).write(
@@ -145,7 +149,7 @@ actor OnchainOperationJournal {
         try save(attempts.filter { $0.id != id })
     }
 
-    func recordStatusError(for id: UUID) throws {
+    func recordStatusError(for id: UUID) {
         guard !running else { return }
         guard statusErrors[id] != ChainTransactionStatus.errorText else { return }
         statusErrors[id] = ChainTransactionStatus.errorText
@@ -202,7 +206,7 @@ actor OnchainOperationJournal {
     func reconcile(_ id: UUID, evidence: Evidence) throws -> Bool {
         guard !running else { throw OnchainFailure.busy }
         guard let attempt = try loadAll().first(where: { $0.id == id }), attempt.receipt == nil,
-            let receipt = evidence.receipt(for: attempt)
+              let receipt = evidence.receipt(for: attempt)
         else { return false }
         try update(id, receipt: receipt)
         return true
@@ -213,8 +217,8 @@ actor OnchainOperationJournal {
         var changed = false
         for index in attempts.indices {
             guard attempts[index].quote.walletID == walletID, attempts[index].quote.action == .board,
-                var receipt = attempts[index].receipt, receipt.onchainFee == nil,
-                let txid = receipt.txid, let fee = fees[txid] else { continue }
+                  var receipt = attempts[index].receipt, receipt.onchainFee == nil,
+                  let txid = receipt.txid, let fee = fees[txid] else { continue }
             receipt.onchainFee = fee
             receipt.message = OnchainReceipt.boardingMessage(fee: fee)
             attempts[index].receipt = receipt
@@ -226,7 +230,7 @@ actor OnchainOperationJournal {
         guard !running else { throw OnchainFailure.busy }
         var attempts = try loadAll()
         guard let index = attempts.firstIndex(where: { id == nil || $0.id == id }),
-            attempts[index].receipt != nil, attempts[index].receipt?.broadcastRetryPending != true
+              attempts[index].receipt != nil, attempts[index].receipt?.broadcastRetryPending != true
         else { throw OnchainFailure.uncertain }
         if attempts[index].overrideAudit != nil {
             attempts[index].overrideAudit?.acknowledgedAt = Date()
@@ -240,8 +244,8 @@ actor OnchainOperationJournal {
         guard !running else { throw OnchainFailure.busy }
         var attempts = try loadAll()
         guard let index = attempts.firstIndex(where: { $0.id == id }),
-            attempts[index].receipt == nil, attempts[index].overrideAudit == nil,
-            attempts[index].uncertainBoard != true else {
+              attempts[index].receipt == nil, attempts[index].overrideAudit == nil,
+              attempts[index].uncertainBoard != true else {
             throw OnchainFailure.busy
         }
         attempts[index].overrideAudit = .init(overriddenAt: now)

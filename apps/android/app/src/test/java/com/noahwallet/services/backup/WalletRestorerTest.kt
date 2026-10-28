@@ -1,17 +1,19 @@
 package com.noahwallet.services.backup
 
+import com.noahwallet.services.server.ServerClient
 import com.noahwallet.services.storage.*
 import com.noahwallet.services.testRounds
 import com.noahwallet.services.wallet.*
-import com.noahwallet.services.server.ServerClient
 import io.github.niteshbalusu11.bark.*
 import io.ktor.client.engine.mock.*
+import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
 import io.ktor.http.*
-import java.io.File
-import java.nio.file.Files
 import kotlinx.coroutines.*
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 
 class WalletRestorerTest {
     companion object {
@@ -23,19 +25,19 @@ class WalletRestorerTest {
         override suspend fun history(): List<Movement> = error("unused")
         override suspend fun receiveRequest(): ReceiveRequest = error("unused")
         override suspend fun receiveInvoice(request: ReceiveRequest, amountSat: Long, description: String): ReceiveRequest = error("unused")
-        override suspend fun initializeAddress() { }
+        override suspend fun initializeAddress() = Unit
         override suspend fun peekPublicKey(index: UInt): String = error("unused")
         override suspend fun peekAddress(index: UInt): String = error("unused")
         override suspend fun summary(): WalletSession.Summary = error("unused")
-        override suspend fun sync() { }
-        override suspend fun maintenanceDelegated() { }
+        override suspend fun sync() = Unit
+        override suspend fun maintenanceDelegated() = Unit
         override suspend fun bolt11Invoice(amountSats: ULong): String = error("unused")
-        override suspend fun claimLightningReceives() { }
+        override suspend fun claimLightningReceives() = Unit
         override suspend fun closestExpiryBlocks(): Long? = null
         override suspend fun createSnapshot(destination: File): WalletSnapshotInfo = error("unused")
         var stopFails = false
         override suspend fun stopDaemonWait() { if (stopFails) throw Boom() }
-        override fun close() { }
+        override fun close() = Unit
     }
     private class World {
         val root = Files.createTempDirectory("restorer").toFile()
@@ -66,41 +68,52 @@ class WalletRestorerTest {
             val source = File(root, "snapshot").apply { writeText("new wallet") }
             val encrypted = File(root, "backup")
             if (!encrypted.exists()) BackupArchive.seal(source,
-                BackupArchive.Manifest(2, "x", "sha", network, "abcd", null, null, 42), validSeed, encrypted, root, testRounds) { complete, target -> Files.createLink(target.toPath(), complete.toPath()); Unit }
-            val legacyFile = File(root, "legacy")
-            if (legacy) {
-                val bytes = java.io.ByteArrayOutputStream()
-                java.util.zip.ZipOutputStream(bytes).use { zip ->
-                    zip.putNextEntry(java.util.zip.ZipEntry("backup_staging/noah-data-regtest/db.sqlite"))
-                    zip.write("new wallet".toByteArray()); zip.closeEntry()
-                }
-                legacyFile.writeBytes(java.util.Base64.getEncoder().encode(
-                    BackupCrypto.encrypt(bytes.toByteArray(), validSeed, BackupCrypto.Version.legacyDirectory, testRounds)))
+                BackupArchive.Manifest(2, "x", "sha", network, "abcd", null, null, 42), validSeed, encrypted, root, testRounds) { complete, target ->
+                Files.createLink(target.toPath(), complete.toPath())
             }
-            val info = """{"backup_id":"b1","created_at":"x","encrypted_sha256":"${reportedHash ?: BackupArchive.sha256(encrypted)}","encrypted_size":${reportedSize ?: encrypted.length()},"format_version":2}"""
+            val legacyFile = File(root, "legacy")
+            if (legacy) writeLegacy(legacyFile)
+            val info =
+                """{"backup_id":"b1","created_at":"x","encrypted_sha256":"${reportedHash ?: BackupArchive.sha256(encrypted)}",""" +
+                    """"encrypted_size":${reportedSize ?: encrypted.length()},"format_version":2}"""
             return WalletRestorer("regtest", session, location, seed,
-                makeClient = { ServerClient.make("http://fake", engine = MockEngine { request ->
-                    val body = when (request.url.encodedPath) {
-                        "/v0/backup/v2/list" -> {
-                            if (listFails) return@MockEngine respond("{}", HttpStatusCode.InternalServerError)
-                            if (legacy) "[]" else if (newestCorrupt) "[${info.replace("b1", "bad")},$info]" else "[$info]"
-                        }
-                        "/v0/backup/v2/download" -> {
-                            val bodyText = (request.body as io.ktor.http.content.TextContent).text
-                            val url = if (bodyText.contains("bad")) "http://bad" else "http://download"
-                            """{"backup":$info,"download_url":"$url"}"""
-                        }
-                        "/v0/backup/download_url" -> """{"backup_size":${legacyFile.length()},"download_url":"http://legacy"}"""
-                        else -> error("Unexpected request")
-                    }
-                    respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
-                }) }, transaction = transaction,
+                makeClient = { ServerClient.make("http://fake", engine = MockEngine { request -> serve(request, info, legacyFile) }) },
+                transaction = transaction,
                 validate = { _, _ -> if (validationFails) throw Boom() },
-                download = { url, destination, limit ->
-                    val file = if (url == "http://legacy") legacyFile else encrypted
-                    if (file.length() > limit || url == "http://bad") throw WalletRestorer.Failure(WalletRestorer.Reason.downloadMismatch)
-                    file.copyTo(destination)
-                }, beginOnboarding = { if (markerFails) throw Boom(); initialized = false }, rounds = testRounds)
+                download = { url, destination, limit -> download(if (url == "http://legacy") legacyFile else encrypted, url, destination, limit) },
+                beginOnboarding = {
+                    if (markerFails) throw Boom()
+                    initialized = false
+                }, rounds = testRounds)
+        }
+        private fun writeLegacy(legacyFile: File) {
+            val bytes = java.io.ByteArrayOutputStream()
+            java.util.zip.ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("backup_staging/noah-data-regtest/db.sqlite"))
+                zip.write("new wallet".toByteArray()); zip.closeEntry()
+            }
+            legacyFile.writeBytes(java.util.Base64.getEncoder().encode(BackupCrypto.encrypt(bytes.toByteArray(), validSeed,
+                BackupCrypto.Version.legacyDirectory, testRounds)))
+        }
+        private fun MockRequestHandleScope.serve(request: HttpRequestData, info: String, legacyFile: File): HttpResponseData {
+            val body = when (request.url.encodedPath) {
+                "/v0/backup/v2/list" -> {
+                    if (listFails) return respond("{}", HttpStatusCode.InternalServerError)
+                    if (legacy) "[]" else if (newestCorrupt) "[${info.replace("b1", "bad")},$info]" else "[$info]"
+                }
+                "/v0/backup/v2/download" -> {
+                    val bodyText = (request.body as io.ktor.http.content.TextContent).text
+                    val url = if (bodyText.contains("bad")) "http://bad" else "http://download"
+                    """{"backup":$info,"download_url":"$url"}"""
+                }
+                "/v0/backup/download_url" -> """{"backup_size":${legacyFile.length()},"download_url":"http://legacy"}"""
+                else -> error("Unexpected request")
+            }
+            return respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        private fun download(file: File, url: String, destination: File, limit: Long) {
+            if (file.length() > limit || url == "http://bad") throw WalletRestorer.Failure(WalletRestorer.Reason.downloadMismatch)
+            file.copyTo(destination)
         }
         fun previous() {
             assertEquals("old wallet", location.database.readText()); assertTrue("Previous seed differs", seed.value == "old seed")
@@ -208,7 +221,9 @@ class WalletRestorerTest {
     } }
     @Test fun writeLandedDespiteErrorCommits() = runBlocking { world {
         seed.fail = true; seed.lands = true; restorer().restore(validSeed)
-        assertTrue("Saved seed differs", validSeed == seed.value); assertEquals("new wallet", location.database.readText()); assertFalse(location.restorePending)
+        assertTrue("Saved seed differs", validSeed == seed.value)
+        assertEquals("new wallet", location.database.readText())
+        assertFalse(location.restorePending)
     } }
     @Test fun unknownSeedWaitsThenRecovers() = runBlocking { world {
         seed.fail = true; seed.lockAfterWrite = true

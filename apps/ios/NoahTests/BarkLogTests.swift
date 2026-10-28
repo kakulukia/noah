@@ -1,9 +1,8 @@
 import BarkBoltFFI
 import Foundation
+@testable import Noah
 import Sentry
 import Testing
-
-@testable import Noah
 
 struct BarkLogTests {
     @Test func customEndpointPathsAreRemovedAtSDKAppAndTelemetryBoundaries() {
@@ -63,7 +62,8 @@ struct BarkLogTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let file = LogFile(directory: directory)
         BarkLog(file: file).log(level: .warn, target: "bark::onchain", message:
-            #"fee estimation failed: HttpResponse { status: 404, message: "No route: /unknown/fakeUnregisteredCredential; \"nested\"" }; caused by: upstream unavailable"#)
+            #"fee estimation failed: HttpResponse { status: 404, message: "No route: /unknown/fakeUnregisteredCred"#
+                + #"ential; \"nested\"" }; caused by: upstream unavailable"#)
         #expect(file.lines().first?.hasSuffix(
             "HttpResponse { status: 404 }") == true)
     }
@@ -84,7 +84,7 @@ struct BarkLogTests {
         #expect(lines.last?.hasSuffix("[dropped 19 log records]") == true)
     }
 
-    @Test func workerCallbacksAreSerializedAndRedacted() throws {
+    @Test func workerCallbacksAreSerializedAndRedacted() {
         let directory = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: directory) }
         let file = LogFile(directory: directory)

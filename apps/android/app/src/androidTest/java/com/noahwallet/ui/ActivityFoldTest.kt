@@ -10,7 +10,7 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.noahwallet.history.HistoryFilter
 import com.noahwallet.ui.activity.*
 import org.junit.Assert.*
@@ -35,7 +35,7 @@ class ActivityFoldTest {
             NoahTheme {
                 CompositionLocalProvider(LocalFoldingFeatures provides listOfNotNull(fold)) {
                     state = rememberActivityState()
-                    remember { state.setup() }
+                    remember { state.apply { setup() } }
                     Box(Modifier.fillMaxSize()) { ActivityPreviewHost(ActivityFixtures.ui("busy"), state) }
                 }
             }
@@ -60,9 +60,11 @@ class ActivityFoldTest {
         val vertical = region.height > region.width
         for (node in nodes()) {
             val bounds = node.boundsInWindow
-            if (bounds.width <= 0f || bounds.height <= 0f) continue
-            if (node.config.getOrNull(SemanticsProperties.ContentDescription)?.contains("Close sheet") == true) continue
-            val what = "$label: ${node.config.getOrNull(SemanticsProperties.Text)?.joinToString() ?: node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()} $bounds $region"
+            val scrim = node.config.getOrNull(SemanticsProperties.ContentDescription)?.contains("Close sheet") == true
+            if (bounds.width <= 0f || bounds.height <= 0f || scrim) continue
+            val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString()
+                ?: node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
+            val what = "$label: $text $bounds $region"
             if (vertical) assertFalse("crosses the vertical fold: $what", bounds.left < region.left && bounds.right > region.right)
             else assertFalse("crosses the horizontal fold: $what", bounds.top < region.top && bounds.bottom > region.bottom)
         }

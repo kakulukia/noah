@@ -22,6 +22,9 @@ test('plural selection stays numeric while Android display counts are strings', 
   const catalog = JSON.parse(iosCatalog(all, []));
   expect(catalog.strings['{count} places'].localizations.en.variations.plural.other.stringUnit.value).toBe('%1$lld places');
   expect(androidCatalog(all, 'en')).toContain('<item quantity="other">"%1$s places"</item>');
+  // Android requires Spanish's "many"; it reuses "other", and iOS keeps only the catalog's forms.
+  expect(androidCatalog(all, 'es')).toContain('<item quantity="many">"%1$s places"</item>');
+  expect(catalog.strings['{count} places'].localizations.es.variations.plural.many).toBeUndefined();
   expect(resourceName('Cancel')).toBe(resourceName('Cancel'));
 });
 test('missing translations and unknown variables fail generation', () => {
@@ -37,7 +40,7 @@ test('native templates and literal percent signs round trip through JSON', () =>
   const strings = JSON.parse(iosCatalog(translated)).strings;
   expect(strings['Payment to {recipient} was skipped.'].localizations.es.stringUnit.value).toBe('Payment to %1$@ was skipped.');
   expect(strings['100% ready'].localizations.en.stringUnit.value).toBe('100% ready');
-  expect(androidCatalog(translated, 'en')).toContain('"100% ready"');
+  expect(androidCatalog(translated, 'en')).toContain('formatted="false">"100% ready"');
 });
 
 test('native inventory handles nested interpolation and ignores comments and raw regexes', async () => {
@@ -112,6 +115,15 @@ test('the iOS widget extension is inventoried with the app', async () => {
   await fixture(async (base, put) => {
     await put('apps/ios/NoahWidget/Example.swift', 'Text(L10n.text("Native only", locale: language))');
     expect([...(await extract(base)).used.ios.get('Native only')]).toEqual(['apps/ios/Noah/Features/Example.swift', 'apps/ios/NoahWidget/Example.swift']);
+  });
+});
+
+test('L10n calls wrapped onto the next line are still inventoried', async () => {
+  await fixture(async (base, put) => {
+    await put('apps/ios/Noah/Services/Wrapped.swift', 'let body = L10n.text(\n    "Wrapped copy",\n    locale: locale)');
+    await put('apps/android/app/src/main/java/com/noahwallet/services/Wrapped.kt', 'val body = L10n.text(\n    context,\n    "Wrapped copy")');
+    const { used } = await extract(base);
+    expect(used.ios.has('Wrapped copy') && used.android.has('Wrapped copy')).toBe(true);
   });
 });
 

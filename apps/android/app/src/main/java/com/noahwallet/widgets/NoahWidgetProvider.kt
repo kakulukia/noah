@@ -6,16 +6,17 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
+import androidx.core.graphics.toColorInt
 import com.noahwallet.MainActivity
 import com.noahwallet.R
 import com.noahwallet.localization.L10n
 import com.noahwallet.services.logging.AppLog
 import com.noahwallet.services.logging.SafeErrorDescription
-import java.text.NumberFormat
-import java.util.Locale
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.text.NumberFormat
+import java.util.Locale
 
 open class NoahWidgetProvider : AppWidgetProvider() {
 
@@ -74,8 +75,9 @@ open class NoahWidgetProvider : AppWidgetProvider() {
     ) {
         val prefs = context.getSharedPreferences(appGroup, Context.MODE_PRIVATE)
 
-        val (totalBalance, onchainBalance, offchainBalance, pendingBalance, closestExpiryBlocks, expiryThreshold) = WidgetSnapshot.read(prefs)
+        val snapshot = WidgetSnapshot.read(prefs)
 
+        @Suppress("TooGenericExceptionCaught") // broadcast boundary: a failed update is logged, never crashes the receiver
         try {
             val views = RemoteViews(context.packageName, layoutResId)
 
@@ -96,15 +98,15 @@ open class NoahWidgetProvider : AppWidgetProvider() {
             views.setTextViewText(R.id.offchain_label, L10n.text(context, "Offchain"))
 
             // Set balance text
-            views.setTextViewText(R.id.balance_text, "₿\u00A0${formatSats(totalBalance)}")
+            views.setTextViewText(R.id.balance_text, "₿\u00A0${formatSats(snapshot.total)}")
 
             // Set onchain/offchain balances with compact formatting
-            views.setTextViewText(R.id.onchain_balance, formatSatsCompact(onchainBalance))
-            views.setTextViewText(R.id.offchain_balance, formatSatsCompact(offchainBalance))
+            views.setTextViewText(R.id.onchain_balance, formatSatsCompact(snapshot.onchain))
+            views.setTextViewText(R.id.offchain_balance, formatSatsCompact(snapshot.offchain))
 
             // Show/hide pending balance
-            if (pendingBalance > 0) {
-                views.setTextViewText(R.id.pending_balance, L10n.text(context, "Pending: {amount}", "₿\u00A0${formatSats(pendingBalance)}"))
+            if (snapshot.pending > 0) {
+                views.setTextViewText(R.id.pending_balance, L10n.text(context, "Pending: {amount}", "₿\u00A0${formatSats(snapshot.pending)}"))
                 views.setViewVisibility(R.id.pending_balance, android.view.View.VISIBLE)
             } else {
                 views.setViewVisibility(R.id.pending_balance, android.view.View.GONE)
@@ -120,9 +122,9 @@ open class NoahWidgetProvider : AppWidgetProvider() {
             }
 
             // Set expiry status - only show if VTXOs exist (not -999 sentinel)
-            if (closestExpiryBlocks != -999L) {
-                val expiryStatus = getExpiryStatus(closestExpiryBlocks, expiryThreshold)
-                views.setTextViewText(R.id.expiry_text, L10n.plural(context, "VTXO expires: {n} blocks", closestExpiryBlocks.toInt()))
+            if (snapshot.closestExpiryBlocks != -999L) {
+                val expiryStatus = getExpiryStatus(snapshot.closestExpiryBlocks, snapshot.expiryThreshold)
+                views.setTextViewText(R.id.expiry_text, L10n.plural(context, "VTXO expires: {n} blocks", snapshot.closestExpiryBlocks.toInt()))
                 views.setTextColor(R.id.expiry_text, expiryStatus.color)
                 views.setInt(R.id.expiry_icon, "setColorFilter", expiryStatus.color)
                 views.setImageViewResource(R.id.expiry_icon, expiryStatus.icon)
@@ -143,9 +145,9 @@ open class NoahWidgetProvider : AppWidgetProvider() {
     private data class ExpiryStatus(val icon: Int, val color: Int)
 
     private fun getExpiryStatus(blocks: Long, threshold: Long): ExpiryStatus {
-        val colorRed = android.graphics.Color.parseColor("#EF4444")
-        val colorOrange = android.graphics.Color.parseColor("#F97316")
-        val colorGreen = android.graphics.Color.parseColor("#22C55E")
+        val colorRed = "#EF4444".toColorInt()
+        val colorOrange = "#F97316".toColorInt()
+        val colorGreen = "#22C55E".toColorInt()
 
         // Critical: within 20% of threshold (e.g., < 58 blocks if threshold is 288)
         // Also includes expired VTXOs (negative blocks).
@@ -169,29 +171,25 @@ open class NoahWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun formatSats(value: Long): String {
-        return numberFormatter.format(value)
-    }
+    private fun formatSats(value: Long): String = numberFormatter.format(value)
 
-    private fun formatSatsCompact(value: Long): String {
-        return when {
-            value >= 1_000_000 -> {
-                val millions = value / 1_000_000.0
-                String.format(Locale.US, "%.1fM", millions)
-            }
-
-            value >= 100_000 -> {
-                val thousands = value / 1_000.0
-                String.format(Locale.US, "%.0fK", thousands)
-            }
-
-            value >= 10_000 -> {
-                val thousands = value / 1_000.0
-                String.format(Locale.US, "%.1fK", thousands)
-            }
-
-            else -> formatSats(value)
+    private fun formatSatsCompact(value: Long): String = when {
+        value >= 1_000_000 -> {
+            val millions = value / 1_000_000.0
+            String.format(Locale.US, "%.1fM", millions)
         }
+
+        value >= 100_000 -> {
+            val thousands = value / 1_000.0
+            String.format(Locale.US, "%.0fK", thousands)
+        }
+
+        value >= 10_000 -> {
+            val thousands = value / 1_000.0
+            String.format(Locale.US, "%.1fK", thousands)
+        }
+
+        else -> formatSats(value)
     }
 
     override fun onEnabled(context: Context) {

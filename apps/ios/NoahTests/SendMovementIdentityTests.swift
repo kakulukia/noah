@@ -1,8 +1,7 @@
 import BarkBoltFFI
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 /// SDK 0.6.0 returns movement ids for Ark sends and offboards (FFI item 16).
 @MainActor struct SendMovementIdentityTests {
@@ -104,7 +103,7 @@ import Testing
         storage.attempt = saved
         let actual = try offboards.movement()
         let restarted = fixtures.controller(storage) { attempt in
-            .paid(SendReconciliation.offboardReceipt(attempt.receipt!, payment: attempt.payment, movements: [actual]))
+            try .paid(SendReconciliation.offboardReceipt(#require(attempt.receipt), payment: attempt.payment, movements: [actual]))
         }
         await restarted.checkStatus()
         #expect(restarted.attempt?.receipt?.amount == 850 && restarted.attempt?.receipt?.movementID == 2)

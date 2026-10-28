@@ -1,8 +1,8 @@
 import BarkBoltFFI
 import Darwin
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 struct EsploraTests {
     private static let genesis = "00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6"
@@ -18,26 +18,30 @@ struct EsploraTests {
             try store.record().map { .init(active: $0.active, pending: $0.pending) }
         }
         func imported(_ value: String) throws {
-            struct State: Encodable { let endpointOverride: String }
-            let raw = String(decoding: try JSONEncoder().encode(PersistedEnvelope(state: State(endpointOverride: value), version: 0)), as: UTF8.self)
+            let envelope = PersistedEnvelope(state: ImportedState(endpointOverride: value), version: 0)
+            let raw = try #require(String(bytes: JSONEncoder().encode(envelope), encoding: .utf8))
             lock.withLock { values["esplora-storage"] = raw }
         }
     }
+    private struct ImportedState: Encodable { let endpointOverride: String }
     private actor Calls {
-        var values: [String] = []
-        func add(_ value: String) { values.append(value) }
+        var values: [String?] = []
+        func add(_ value: String?) { values.append(value) }
     }
     @Test func sharedNormalizationNetworkAndTipFixtures() throws {
+        struct URLCase: Decodable { var input: String; var endpoint: String? }
+        struct Genesis: Decodable { var value: String; var variant: String; var valid: Bool }
+        struct Tip: Decodable { var value: String; var valid: Bool }
         struct Fixture: Decodable {
-            struct URLCase: Decodable { var input: String; var endpoint: String? }
-            struct Genesis: Decodable { var value: String; var variant: String; var valid: Bool }
-            struct Tip: Decodable { var value: String; var valid: Bool }
             var normalization: [URLCase]; var genesis: [Genesis]; var tipHeight: [Tip]
         }
         let fixture = try Fixtures.decode("esplora", as: Fixture.self)
         #expect(fixture.normalization.count + fixture.genesis.count + fixture.tipHeight.count == 53)
         for test in fixture.normalization { #expect((try? EsploraEndpoint.normalize(test.input)) == test.endpoint) }
-        for test in fixture.genesis { #expect(((try? EsploraEndpoint.validateGenesis(test.value, variant: AppVariant(rawValue: test.variant)!)) != nil) == test.valid) }
+        for test in fixture.genesis {
+            let variant = try #require(AppVariant(rawValue: test.variant))
+            #expect(((try? EsploraEndpoint.validateGenesis(test.value, variant: variant)) != nil) == test.valid)
+        }
         for test in fixture.tipHeight { #expect(((try? EsploraEndpoint.validateTip(test.value)) != nil) == test.valid) }
     }
     @Test func validationBoundsSilentDripAndOversizedResponses() async throws {
@@ -56,7 +60,8 @@ struct EsploraTests {
             let config = WalletConfiguration.effective(for: variant, endpoint: "custom.example/api/")
             #expect(config.esplora == (variant == .regtest ? nil : "https://custom.example/api"))
             #expect(config.arkServer == WalletConfiguration.base(for: variant).arkServer)
-            #expect(WalletConfiguration.effective(for: variant, endpoint: "https://user:pass@example.com").esplora == WalletConfiguration.base(for: variant).esplora)
+            #expect(WalletConfiguration.effective(for: variant, endpoint: "https://user:pass@example.com").esplora == WalletConfiguration.base(for: variant)
+                .esplora)
         }
     }
     @Test func connectionTestFetchesBothResourcesAndRejectsWrongNetwork() async throws {
@@ -101,7 +106,7 @@ struct EsploraTests {
         #expect(throws: (any Error).self) { try EsploraSettings(storage: fallback).restoreLogPrivacy() }
         try fallback.setDurably("fake fallback write", forKey: "fake-test-setting")
         fallback.useDefaultEsplora(for: .signet)
-        _ = try fallback.takeUpgradeNotices()
+        _ = fallback.takeUpgradeNotices()
         // A fresh instance reads the committed generation, not the process fallback.
         let restarted = try SettingsStorage(rootPath: path)
         #expect(throws: (any Error).self) { try EsploraSettings(storage: restarted).restoreLogPrivacy() }
@@ -157,7 +162,7 @@ struct EsploraTests {
         let cold = "https://cold-history-only.example/coldOpaqueRestart88"
         var record = try #require(try reset.record())
         record.logEndpoints = (record.logEndpoints ?? []) + [cold]
-        try restarted.setDurably(String(decoding: JSONEncoder().encode(record), as: UTF8.self), forKey: EsploraSettings.key)
+        try restarted.setDurably(#require(String(bytes: JSONEncoder().encode(record), encoding: .utf8)), forKey: EsploraSettings.key)
         let relaunched = EsploraSettings(storage: try SettingsStorage(rootPath: root.appending(path: "mmkv").path))
         try relaunched.restoreLogPrivacy()
         let logs = root.appending(path: "logs")
@@ -188,7 +193,7 @@ struct EsploraTests {
         let calls = Calls()
         await #expect(throws: EsploraEndpoint.Failure.self) {
             try await memory.store.change(to: Self.candidate) { selection, commit in
-                await calls.add(selection.endpoint!)
+                await calls.add(selection.endpoint)
                 if selection == Self.candidate {
                     #expect(try memory.selectionRecord() == .init(active: Self.previous, pending: Self.candidate))
                     throw EsploraEndpoint.Failure(message: "fake failed open")
@@ -197,7 +202,7 @@ struct EsploraTests {
                 try commit()
             }
         }
-        #expect(await calls.values == [Self.candidate.endpoint!, Self.previous.endpoint!])
+        #expect(await calls.values == [Self.candidate.endpoint, Self.previous.endpoint])
         #expect(try memory.selectionRecord() == .init(active: Self.previous))
     }
     @Test func successfulReopenCommitsAfterOpening() async throws {
@@ -221,11 +226,11 @@ struct EsploraTests {
             let calls = Calls()
             await #expect(throws: EsploraEndpoint.Failure.self) {
                 try await faulty.change(to: Self.candidate) { selection, commit in
-                    await calls.add(selection.endpoint!)
+                    await calls.add(selection.endpoint)
                     try commit()
                 }
             }
-            #expect(await calls.values == (phase == "pending" ? [] : [Self.candidate.endpoint!, Self.previous.endpoint!]))
+            #expect(await calls.values == (phase == "pending" ? [] : [Self.candidate.endpoint, Self.previous.endpoint]))
             #expect(try memory.selectionRecord() == .init(active: Self.previous))
         }
     }
@@ -244,11 +249,11 @@ struct EsploraTests {
         let calls = Calls()
         await #expect(throws: EsploraEndpoint.Failure.self) {
             try await faulty.change(to: Self.candidate) { selection, commit in
-                await calls.add(selection.endpoint!)
+                await calls.add(selection.endpoint)
                 try commit()
             }
         }
-        #expect(await calls.values == [Self.candidate.endpoint!, Self.previous.endpoint!])
+        #expect(await calls.values == [Self.candidate.endpoint, Self.previous.endpoint])
         #expect(try await faulty.resolve(for: .signet) == Self.previous.endpoint)
     }
 

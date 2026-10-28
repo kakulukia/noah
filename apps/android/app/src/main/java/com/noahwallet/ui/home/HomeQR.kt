@@ -1,3 +1,5 @@
+@file:Suppress("MatchingDeclarationName") // named for the StyledQR composable and its Home card, like iOS
+
 package com.noahwallet.ui.home
 
 import androidx.compose.foundation.Canvas
@@ -50,18 +52,15 @@ private fun roundRect(x: Float, y: Float, side: Float, radius: Float) = RoundRec
  */
 @Composable
 internal fun StyledQR(content: String, modifier: Modifier = Modifier, reveal: Boolean = true, reduceMotion: Boolean = false,
-                      correction: ErrorCorrectionLevel = ErrorCorrectionLevel.H) {
+    correction: ErrorCorrectionLevel = ErrorCorrectionLevel.H) {
     val model = remember(content, correction) { StyledQRModel.encode(content, correction) } ?: return
     val logo = ImageBitmap.imageResource(R.drawable.qr_logo)
     val start = rememberSaveable(content) { if (reveal) android.os.SystemClock.elapsedRealtime() else 0L }
     val elapsed = rememberElapsed(start.takeIf { it > 0 }, 2_000)
     val n = model.size
-    val modules = remember(model) {
-        Path().apply {
-            for (r in 0 until n) for (c in 0 until n) if (model.dot(r, c)) addOval(androidx.compose.ui.geometry.Rect(Offset(c + .5f, r + .5f), .44f))
-        }
-    }
-    val ring = remember { Path().apply { fillType = PathFillType.EvenOdd; addRoundRect(roundRect(0f, 0f, 7f, 2.4f)); addRoundRect(roundRect(1f, 1f, 5f, 1.5f)) } }
+    val modules = remember(model) { modulePath(model) }
+    val ring = remember { Path().apply { fillType = PathFillType.EvenOdd; addRoundRect(roundRect(0f, 0f, 7f, 2.4f))
+        addRoundRect(roundRect(1f, 1f, 5f, 1.5f)) } }
     val pupil = remember { Path().apply { addRoundRect(roundRect(2f, 2f, 3f, 1.1f)) } }
     val modulesIn = step(elapsed, 320, SpringCurve.soft, 1_000, reduceMotion)
     val logoIn = step(elapsed, 380, SpringCurve.bouncy, reduceMotion = reduceMotion)
@@ -96,4 +95,10 @@ internal fun StyledQR(content: String, modifier: Modifier = Modifier, reveal: Bo
             }
         }
     }
+}
+
+/** Every dark module as a dot, in module units. */
+private fun modulePath(model: StyledQRModel) = Path().apply {
+    val n = model.size
+    for (r in 0 until n) for (c in 0 until n) if (model.dot(r, c)) addOval(androidx.compose.ui.geometry.Rect(Offset(c + .5f, r + .5f), .44f))
 }

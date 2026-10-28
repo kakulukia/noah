@@ -1,7 +1,6 @@
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 /// Reviews time out on the continuous clock: moving the device clock back or forward during a review never
 /// lengthens it. A review read back from storage has no continuous-clock reading and keeps its wall-clock cap.
@@ -15,8 +14,8 @@ struct ReviewClockTests {
         (ContinuousClock.now - .seconds(elapsed), Date().addingTimeInterval(-elapsed - move))
     }
 
-    @Test(arguments: clockMoves) func sendBoardAndExitReviewsExpireOnTheContinuousClock(move: TimeInterval) {
-        var send = SendPreparedTests.quote.prepared!
+    @Test(arguments: clockMoves) func sendBoardAndExitReviewsExpireOnTheContinuousClock(move: TimeInterval) throws {
+        var send = try #require(SendPreparedTests.quote.prepared)
         var board = BoardPreparedTests.quote
         var exit = OnchainJournalTests.quote
         exit.action = .startExit
@@ -67,9 +66,15 @@ struct ReviewClockTests {
         let stale = quote
         await #expect(throws: OnchainFailure.changed) {
             try await WalletSession.submitRenewal(
-                stale, threshold: 144, journal: OnchainOperationJournal(file: file), flight: WalletSync(),
-                requote: { stale }, expiring: { _ in [RenewSubmissionTests.coin] }, tip: { 1_000 },
-                refresh: { _ in Issue.record("A stale review never refreshes"); return OnchainReceipt(message: "submitted") })
+                stale,
+                threshold: 144,
+                journal: OnchainOperationJournal(file: file),
+                flight: WalletSync(),
+                reads: .init(
+                    requote: { stale },
+                    expiring: { _ in [RenewSubmissionTests.coin] },
+                    tip: { 1_000 },
+                    refresh: { _ in Issue.record("A stale review never refreshes"); return OnchainReceipt(message: "submitted") }))
         }
     }
 
@@ -77,8 +82,8 @@ struct ReviewClockTests {
         var board = BoardPreparedTests.quote
         board.reviewedAt = .now
         let data = try JSONEncoder().encode(board)
-        #expect(!String(decoding: data, as: UTF8.self).contains("reviewedAt"))
-        #expect(!String(decoding: try JSONEncoder().encode(SendPreparedTests.quote), as: UTF8.self).contains("reviewedAt"))
+        #expect(try !#require(String(bytes: data, encoding: .utf8)).contains("reviewedAt"))
+        #expect(try !#require(String(bytes: JSONEncoder().encode(SendPreparedTests.quote), encoding: .utf8)).contains("reviewedAt"))
         let decoded = try JSONDecoder().decode(OnchainQuote.self, from: data)
         #expect(decoded.reviewedAt == nil && decoded.prepared?.reviewedAt == nil && decoded.createdAt == board.createdAt)
         // Read back, an exit review keeps the wall-clock cap it was saved with.

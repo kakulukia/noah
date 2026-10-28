@@ -3,6 +3,7 @@ import Foundation
 
 /// Write-ahead policy authority. A recovered MMKV snapshot can never repair this evidence.
 final class RecurringPolicyLedger: @unchecked Sendable {
+    // swiftlint:disable:next line_length - one literal: translations.mjs reads copy as a single string
     static let message = "Recurring policy evidence needs attention. Saved schedules are preserved; edit or resume them to approve a new revision. Sending remains stopped."
     static let logMessage = "Recurring policy rollback or unavailable evidence detected; sending stopped"
     struct Marker: Codable { let version: Int; let binding: RecurringStore.Binding }
@@ -18,6 +19,7 @@ final class RecurringPolicyLedger: @unchecked Sendable {
         var predecessor: String?
         var digestVersion: Int?
         var predecessorVersion: Int?
+        // swiftlint:disable:next discouraged_optional_boolean - ledger files omit it outside migrations; nil keeps that format
         var formatMigration: Bool?
     }
     private struct State: Codable {
@@ -33,7 +35,8 @@ final class RecurringPolicyLedger: @unchecked Sendable {
     init(file: URL, sync: @escaping @Sendable (URL) throws -> Void = RestoreTransaction.fullSync) { self.file = file; self.sync = sync }
     private func key(_ binding: RecurringStore.Binding, _ id: String) throws -> String {
         let encoder = JSONEncoder(); encoder.outputFormatting = .sortedKeys
-        return SHA256.hash(data: try encoder.encode(binding)).map { String(format: "%02x", $0) }.joined() + ":" + id
+        let data = try encoder.encode(binding)
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() + ":" + id
     }
     // Frozen projections preserve the exact encoder tokens, including escaped strings and numbers.
     private func digest(_ schedule: RecurringPayment, version: Int) throws -> String {
@@ -45,12 +48,16 @@ final class RecurringPolicyLedger: @unchecked Sendable {
             object.fields = object.fields.filter { keys.contains($0.key) }
             return object
         }
-        let names = "id label destination destinationType amountSat comment interval startAt endAt maxOccurrences nativeRevision status nextOccurrenceIndex nextRunAt occurrencesPaid consecutiveFailures lastError retryNotBefore inFlight runs createdAt updatedAt" + (version == 2 ? " issue" : "")
-        var row = try fields(String(decoding: encoder.encode(schedule), as: UTF8.self), names)
-        row.fields["interval"] = try fields(row.fields["interval"]!, "unit every").json()
+        let names =
+            "id label destination destinationType amountSat comment interval startAt endAt maxOccurrences nativeRevision status nextOccurrenceIndex "
+                + "nextRunAt occurrencesPaid consecutiveFailures lastError retryNotBefore inFlight runs createdAt updatedAt"
+                + (version == 2 ? " issue" : "")
+        var row = try fields(RawObject.text(encoder.encode(schedule)), names)
+        row.fields["interval"] = try fields(row.required("interval"), "unit every").json()
         if let flight = row.fields["inFlight"] { row.fields["inFlight"] = try fields(flight, "occurrenceIndex startedAt").json() }
-        let runs = try RawObject.arrayObjects(row.fields["runs"]!)
-        row.fields["runs"] = "[" + (try runs.map { try fields($0.json(), "occurrenceIndex scheduledFor attemptedAt status amountSat error").json() }).joined(separator: ",") + "]"
+        let runs = try RawObject.arrayObjects(row.required("runs"))
+        row.fields["runs"] = "[" + (try runs.map { try fields($0.json(), "occurrenceIndex scheduledFor attemptedAt status amountSat error").json() })
+            .joined(separator: ",") + "]"
         if let issue = row.fields["issue"] { row.fields["issue"] = try fields(issue, "code arguments").json() }
         return SHA256.hash(data: Data(try row.json().utf8)).map { String(format: "%02x", $0) }.joined()
     }
@@ -68,7 +75,11 @@ final class RecurringPolicyLedger: @unchecked Sendable {
     }
     private func matches(_ entry: Entry?, _ binding: RecurringStore.Binding, _ schedule: RecurringPayment) throws -> Bool {
         guard let entry else { return false }
-        return try entry.binding == binding && entry.scheduleID == schedule.id && entry.revision == schedule.nativeRevision && entry.status == schedule.status && digestMatches(entry.digest, version: entry.digestVersion, schedule)
+        return try entry.binding == binding && entry.scheduleID == schedule.id && entry.revision == schedule.nativeRevision && entry.status == schedule
+            .status && digestMatches(
+                entry.digest,
+                version: entry.digestVersion,
+                schedule)
     }
     private func write(_ state: State) throws { try RecurringStore.durableWrite(JSONEncoder().encode(state), to: file, sync: sync) }
     private func state(binding: RecurringStore.Binding, schedules: [String: RecurringPayment]) throws -> State {
@@ -77,7 +88,11 @@ final class RecurringPolicyLedger: @unchecked Sendable {
             if !FileManager.default.fileExists(atPath: marker.path), !FileManager.default.fileExists(atPath: file.path) {
                 // Marker first: interrupted bootstrap must never silently import a second time.
                 try RecurringStore.durableWrite(JSONEncoder().encode(Marker(version: 1, binding: binding)), to: marker, sync: sync)
-                try write(.init(version: 1, binding: binding, generation: 0, entries: Dictionary(uniqueKeysWithValues: try schedules.map { (try key(binding, $0.key), try entry(binding, $0.value, generation: 0)) })))
+                try write(.init(
+                    version: 1,
+                    binding: binding,
+                    generation: 0,
+                    entries: Dictionary(uniqueKeysWithValues: try schedules.map { (try key(binding, $0.key), try entry(binding, $0.value, generation: 0)) })))
             }
             let marker = try JSONDecoder().decode(Marker.self, from: Data(contentsOf: marker))
             let state = try JSONDecoder().decode(State.self, from: Data(contentsOf: file))
@@ -101,9 +116,17 @@ final class RecurringPolicyLedger: @unchecked Sendable {
             return stopped
         } catch { return Set(schedules.keys) }
     }
-    func commit(binding: RecurringStore.Binding, before: [String: RecurringPayment], after: [String: RecurringPayment], policyID: String? = nil, reapproval: Bool = false, settlementKey: String? = nil, migrationIDs: Set<String> = []) throws {
+    func commit(
+        binding: RecurringStore.Binding,
+        before: [String: RecurringPayment],
+        after: [String: RecurringPayment],
+        policyID: String? = nil,
+        reapproval: Bool = false,
+        settlementKey: String? = nil,
+        migrationIDs: Set<String> = []) throws {
         var state = try state(binding: binding, schedules: before)
-        let changed = Set(before.keys).union(after.keys).union(policyID.map { [$0] } ?? []).filter { $0 == policyID || migrationIDs.contains($0) || before[$0] != after[$0] }
+        let changed = Set(before.keys).union(after.keys).union(policyID.map { [$0] } ?? [])
+            .filter { $0 == policyID || migrationIDs.contains($0) || before[$0] != after[$0] }
         guard !changed.isEmpty else { return }
         guard state.generation < UInt64.max else { throw RecurringError.message(Self.message) }
         state.generation += 1
@@ -111,18 +134,29 @@ final class RecurringPolicyLedger: @unchecked Sendable {
             let key = try key(binding, id)
             if let schedule = after[id] {
                 // User reapproval starts a fresh revision under this generation.
-                let approved = reapproval && schedule.nativeRevision != nil && schedule.nativeRevision != state.entries[key]?.revision && schedule.nativeRevision != before[id]?.nativeRevision && schedule.inFlight == nil && schedule.status == "active"
-                guard try approved || (before[id].map({ try matches(state.entries[key], binding, $0) }) ?? (state.entries[key] == nil)) else { throw RecurringError.message(Self.message) }
+                let approved = reapproval && schedule.nativeRevision != nil && schedule.nativeRevision != state.entries[key]?.revision && schedule
+                    .nativeRevision != before[id]?.nativeRevision && schedule.inFlight == nil && schedule.status == "active"
+                guard try approved || (before[id].map { try matches(state.entries[key], binding, $0) } ?? (state.entries[key] == nil))
+                else { throw RecurringError.message(Self.message) }
                 var next = try entry(binding, schedule, generation: state.generation)
                 next.settlementKey = settlementKey ?? state.entries[key]?.settlementKey
                 if settlementKey != nil || migrationIDs.contains(id) {
                     next.pending = schedule; next.predecessor = state.entries[key]?.digest
-                    next.predecessorVersion = try state.entries[key].map { try matchingVersion($0, before[id]!) }
+                    if let previous = state.entries[key] {
+                        guard let original = before[id] else { throw RecurringError.message(Self.message) }
+                        next.predecessorVersion = try matchingVersion(previous, original)
+                    } else { next.predecessorVersion = nil }
                     next.formatMigration = migrationIDs.contains(id)
                 }
                 state.entries[key] = next
             } else {
-                state.entries[key] = .init(binding: binding, scheduleID: id, generation: state.generation, revision: state.entries[key]?.revision, status: "deleted", digest: nil)
+                state.entries[key] = .init(
+                    binding: binding,
+                    scheduleID: id,
+                    generation: state.generation,
+                    revision: state.entries[key]?.revision,
+                    status: "deleted",
+                    digest: nil)
             }
         }
         do { try write(state) }
@@ -140,9 +174,10 @@ final class RecurringPolicyLedger: @unchecked Sendable {
         let state = try state(binding: binding, schedules: schedules)
         return try state.entries.values.filter { $0.binding == binding && $0.pending != nil }.map { entry in
             guard let row = schedules[entry.scheduleID], let pending = entry.pending,
-                  (entry.settlementKey != nil || entry.formatMigration == true), pending.id == entry.scheduleID, pending.nativeRevision == entry.revision,
+                  entry.settlementKey != nil || entry.formatMigration == true, pending.id == entry.scheduleID, pending.nativeRevision == entry.revision,
                   try digestMatches(entry.digest, version: entry.digestVersion, pending),
-                  try digestMatches(entry.predecessor, version: entry.predecessorVersion, row) || matches(entry, binding, row) else { throw RecurringError.message(Self.message) }
+                  try digestMatches(entry.predecessor, version: entry.predecessorVersion, row) || matches(entry, binding, row)
+            else { throw RecurringError.message(Self.message) }
             return pending
         }
     }

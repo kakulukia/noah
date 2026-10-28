@@ -13,7 +13,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import com.noahwallet.history.HistoryRules
@@ -124,7 +124,8 @@ class HomePoseScrollTest {
     private fun onScreen(text: String, below: Float = 0f): Boolean {
         val window = compose.onNodeWithTag("home-window").fetchSemanticsNode()
         val node = compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode()
-        return node.positionInRoot.y >= window.positionInRoot.y + below && node.positionInRoot.y + node.size.height <= window.positionInRoot.y + window.size.height
+        return node.positionInRoot.y >= window.positionInRoot.y + below &&
+            node.positionInRoot.y + node.size.height <= window.positionInRoot.y + window.size.height
     }
 
     @Test fun theFreshCardKeepsItsPlaceRecreatedIntoEitherLayout() {

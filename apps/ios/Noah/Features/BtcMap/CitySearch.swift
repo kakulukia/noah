@@ -14,7 +14,7 @@ struct CitySearchEntry: Identifiable, Sendable {
     let searchTokens: [String]
     let searchText: String
 
-    var secondaryLabel: String { [regionName, countryName].compactMap { $0 }.joined(separator: ", ") }
+    var secondaryLabel: String { [regionName, countryName].compactMap(\.self).joined(separator: ", ") }
     var displayLabel: String {
         let region = countryCode == #"US"# ? admin1Code : regionName ?? ""
         return "\(name), \(region.isEmpty ? countryName : region)"
@@ -24,7 +24,7 @@ struct CitySearchEntry: Identifiable, Sendable {
 enum CitySearch {
     static func normalize(_ text: String) -> String {
         let decomposed = text.decomposedStringWithCompatibilityMapping
-        let stripped = String(decomposed.unicodeScalars.filter { !(0x300...0x36f).contains($0.value) })
+        let stripped = String(decomposed.unicodeScalars.filter { !(0x300...0x36F).contains($0.value) })
         return stripped.lowercased().replacingOccurrences(of: "[^\\p{L}\\p{N}]+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespaces)
     }
@@ -48,24 +48,26 @@ enum CitySearch {
         }
     }
 
+    // swiftlint:disable:next discouraged_optional_collection - nil: no location to bias by
     static func search(_ cities: [CitySearchEntry], query: String, limit: Int = 3, bias: [Double]? = nil) -> [CitySearchEntry] {
         let query = normalize(query)
         guard query.count >= 2, limit > 0 else { return [] }
         let tokens = query.components(separatedBy: " ")
-        return cities.compactMap { city -> (CitySearchEntry, Int, Double)? in
+        struct Match { let city: CitySearchEntry; let score: Int; let distance: Double }
+        return cities.compactMap { city -> Match? in
             let score: Int
             if city.normalizedNames.contains(query) { score = 0 }
             else if city.normalizedNames.contains(where: { $0.hasPrefix(query) }) { score = 1 }
             else if tokens.allSatisfy({ token in city.searchTokens.contains(where: { $0.hasPrefix(token) }) }) { score = 2 }
             else if city.searchText.contains(query) { score = 3 }
             else { return nil }
-            return (city, score, bias.map { BtcMapDistance.kilometers(from: $0, to: city.center) } ?? 0)
+            return Match(city: city, score: score, distance: bias.map { BtcMapDistance.kilometers(from: $0, to: city.center) } ?? 0)
         }.sorted {
-            if $0.1 != $1.1 { return $0.1 < $1.1 }
-            if $0.2 != $1.2 { return $0.2 < $1.2 }
-            if $0.0.population != $1.0.population { return $0.0.population > $1.0.population }
-            return $0.0.name.localizedCompare($1.0.name) == .orderedAscending
-        }.prefix(limit).map(\.0)
+            if $0.score != $1.score { return $0.score < $1.score }
+            if $0.distance != $1.distance { return $0.distance < $1.distance }
+            if $0.city.population != $1.city.population { return $0.city.population > $1.city.population }
+            return $0.city.name.localizedCompare($1.city.name) == .orderedAscending
+        }.prefix(limit).map(\.city)
     }
 
     private struct Snapshot: Decodable {

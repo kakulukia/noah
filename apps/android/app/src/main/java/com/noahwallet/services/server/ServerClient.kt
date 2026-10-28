@@ -3,8 +3,8 @@ package com.noahwallet.services.server
 import com.noahwallet.api.generated.PublicOperations
 import com.noahwallet.api.generated.client.*
 import com.noahwallet.api.generated.models.*
-import com.noahwallet.services.wallet.WalletConfiguration
 import com.noahwallet.services.storage.StoredMnemonic
+import com.noahwallet.services.wallet.WalletConfiguration
 import io.github.niteshbalusu11.bark.derivePublicKeyFromMnemonic
 import io.github.niteshbalusu11.bark.signMessageWithMnemonic
 import io.ktor.client.*
@@ -18,7 +18,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 
 class ServerFailure(message: String, val status: Int? = null, val code: String? = null,
-                    val kind: Kind = Kind.request, val serverMessage: String? = null) : Exception(message) {
+    val kind: Kind = Kind.request, val serverMessage: String? = null) : Exception(message) {
     enum class Kind { request, connectivity }
 
     companion object {
@@ -55,8 +55,8 @@ object ServerClient {
     }
 
     fun make(baseURL: String, tokens: AuthTokenProvider? = null,
-             engine: HttpClientEngine = OkHttp.create()): HttpClient {
-        val origin = Url(baseURL)
+        engine: HttpClientEngine = OkHttp.create()): HttpClient {
+        val origin = URLBuilder().takeFrom(baseURL).build()
         val client = HttpClient(engine) {
             // Never replay a bearer or signed login body to a redirect target.
             followRedirects = false
@@ -78,7 +78,8 @@ object ServerClient {
             if (call.response.status != HttpStatusCode.Unauthorized) return@intercept call
             val code = runCatching { json.decodeFromString<ApiErrorResponse>(call.response.bodyAsText()).code }.getOrNull()
             if (code !in retryCodes) return@intercept call
-            request.headers[HttpHeaders.Authorization] = "Bearer ${kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { tokens.token(forceRefresh = true, rejectedToken = token) }}"
+            val refreshed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { tokens.token(forceRefresh = true, rejectedToken = token) }
+            request.headers[HttpHeaders.Authorization] = "Bearer $refreshed"
             execute(request)
         }
         return client
@@ -86,11 +87,11 @@ object ServerClient {
 
     /** The offline login key (`m/350/0`) the server puts in the token's `sub`. */
     fun loginKey(variant: String, mnemonic: String,
-                 derive: (String) -> String = { derivePublicKeyFromMnemonic(it, WalletConfiguration.base(variant).network, 0u) }): String =
+        derive: (String) -> String = { derivePublicKeyFromMnemonic(it, WalletConfiguration.base(variant).network, 0u) }): String =
         derive(requireNotNull(StoredMnemonic.normalize(mnemonic)) { "Invalid wallet seed" })
 
     fun signChallenge(challenge: String, variant: String, mnemonic: String,
-                      sign: (String) -> String = { signMessageWithMnemonic(challenge, it, WalletConfiguration.base(variant).network, 0u) }): String =
+        sign: (String) -> String = { signMessageWithMnemonic(challenge, it, WalletConfiguration.base(variant).network, 0u) }): String =
         sign(requireNotNull(StoredMnemonic.normalize(mnemonic)) { "Invalid wallet seed" })
 
     suspend fun login(client: HttpClient, variant: String, mnemonic: String): String {

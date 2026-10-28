@@ -1,5 +1,5 @@
-import Testing
 @testable import Noah
+import Testing
 
 /// Settings sits in Home's stack: deep links land on their page with Settings beneath, and
 /// wide windows swap the trailing page without stacking pages under it.
@@ -22,7 +22,7 @@ struct SettingsNavigationTests {
         route.page = page
         #expect(route.take() == [.settings, .page(page)])
         #expect(route.page == nil)
-        #expect(route.take() == nil) // Opened once: Home coming back doesn't open it again.
+        #expect(route.take().isEmpty) // Opened once: Home coming back doesn't open it again.
     }
 
     @Test func phonesPushRowsAndWideWindowsReplaceTheTrailingPage() {
@@ -30,7 +30,7 @@ struct SettingsNavigationTests {
         #expect(SettingsPath.select(.backup, in: [.settings], wide: false) == [.settings, .page(.backup)])
         #expect(SettingsPath.select(.backup, in: open, wide: true) == [.settings, .page(.backup)])
         #expect(SettingsPath.select(.vtxo("a"), in: open, wide: true) == open)
-        #expect(SettingsPath.base(open + [.page(.recurring)]) == [])
+        #expect(SettingsPath.base(open + [.page(.recurring)]).isEmpty)
         #expect(SettingsPath.base([.map, .settings]) == [.map])
     }
 }

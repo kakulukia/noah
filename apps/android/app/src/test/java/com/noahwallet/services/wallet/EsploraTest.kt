@@ -24,7 +24,8 @@ class EsploraTest {
         assertEquals(53, fixture.values.sumOf { it.jsonArray.size })
         fixture.getValue("normalization").jsonArray.forEach { value ->
             val test = value.jsonObject
-            assertEquals(test["endpoint"]?.jsonPrimitive?.contentOrNull, runCatching { EsploraEndpoint.normalize(test.getValue("input").jsonPrimitive.content) }.getOrNull())
+            assertEquals(test["endpoint"]?.jsonPrimitive?.contentOrNull,
+                runCatching { EsploraEndpoint.normalize(test.getValue("input").jsonPrimitive.content) }.getOrNull())
         }
         fixture.getValue("genesis").jsonArray.forEach { value ->
             val test = value.jsonObject
@@ -34,7 +35,8 @@ class EsploraTest {
         }
         fixture.getValue("tipHeight").jsonArray.forEach { value ->
             val test = value.jsonObject
-            assertEquals(test.getValue("valid").jsonPrimitive.boolean, runCatching { EsploraEndpoint.validateTip(test.getValue("value").jsonPrimitive.content) }.isSuccess)
+            assertEquals(test.getValue("valid").jsonPrimitive.boolean,
+                runCatching { EsploraEndpoint.validateTip(test.getValue("value").jsonPrimitive.content) }.isSuccess)
         }
     }
     @Test fun retiredEndpointsAreDurableBeforeAndAfterSimulatedRestart() = runBlocking {
@@ -92,7 +94,10 @@ class EsploraTest {
                     val started = System.nanoTime()
                     assertTrue(runCatching { EsploraEndpoint.fetch("http://127.0.0.1:${server.localPort}") }.exceptionOrNull() is EsploraEndpoint.Failure)
                     assertTrue("total deadline must include the body", System.nanoTime() - started < 7_000_000_000L)
-                } finally { if (socket.isCompleted) socket.await().close(); worker.cancelAndJoin() }
+                } finally {
+                    if (socket.isCompleted) socket.await().close()
+                    worker.cancelAndJoin()
+                }
             }
         }
     }
@@ -176,7 +181,12 @@ class EsploraTest {
             val memory = Memory(); memory.store.save(EsploraSettings.Record(previous))
             val faulty = EsploraSettings(memory.values::get) { key, value ->
                 val record = Json.decodeFromString<EsploraSettings.Record>(value)
-                if (phase == "pending" && record.pending != null || phase == "commit" && record.active == candidate) {
+                val fails = when (phase) {
+                    "pending" -> record.pending != null
+                    "commit" -> record.active == candidate
+                    else -> false
+                }
+                if (fails) {
                     throw EsploraEndpoint.Failure("fake storage failure")
                 }
                 memory.values[key] = value

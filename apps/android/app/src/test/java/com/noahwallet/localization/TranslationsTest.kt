@@ -1,7 +1,6 @@
 package com.noahwallet.localization
 
 import android.content.Context
-import org.robolectric.RuntimeEnvironment
 import com.noahwallet.fixtures.SharedFixtures
 import com.noahwallet.formatting.BitcoinAmountUnit
 import com.noahwallet.services.storage.LegacyLocale
@@ -11,6 +10,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -32,7 +32,8 @@ class TranslationsTest {
     @Test fun mixedNetworkURIIsRejectedInEveryLanguageAndErrorsRerender() {
         val invoice = SharedFixtures.load("send-utils").first { it.name == "destination 5" }.input.jsonObject.getValue("destination").jsonPrimitive.content
         val uri = "bitcoin:1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa?lightning=$invoice"
-        val expected = com.noahwallet.send.SendDestinationError.InvalidMethods(listOf(com.noahwallet.send.SendDestinationError.NetworkMismatch("mainnet", "testnet")))
+        val expected =
+            com.noahwallet.send.SendDestinationError.InvalidMethods(listOf(com.noahwallet.send.SendDestinationError.NetworkMismatch("mainnet", "testnet")))
         for (locale in LegacyLocale.supported) {
             language(locale)
             val parsed = com.noahwallet.send.SendDestination.parse(uri, "mainnet")
@@ -106,19 +107,24 @@ class TranslationsTest {
         assertEquals(1, plurals.size)
         for (locale in LegacyLocale.supported) {
             language(locale)
-            for (plural in plurals) {
-                val entry = plural.jsonObject
-                val source = entry.getValue("source").jsonPrimitive.content
-                val forms = entry.getValue("translations").jsonObject.getValue(locale).jsonObject
-                for (count in listOf(0, 1, 2, 5, 1_000_000)) {
-                    val category = if (locale in listOf("en", "es", "sv") && count == 1) "one" else "other"
-                    val displayed = if (count == 1_000_000) when (locale) { "es" -> "1.000.000"; "sv" -> "1\u00a0000\u00a0000"; else -> "1,000,000" } else count.toString()
-                    val expected = (forms[category] ?: forms.getValue("other")).jsonPrimitive.content
-                        .replace("{_gt_value_4}", displayed).replace("{_gt_value_3}", " · suffix")
-                    val actual = if (source.contains("{_gt_value_3}")) L10n.plural(context, source, count, " · suffix") else L10n.plural(context, source, count)
-                    assertEquals("$locale/$count/$source", expected, actual)
-                }
-            }
+            for (plural in plurals) checkPlural(locale, plural.jsonObject)
+        }
+    }
+
+    private fun checkPlural(locale: String, entry: JsonObject) {
+        val source = entry.getValue("source").jsonPrimitive.content
+        val forms = entry.getValue("translations").jsonObject.getValue(locale).jsonObject
+        for (count in listOf(0, 1, 2, 5, 1_000_000)) {
+            val category = if (locale in listOf("en", "es", "sv") && count == 1) "one" else "other"
+            val displayed = if (count == 1_000_000) when (locale) { "es" ->
+                "1.000.000"
+                "sv" -> "1\u00a0000\u00a0000"
+                else -> "1,000,000"
+            } else count.toString()
+            val expected = (forms[category] ?: forms.getValue("other")).jsonPrimitive.content
+                .replace("{_gt_value_4}", displayed).replace("{_gt_value_3}", " · suffix")
+            val actual = if (source.contains("{_gt_value_3}")) L10n.plural(context, source, count, " · suffix") else L10n.plural(context, source, count)
+            assertEquals("$locale/$count/$source", expected, actual)
         }
     }
 
@@ -152,7 +158,8 @@ class TranslationsTest {
             language(locale)
             val expected = L10n.text(context, "{amount} to {recipient} will be sent tomorrow.", "1,234 sats", "Alice")
             assertEquals(expected, NotificationCopy.reminder(context, "1,234 sats", "Alice", true).body)
-            assertEquals(L10n.text(context, "Open Noah to send {amount} to {recipient}.", "1,234 sats", "Alice"), NotificationCopy.reminder(context, "1,234 sats", "Alice", false).body)
+            assertEquals(L10n.text(context, "Open Noah to send {amount} to {recipient}.", "1,234 sats", "Alice"),
+                NotificationCopy.reminder(context, "1,234 sats", "Alice", false).body)
         }
     }
 

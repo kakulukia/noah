@@ -1,6 +1,6 @@
 package com.noahwallet.ui
 
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -8,16 +8,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.window.core.layout.computeWindowSizeClass
 import androidx.window.core.layout.WindowSizeClass
+import androidx.window.core.layout.computeWindowSizeClass
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
-import androidx.window.layout.WindowLayoutInfo
 import kotlin.math.roundToInt
 
 internal object AdaptiveLayout {
@@ -68,12 +66,12 @@ internal val LocalWindowChrome = staticCompositionLocalOf { WindowChrome() }
 
 @Composable
 internal fun FoldingFeatures(content: @Composable () -> Unit) {
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     val info = if (activity != null) {
         val flow = remember(activity) { WindowInfoTracker.getOrCreate(activity).windowLayoutInfo(activity) }
-        flow.collectAsStateWithLifecycle(WindowLayoutInfo(emptyList())).value
-    } else WindowLayoutInfo(emptyList())
-    val hinges = info.displayFeatures.filterIsInstance<FoldingFeature>()
+        flow.collectAsStateWithLifecycle(null).value
+    } else null
+    val hinges = info?.displayFeatures.orEmpty().filterIsInstance<FoldingFeature>()
         .filter { it.isSeparating || it.occlusionType == FoldingFeature.OcclusionType.FULL }
         .map { WindowRegion(it.bounds.left, it.bounds.top, it.bounds.right, it.bounds.bottom) }
     CompositionLocalProvider(LocalFoldingFeatures provides hinges, content = content)

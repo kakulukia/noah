@@ -18,6 +18,7 @@ struct WalletLifecycle: Sendable {
             case .backupBusy: "Noah is still finishing a backup. Try again in a moment."
             case .temporaryFiles: "Noah couldn't remove temporary wallet files. Restart Noah and try again."
             case .restorePending: "Restart Noah to settle the pending restore before deleting."
+            // swiftlint:disable:next line_length - one literal: translations.mjs reads copy as a single string
             case .restoreSettingsUnavailable: "Restored wallet settings can't be saved yet. Try Resume again when storage is available. Recurring payments remain stopped."
             }
         }
@@ -37,7 +38,7 @@ struct WalletLifecycle: Sendable {
         var deregister: @Sendable () async throws -> Void
         var settleBackground: @Sendable (Duration) async throws -> Void = { _ in }
         var walletChanged: @Sendable () async -> Void = { await SendPaymentController.shared.reloadForWalletChange() }
-        var persistAutomationStop: (@Sendable (String) throws -> Void)? = nil
+        var persistAutomationStop: (@Sendable (String) throws -> Void)?
     }
 
     static let automationStopKey = "native-recurring-automation-stop-generation"
@@ -83,8 +84,7 @@ struct WalletLifecycle: Sendable {
 
     /// Called by launch and push recovery while RestoreRecovery owns the mutation gate.
     func recoverRestoreAndDeletionLocked(
-        recoverRestore: @Sendable () async throws -> RestoreTransaction.Recovery
-    ) async throws -> RestoreTransaction.Recovery {
+        recoverRestore: @Sendable () async throws -> RestoreTransaction.Recovery) async throws -> RestoreTransaction.Recovery {
         // Deletion refuses a restore journal, and restore refuses a deletion marker.
         // Coexistence proves the marker is stale, even if its seed tag matches.
         // Drop it durably before restore removes its journal: a crash after rollback

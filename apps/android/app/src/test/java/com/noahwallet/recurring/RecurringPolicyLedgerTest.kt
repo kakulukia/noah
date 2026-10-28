@@ -14,7 +14,8 @@ class RecurringPolicyLedgerTest {
         val file = File(directory, "journal.json.policies")
         val marker = File("${file.path}.initialized")
         val binding = RecurringStore.Binding(SendIdentity("wallet", "regtest"), UUID.randomUUID().toString())
-        val policy = RecurringPayment("rent", "Rent", "recipient", "ark", 1000, interval = RecurringInterval("day", 1), startAt = 1000, createdAt = 0, updatedAt = 0)
+        val policy = RecurringPayment("rent", "Rent", "recipient", "ark", 1000, interval = RecurringInterval("day", 1), startAt = 1000,
+            createdAt = 0, updatedAt = 0)
         var raw: String? = null
         var writes = 0
         var beforeWrite: () -> Unit = {}
@@ -78,7 +79,7 @@ class RecurringPolicyLedgerTest {
         // A stale policy cannot be blessed by an ordinary update or destructive resume.
         assertTrue(runCatching { w.store().upsert(w.policy) }.isFailure)
     }
-    @Test fun MMKVAheadOfLedgerAlsoStopsAndLedgerFailureNeverWritesMMKV() = World().use { w ->
+    @Test fun mmkvAheadOfLedgerAlsoStopsAndLedgerFailureNeverWritesMMKV() = World().use { w ->
         val store = w.store(); store.load()
         w.store(false).upsert(w.policy.copy(amountSat = 500, nativeRevision = UUID.randomUUID().toString()))
         assertEquals("needs_attention", w.store().load().schedules.getValue("rent").status)

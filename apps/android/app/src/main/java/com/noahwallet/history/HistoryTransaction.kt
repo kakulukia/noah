@@ -1,5 +1,6 @@
 package com.noahwallet.history
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -24,7 +25,7 @@ data class HistoryTransaction(
     /** An exit fee child this wallet paid on-chain: the VTXO that exit is for (see [HistoryMapping.exitFees]). */
     val exitFeeFor: String? = null,
 ) {
-    @Serializable data class Destination(val destination: String, val amount_sat: Long, val paymentMethod: String? = null)
+    @Serializable data class Destination(val destination: String, @SerialName("amount_sat") val amountSat: Long, val paymentMethod: String? = null)
     @Serializable data class Accounting(val direction: String, val amount: Long)
     /** The recurring schedule this payment ran for, from the recurring journal (see [HistoryMapping.joinRecurring]). */
     @Serializable data class Recurring(val scheduleID: String, val label: String, val interval: com.noahwallet.recurring.RecurringInterval)
@@ -34,7 +35,11 @@ data class HistoryTransaction(
     val offer get() = method("offer")
     /** Decoded from the stored BOLT11 invoice, else the hash bark recorded in the metadata. */
     val paymentHash: String? get() = invoice?.let { com.noahwallet.send.PaymentEncoding.invoice(it)?.hash }
-        ?: metadataJson?.let { runCatching { (kotlinx.serialization.json.Json.parseToJsonElement(it) as? kotlinx.serialization.json.JsonObject)?.string("payment_hash") }.getOrNull() }
+        ?: metadataJson?.let {
+            runCatching {
+                (kotlinx.serialization.json.Json.parseToJsonElement(it) as? kotlinx.serialization.json.JsonObject)?.string("payment_hash")
+            }.getOrNull()
+        }
     /** What the payee wrote in the offer or invoice; null when there's none. */
     val description: String? get() = offer?.let(com.noahwallet.send.PaymentEncoding::offerDescription)
         ?: invoice?.let { com.noahwallet.send.PaymentEncoding.invoice(it)?.description }
@@ -79,7 +84,7 @@ data class HistoryTransaction(
     val timestamp get() = HistoryRules.parseDate(date)
     val statusLabel get() = movementStatus?.replaceFirstChar { it.titlecase(Locale.ROOT) }
     val receiptStatus get() = if (movementStatus == "successful" || hasConfirmation == true) "Completed"
-        else statusLabel ?: if (source == "onchain-wallet" || balanceChangeSat != null) "Unconfirmed" else "Recorded"
+    else statusLabel ?: if (source == "onchain-wallet" || balanceChangeSat != null) "Unconfirmed" else "Recorded"
     fun explorerURL(variant: String): String? {
         if (type != "Onchain" && source != "onchain-wallet" && balanceChangeSat == null) return null
         val id = txid?.substringBefore(':')?.takeIf { it.isNotEmpty() } ?: return null

@@ -1,6 +1,6 @@
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 @MainActor @Suite(.serialized)
 struct ForegroundWidgetRefreshTests {
@@ -16,7 +16,7 @@ struct ForegroundWidgetRefreshTests {
         let previous = defaults.object(forKey: "widgetBalance")
         defer { defaults.set(previous, forKey: "widgetBalance") }
         _ = try await ForegroundWidgetRefresh.read(summary: { summary }, expiry: { 123 },
-            checkStage: {}, publish: { WidgetDataWriter.write(balance: $0, closestExpiryBlocks: $1, variant: .regtest) })
+                                                   checkStage: {}, publish: { WidgetDataWriter.write(balance: $0, closestExpiryBlocks: $1, variant: .regtest) })
         WidgetDataWriter.write(balance: summary.balance, closestExpiryBlocks: nil, variant: .regtest, preserveExpiry: true)
         let values = defaults.dictionary(forKey: "widgetBalance")
         #expect(values?["closestExpiryBlocks"] as? Double == 123)
@@ -28,13 +28,12 @@ struct ForegroundWidgetRefreshTests {
             let budget = RecurringSubmissionBudget()
             var writes = 0, expiryReads = 0
             await RecurringSubmissionBudget.$current.withValue(budget) {
-                do {
+                await #expect(throws: CancellationError.self, "Revoked refresh must not return") {
                     _ = try await ForegroundWidgetRefresh.read(summary: {
                         if revokeAfterSummary { budget.revoke() }; return summary
                     }, expiry: { expiryReads += 1; budget.revoke(); return 123 },
-                        checkStage: { try BackgroundExecution.checkActive() }, publish: { _, _ in writes += 1 })
-                    Issue.record("Revoked refresh returned successfully")
-                } catch is CancellationError {} catch { Issue.record("Unexpected error") }
+                    checkStage: { try BackgroundExecution.checkActive() }, publish: { _, _ in writes += 1 })
+                }
             }
             #expect(writes == 0)
             #expect(expiryReads == (revokeAfterSummary ? 0 : 1))
@@ -48,12 +47,11 @@ struct ForegroundWidgetRefreshTests {
                 withUnsafeCurrentTask { $0?.cancel() }; return 123
             }, checkStage: { try Task.checkCancellation() }, publish: { _, _ in writes += 1 })
         }
-        do { try await work.value; Issue.record("Cancelled refresh returned successfully") }
-        catch is CancellationError {} catch { Issue.record("Unexpected error") }
+        await #expect(throws: CancellationError.self, "Cancelled refresh must not return") { try await work.value }
         #expect(writes == 0)
         struct TipUnavailable: Error {}
         let latest = try await ForegroundWidgetRefresh.read(summary: { summary }, expiry: { throw TipUnavailable() },
-            checkStage: {}, publish: { _, _ in writes += 1 })
+                                                            checkStage: {}, publish: { _, _ in writes += 1 })
         #expect(latest == summary)
         #expect(writes == 0)
     }

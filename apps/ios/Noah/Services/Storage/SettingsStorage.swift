@@ -6,35 +6,38 @@ final class SettingsStorage: @unchecked Sendable {
     private static let access = NSRecursiveLock()
     static let instanceID = "noah-wallet-storage"
     static var defaultRootPath: String { URL.documentsDirectory.appending(path: "mmkv").path }
-    static let shared = try! SettingsStorage(rootPath: defaultRootPath)
+    static let shared = SettingsStorage(rootPath: defaultRootPath, instanceID: instanceID, file: NativeSettingsFile(file: fileURL(defaultRootPath)))
     struct OpenError: Error {}
     private let root: URL
     private let storeID: String
     let nativeFile: NativeSettingsFile
     // All access, including the shared fallback for each file, holds `access`.
-    nonisolated(unsafe) private static var fallbacks: [String: NativeSettingsFile.State] = [:]
+    private nonisolated(unsafe) static var fallbacks: [String: NativeSettingsFile.State] = [:]
     private var fallback: NativeSettingsFile.State? {
         get { Self.fallbacks[nativeFile.file.path] }
         set { Self.fallbacks[nativeFile.file.path] = newValue }
     }
     /// The last verified or committed generation of each file and its stamp, so a read that finds the
     /// same bytes on disk skips the read, parse and hash. Any other write to the file changes the stamp.
-    nonisolated(unsafe) private static var committed: [String: (stamp: NativeSettingsFile.Stamp, state: NativeSettingsFile.State)] = [:]
+    private nonisolated(unsafe) static var committed: [String: (stamp: NativeSettingsFile.Stamp, state: NativeSettingsFile.State)] = [:]
 
-    @MainActor static func bootstrap() {} // MMKV is initialized only if a snapshot needs importing.
+    @MainActor static func bootstrap() { /* MMKV is initialized only if a snapshot needs importing. */ }
 
+    // swiftlint:disable:next unneeded_throws_rethrows - public API stays throwing; callers and tests already handle it
     convenience init(rootPath: String, instanceID: String = SettingsStorage.instanceID) throws {
-        try self.init(rootPath: rootPath, instanceID: instanceID, file: NativeSettingsFile(file: Self.fileURL(rootPath)))
+        self.init(rootPath: rootPath, instanceID: instanceID, file: NativeSettingsFile(file: Self.fileURL(rootPath)))
     }
     #if DEBUG
-    /// Tests only: the file's fault injection (`NativeSettingsFile.step`).
-    convenience init(rootPath: String, instanceID: String = SettingsStorage.instanceID, step: @escaping (String) throws -> Void) throws {
-        try self.init(rootPath: rootPath, instanceID: instanceID, file: NativeSettingsFile(file: Self.fileURL(rootPath), step: step))
-    }
+        // swiftlint:disable unneeded_throws_rethrows - public API stays throwing; callers and tests already handle it
+        /// Tests only: the file's fault injection (`NativeSettingsFile.step`).
+        convenience init(rootPath: String, instanceID: String = SettingsStorage.instanceID, step: @escaping (String) throws -> Void) throws {
+            // swiftlint:enable unneeded_throws_rethrows
+            self.init(rootPath: rootPath, instanceID: instanceID, file: NativeSettingsFile(file: Self.fileURL(rootPath), step: step))
+        }
     #endif
     private static func fileURL(_ rootPath: String) -> URL { URL(fileURLWithPath: rootPath + ".native-settings.json") }
 
-    private init(rootPath: String, instanceID: String, file: NativeSettingsFile) throws {
+    private init(rootPath: String, instanceID: String, file: NativeSettingsFile) {
         Self.access.lock(); defer { Self.access.unlock() }
         root = URL(fileURLWithPath: rootPath); storeID = instanceID
         nativeFile = file
@@ -71,6 +74,7 @@ final class SettingsStorage: @unchecked Sendable {
         }
     }
 
+    // swiftlint:disable:next line_length - one literal: translations.mjs reads copy as a single string
     static let settingsNotice = "Some settings couldn't be carried over from the previous version, so they're back to their defaults: biometric lock is off, balances are visible, and currency and display settings are reset. Please review Settings."
     static func settingsNotice(values: [String: String]) -> String {
         let wallet = values[PersistedWalletState.key].flatMap { try? RNStoreCodec.decode($0, key: PersistedWalletState.key).json() }
@@ -84,7 +88,8 @@ final class SettingsStorage: @unchecked Sendable {
             return "Some display settings couldn't be carried over from the previous version and were reset. Please review Settings."
         }
         if values[PersistedProfileState.key] == nil { defaults.append("currency and display settings are reset") }
-        let descriptions = defaults.count == 1 ? defaults[0] : defaults.dropLast().joined(separator: ", ") + (defaults.count > 2 ? ", and " : " and ") + defaults.last!
+        let descriptions = defaults.count == 1 ? defaults[0] : defaults.dropLast()
+            .joined(separator: ", ") + (defaults.count > 2 ? ", and " : " and ") + defaults[defaults.count - 1]
         return "Some settings couldn't be carried over from the previous version, so they're back to their defaults: \(descriptions). Please review Settings."
     }
     static let recurringNotice = "Recurring payments need to be set up again after this update."
@@ -166,7 +171,7 @@ final class SettingsStorage: @unchecked Sendable {
             let retained = try EsploraSettings.retainingLogPrivacy(state.values)
             let history = try retained[EsploraSettings.key].flatMap { try JSONDecoder().decode(EsploraSettings.Record.self, from: Data($0.utf8)).logEndpoints }
             let record = EsploraSettings.Record(active: .init(variant: variant.rawValue), logEndpoints: history)
-            state.values[EsploraSettings.key] = String(decoding: try JSONEncoder().encode(record), as: UTF8.self)
+            state.values[EsploraSettings.key] = try String(json: JSONEncoder().encode(record))
             try persist(state)
         } catch { fallback = state }
     }
@@ -177,10 +182,11 @@ final class SettingsStorage: @unchecked Sendable {
         catch { fallback = previous; AppLog("settings").e("Settings removal failed") }
     }
     /// Called by Home only after it becomes visible. Durable flags survive background launches.
-    func takeUpgradeNotices() throws -> [String] {
+    func takeUpgradeNotices() -> [String] {
         Self.access.lock(); defer { Self.access.unlock() }
         var state = load()
-        let notices = (state.settingsNoticePending ? [Self.settingsNotice(values: state.values)] : []) + (state.recurringNoticePending ? [Self.recurringNotice] : [])
+        let notices = (state.settingsNoticePending ? [Self.settingsNotice(values: state.values)] : []) +
+            (state.recurringNoticePending ? [Self.recurringNotice] : [])
         guard !notices.isEmpty else { return [] }
         state.settingsNoticePending = false; state.recurringNoticePending = false
         fallback = state
@@ -212,7 +218,10 @@ final class SettingsStorage: @unchecked Sendable {
         wallet.isInitialized = true; wallet.isWalletLoaded = true
         do {
             let data = try JSONEncoder().encode(PersistedEnvelope(state: wallet, version: PersistedWalletState.version))
-            state.values[PersistedWalletState.key] = try RNStoreCodec.merging(String(decoding: data, as: UTF8.self), into: state.values[PersistedWalletState.key], key: PersistedWalletState.key)
+            state.values[PersistedWalletState.key] = try RNStoreCodec.merging(
+                String(json: data),
+                into: state.values[PersistedWalletState.key],
+                key: PersistedWalletState.key)
             try persist(state)
             return true
         } catch { fallback = state; return false }
@@ -222,21 +231,22 @@ final class SettingsStorage: @unchecked Sendable {
     /// inherits an earlier wallet's flag; `true` only for a typed-phrase
     /// restore; nil leaves the flag as it is (a restore from the stored seed
     /// proves nothing about a backup).
-    func beginOnboarding(recoveryPhraseBackedUp: Bool?) throws {
+    func beginOnboarding(recoveryPhraseBackedUp: Bool?) throws { // swiftlint:disable:this discouraged_optional_boolean - nil leaves the stored flag as it is
         Self.access.lock(); defer { Self.access.unlock() }
         var wallet = persistedState(PersistedWalletState.self, key: PersistedWalletState.key) ?? .init()
         wallet.isInitialized = false
         var values = [PersistedWalletState.key: try encodedPersistedState(wallet, key: PersistedWalletState.key, version: PersistedWalletState.version)]
         if let recoveryPhraseBackedUp {
             values[PersistedRecoveryPhraseBackup.key] = try encodedPersistedState(PersistedRecoveryPhraseBackup(isBackedUp: recoveryPhraseBackedUp),
-                key: PersistedRecoveryPhraseBackup.key, version: PersistedRecoveryPhraseBackup.version)
+                                                                                  key: PersistedRecoveryPhraseBackup.key,
+                                                                                  version: PersistedRecoveryPhraseBackup.version)
         }
         try setDurably(values)
     }
 
     /// Reads a zustand-persisted store. Returns `nil` when the key is absent
     /// or does not decode; callers fall back to their defaults.
-    func persistedState<State: Decodable>(_ type: State.Type, key: String) -> State? {
+    func persistedState<State: Decodable>(_: State.Type, key: String) -> State? {
         guard let json = string(forKey: key), let data = json.data(using: .utf8) else {
             return nil
         }
@@ -248,12 +258,12 @@ final class SettingsStorage: @unchecked Sendable {
     }
 
     /// Writes a zustand-compatible envelope so the value round-trips.
-    func setPersistedState<State: Encodable>(_ state: State, key: String, version: Int) throws {
+    func setPersistedState(_ state: some Encodable, key: String, version: Int) throws {
         try setDurably(encodedPersistedState(state, key: key, version: version), forKey: key)
     }
-    private func encodedPersistedState<State: Encodable>(_ state: State, key: String, version: Int) throws -> String {
+    private func encodedPersistedState(_ state: some Encodable, key: String, version: Int) throws -> String {
         let data = try JSONEncoder().encode(PersistedEnvelope(state: state, version: version))
-        let encoded = String(decoding: data, as: UTF8.self)
+        let encoded = try String(json: data)
         return RNStoreCodec.schemas[key] == nil ? encoded
             : try RNStoreCodec.merging(encoded, into: string(forKey: key), key: key)
     }

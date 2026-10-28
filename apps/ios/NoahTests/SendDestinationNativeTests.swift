@@ -1,23 +1,22 @@
 import Foundation
-import Testing
-
 @testable import Noah
+import Testing
 
 /// Native-only vectors for what Bark accepts and RN refused; the RN-generated send-utils vectors still run in SendFixtureTests.
 struct SendDestinationNativeTests {
     struct Input: Decodable { let destination: String; let network: String }
+    enum ExpectedKeys: CodingKey { case valid, destinationType, amount, isAmountEditable, error, bip321, url }
     struct Expected: Decodable {
         let valid: Bool
         let destinationType: String?
         let amount: Decimal?
         let isAmountEditable: Bool
         let error: String?
-        let bip321: [String: String]?
+        let bip321: [String: String]? // swiftlint:disable:this discouraged_optional_collection - absent and empty differ in the vectors
         /// Only for `lnurl` results: the first URL resolution requests, or nil when it refuses before any request.
         let url: String??
-        enum CodingKeys: CodingKey { case valid, destinationType, amount, isAmountEditable, error, bip321, url }
         init(from decoder: Decoder) throws {
-            let c = try decoder.container(keyedBy: CodingKeys.self)
+            let c = try decoder.container(keyedBy: ExpectedKeys.self)
             valid = try c.decode(Bool.self, forKey: .valid)
             destinationType = try c.decodeIfPresent(String.self, forKey: .destinationType)
             amount = try c.decodeIfPresent(Decimal.self, forKey: .amount)
@@ -73,8 +72,11 @@ struct SendDestinationNativeTests {
         // lnurl-rs 0.10's own encode_test vector.
         let url = "https://service.com/api?q=3fc3645b439ce8e7f2553a69e5267081d96dcd340693afabe04be7b0ccd178df"
         let encoded = PaymentEncoding.encodeBech32("lnurl", Array(url.utf8))
-        #expect(encoded.uppercased() == "LNURL1DP68GURN8GHJ7UM9WFMXJCM99E3K7MF0V9CXJ0M385EKVCENXC6R2C35XVUKXEFCV5MKVV34X5EKZD3EV56NYD3HXQURZEPEXEJXXEPNXSCRVWFNV9NXZCN9XQ6XYEFHVGCXXCMYXYMNSERXFQ5FNS")
+        #expect(encoded
+            .uppercased() ==
+            "LNURL1DP68GURN8GHJ7UM9WFMXJCM99E3K7MF0V9CXJ0M385EKVCENXC6R2C35XVUKXEFCV5MKVV34X5EKZD3EV56NYD3HXQURZE"
+            + "PEXEJXXEPNXSCRVWFNV9NXZCN9XQ6XYEFHVGCXXCMYXYMNSERXFQ5FNS")
         let decoded = try #require(PaymentEncoding.bech32(encoded))
-        #expect(PaymentEncoding.bytes(decoded.words).map { String(decoding: $0, as: UTF8.self) } == url)
+        #expect(PaymentEncoding.bytes(decoded.words).flatMap { String(bytes: $0, encoding: .utf8) } == url)
     }
 }

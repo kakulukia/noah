@@ -6,19 +6,19 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import com.noahwallet.localization.tr
 import com.noahwallet.ui.WalletAlertDialog
 import java.io.ByteArrayOutputStream
@@ -80,10 +80,18 @@ internal fun ScreenshotCropDialog(image: Bitmap, onCancel: () -> Unit, onCrop: (
                 drawRect(Color.White, origin + Offset(width * crop.left, height * crop.top),
                     Size(width * (crop.right - crop.left), height * (crop.bottom - crop.top)), style = Stroke(2.dp.toPx()))
             }
-            Text(left); Slider(crop.left, { crop = crop.copy(left = it) }, modifier = Modifier.semantics { contentDescription = left }, valueRange = 0f..(crop.right - 0.01f))
-            Text(right); Slider(crop.right, { crop = crop.copy(right = it) }, modifier = Modifier.semantics { contentDescription = right }, valueRange = (crop.left + 0.01f)..1f)
-            Text(top); Slider(crop.top, { crop = crop.copy(top = it) }, modifier = Modifier.semantics { contentDescription = top }, valueRange = 0f..(crop.bottom - 0.01f))
-            Text(bottom); Slider(crop.bottom, { crop = crop.copy(bottom = it) }, modifier = Modifier.semantics { contentDescription = bottom }, valueRange = (crop.top + 0.01f)..1f)
+            Text(left)
+            Slider(crop.left, { crop = crop.copy(left = it) }, modifier = Modifier.semantics { contentDescription = left },
+                valueRange = 0f..(crop.right - 0.01f))
+            Text(right)
+            Slider(crop.right, { crop = crop.copy(right = it) }, modifier = Modifier.semantics { contentDescription = right },
+                valueRange = (crop.left + 0.01f)..1f)
+            Text(top)
+            Slider(crop.top, { crop = crop.copy(top = it) }, modifier = Modifier.semantics { contentDescription = top },
+                valueRange = 0f..(crop.bottom - 0.01f))
+            Text(bottom)
+            Slider(crop.bottom, { crop = crop.copy(bottom = it) }, modifier = Modifier.semantics { contentDescription = bottom },
+                valueRange = (crop.top + 0.01f)..1f)
         }
     }, dismissButton = { TextButton(onCancel) { Text(tr("Cancel")) } },
         confirmButton = { TextButton({ onCrop(crop) }) { Text(tr("Done")) } })

@@ -13,7 +13,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import com.noahwallet.ui.home.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -52,10 +52,12 @@ class HomeFoldTest {
         val vertical = fold.height > fold.width
         for (node in nodes()) {
             val bounds: Rect = node.boundsInWindow
-            if (bounds.width <= 0f || bounds.height <= 0f) continue
             // A modal sheet's scrim is a whole-window dismiss target, not content.
-            if (node.config.getOrNull(SemanticsProperties.ContentDescription)?.contains("Close sheet") == true) continue
-            val what = "$label: ${node.config.getOrNull(SemanticsProperties.Text)?.joinToString() ?: node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()} $bounds $fold"
+            val scrim = node.config.getOrNull(SemanticsProperties.ContentDescription)?.contains("Close sheet") == true
+            if (bounds.width <= 0f || bounds.height <= 0f || scrim) continue
+            val text = node.config.getOrNull(SemanticsProperties.Text)?.joinToString()
+                ?: node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
+            val what = "$label: $text $bounds $fold"
             if (vertical) assertFalse("crosses the vertical fold: $what", bounds.left < fold.left && bounds.right > fold.right)
             else assertFalse("crosses the horizontal fold: $what", bounds.top < fold.top && bounds.bottom > fold.bottom)
         }
@@ -110,7 +112,9 @@ class HomeFoldTest {
         val restoration = StateRestorationTester(compose)
         val memory = HomeMemory().apply { enteredAt = 0L }
         var hidden by mutableStateOf(false)
-        restoration.setContent { NoahTheme { HomePreviewHost(HomeFixtures.ui("busy", hidden), memory, actions = HomeActions(toggleHidden = { hidden = !hidden })) } }
+        restoration.setContent { NoahTheme {
+            HomePreviewHost(HomeFixtures.ui("busy", hidden), memory, actions = HomeActions(toggleHidden = { hidden = !hidden }))
+        } }
         compose.mainClock.advanceTimeBy(2_000)
         val compact = compose.onAllNodesWithTag("home-scroll").fetchSemanticsNodes().isNotEmpty()
         if (compact) {
@@ -132,7 +136,8 @@ class HomeFoldTest {
         if (before != null) assertTrue("the swipe scrolled Home: $before", before > 0f)
         restoration.emulateSavedInstanceStateRestore()
         compose.mainClock.advanceTimeBy(1_500)
-        assertTrue("the balance sheet is still open", compose.onAllNodesWithText("Balance", useUnmergedTree = true).fetchSemanticsNodes().any { it.boundsInWindow.height > 0 })
+        assertTrue("the balance sheet is still open",
+            compose.onAllNodesWithText("Balance", useUnmergedTree = true).fetchSemanticsNodes().any { it.boundsInWindow.height > 0 })
         if (before != null) assertEquals("scroll position kept", before, scrolled(), 1f)
         assertTrue(hidden)
     }
@@ -159,8 +164,11 @@ class HomeFoldTest {
         show(HomeFixtures.ui("suspended"), null)
         compose.onNodeWithText("Wallet Suspended", useUnmergedTree = true).assertExists()
         compose.onNodeWithText("Open Settings", useUnmergedTree = true).assertExists()
-        for (tag in listOf("home-balance", "home-recent", "home-activity", "home-get-paid")) compose.onAllNodesWithTag(tag, useUnmergedTree = true).assertCountEquals(0)
-        compose.onAllNodes(SemanticsMatcher("a nudge") { it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("home-nudge") == true }, useUnmergedTree = true)
+        for (tag in listOf("home-balance", "home-recent", "home-activity", "home-get-paid"))
+            compose.onAllNodesWithTag(tag, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(SemanticsMatcher("a nudge") {
+            it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("home-nudge") == true
+        }, useUnmergedTree = true)
             .assertCountEquals(0)
         compose.onAllNodesWithContentDescription("Scan", useUnmergedTree = true).assertCountEquals(0)
     }

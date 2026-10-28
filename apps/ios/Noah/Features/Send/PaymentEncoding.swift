@@ -15,7 +15,7 @@ enum PaymentEncoding {
         let words = encoded.compactMap { alphabet.firstIndex(of: $0).map(UInt8.init) }
         guard words.count == encoded.count else { return nil }
         let check = polymod(prefix, words)
-        guard check == 1 || check == 0x2bc830a3 else { return nil }
+        guard check == 1 || check == 0x2BC8_30A3 else { return nil }
         return Bech32(prefix: prefix, words: Array(words.dropLast(6)), isM: check != 1)
     }
     /// Bech32 (not bech32m), lowercase: how an `lnurl1…` carries its URL.
@@ -33,19 +33,20 @@ enum PaymentEncoding {
     }
     private static func polymod(_ prefix: String, _ words: [UInt8]) -> UInt32 {
         let expanded = prefix.utf8.map { $0 >> 5 } + [0] + prefix.utf8.map { $0 & 31 }
-        let generators: [UInt32] = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
+        let generators: [UInt32] = [0x3B6A_57B2, 0x2650_8E6D, 0x1EA1_19FA, 0x3D42_33DD, 0x2A14_62B3]
         var check: UInt32 = 1
         for word in expanded + words {
             let top = check >> 25
-            check = ((check & 0x1ffffff) << 5) ^ UInt32(word)
+            check = ((check & 0x1FFFFFF) << 5) ^ UInt32(word)
             for i in 0..<5 where (top >> i) & 1 != 0 { check ^= generators[i] }
         }
         return check
     }
+    // swiftlint:disable:next discouraged_optional_collection - nil: invalid input, unlike an empty result
     static func bytes(_ words: [UInt8]) -> [UInt8]? {
         var accumulator: UInt32 = 0, bits = 0, output: [UInt8] = []
         for word in words {
-            accumulator = ((accumulator << 5) | UInt32(word)) & 0xffffff
+            accumulator = ((accumulator << 5) | UInt32(word)) & 0xFFFFFF
             bits += 5
             if bits >= 8 { bits -= 8; output.append(UInt8((accumulator >> bits) & 255)) }
         }
@@ -56,12 +57,13 @@ enum PaymentEncoding {
         if let decoded = bech32(address), address.count <= 90,
            let version = decoded.words.first, version <= 16,
            let program = bytes(Array(decoded.words.dropFirst())), (2...40).contains(program.count),
-           version == 0 ? (!decoded.isM && [20,32].contains(program.count)) : decoded.isM {
-            return ["bc":"mainnet", "tb":"testnet", "bcrt":"regtest"][decoded.prefix]
+           version == 0 ? (!decoded.isM && [20, 32].contains(program.count)) : decoded.isM {
+            return ["bc": "mainnet", "tb": "testnet", "bcrt": "regtest"][decoded.prefix]
         }
         guard let decoded = base58Address(address) else { return nil }
-        switch decoded[0] { case 0,5: return "mainnet"; case 111,196: return "testnet"; default: return nil }
+        switch decoded[0] { case 0, 5: return "mainnet"; case 111, 196: return "testnet"; default: return nil }
     }
+    // swiftlint:disable:next discouraged_optional_collection - nil: invalid input, unlike an empty result
     private static func base58Address(_ address: String) -> [UInt8]? {
         let alphabet = Array("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
         guard address.count <= 60 else { return nil }
@@ -77,6 +79,7 @@ enum PaymentEncoding {
         guard Array(decoded.suffix(4)) == checksum else { return nil }
         return Array(decoded.dropLast(4))
     }
+    // swiftlint:disable:next discouraged_optional_collection - nil: invalid input, unlike an empty result
     static func bitcoinScript(_ address: String) -> [UInt8]? {
         guard bitcoinNetwork(address) != nil else { return nil }
         if let decoded = bech32(address), let version = decoded.words.first,
@@ -85,36 +88,51 @@ enum PaymentEncoding {
         }
         guard let decoded = base58Address(address) else { return nil }
         let hash = Array(decoded.dropFirst())
-        return [0,111].contains(decoded[0]) ? [0x76,0xa9,0x14] + hash + [0x88,0xac] : [0xa9,0x14] + hash + [0x87]
+        return [0, 111].contains(decoded[0]) ? [0x76, 0xA9, 0x14] + hash + [0x88, 0xAC] : [0xA9, 0x14] + hash + [0x87]
     }
-    struct Invoice { let network: String; let sats: Decimal?; let hash: String?; let expires: Date; let descriptionHash: String?; var description: String? = nil }
+    struct Invoice {
+        let network: String; let sats: Decimal?; let hash: String?; let expires: Date; let descriptionHash: String?; var description: String?
+    }
     static func invoice(_ value: String) -> Invoice? {
         guard let decoded = bech32(value), !decoded.isM, decoded.words.count >= 111,
               let networkPrefix = ["lnbcrt", "lntbs", "lnbc", "lntb"].first(where: { decoded.prefix.hasPrefix($0) }) else { return nil }
         let hrpAmount = String(decoded.prefix.dropFirst(networkPrefix.count))
         var amount: Decimal?
-        if !hrpAmount.isEmpty {
-            let unit = hrpAmount.last!, suffix = ["m","u","n","p"].contains(String(unit))
+        if let unit = hrpAmount.last {
+            let suffix = ["m", "u", "n", "p"].contains(String(unit))
             let digits = suffix ? String(hrpAmount.dropLast()) : hrpAmount
             guard !digits.isEmpty, digits.allSatisfy(\.isNumber), let value = Decimal(string: digits) else { return nil }
             if suffix && unit == "p" && !digits.hasSuffix("0") { return nil }
-            let factors: [Character: Decimal] = ["m":100000,"u":100,"n":Decimal(string:"0.1")!,"p":Decimal(string:"0.0001")!]
-            amount = value * (suffix ? factors[unit]! : 100000000)
+            let factors: [Character: Decimal] = ["m": 100000, "u": 100, "n": Decimal(sign: .plus, exponent: -1, significand: 1),
+                                                 "p": Decimal(sign: .plus, exponent: -4, significand: 1)]
+            amount = value * (factors[unit] ?? 100000000)
         }
         let payload = Array(decoded.words.dropLast(104))
-        var index = 7, hash: String?, descriptionHash: String?, description: String?, expiry: UInt64 = 3600
-        while index + 3 <= payload.count {
-            let tag = payload[index], count = Int(payload[index+1]) * 32 + Int(payload[index+2]); index += 3
-            guard index + count <= payload.count else { return nil }
-            let data = Array(payload[index..<(index+count)]); index += count
-            if tag == 1, let raw = bytes(data), raw.count == 32 { hash = raw.map { String(format:"%02x",$0) }.joined() }
-            if tag == 23, let raw = bytes(data), raw.count == 32 { descriptionHash = raw.map { String(format:"%02x",$0) }.joined() }
-            if tag == 13, let raw = bytes(data) { description = String(bytes: raw, encoding: .utf8) }
-            if tag == 6 { guard data.count <= 12 else { return nil }; expiry = data.reduce(0) { $0 * 32 + UInt64($1) } }
-        }
-        guard hash != nil, index == payload.count else { return nil }
+        guard let fields = taggedFields(payload), fields.hash != nil else { return nil }
         let timestamp = payload.prefix(7).reduce(UInt64(0)) { $0 * 32 + UInt64($1) }
-        return Invoice(network: ["lnbc":"mainnet","lntb":"testnet","lntbs":"signet","lnbcrt":"regtest"][networkPrefix]!, sats: amount, hash: hash, expires: Date(timeIntervalSince1970: Double(timestamp) + Double(expiry)), descriptionHash: descriptionHash, description: description)
+        let network = switch networkPrefix { case "lnbc": "mainnet"; case "lntb": "testnet"; case "lntbs": "signet"; default: "regtest" }
+        return Invoice(
+            network: network,
+            sats: amount,
+            hash: fields.hash,
+            expires: Date(timeIntervalSince1970: Double(timestamp) + Double(fields.expiry)),
+            descriptionHash: fields.descriptionHash,
+            description: fields.description)
+    }
+    private struct TaggedFields { var hash: String?; var descriptionHash: String?; var description: String?; var expiry: UInt64 = 3600 }
+    /// BOLT11's tagged fields after the 7-word timestamp; nil when one runs past the payload or an expiry is too long.
+    private static func taggedFields(_ payload: [UInt8]) -> TaggedFields? {
+        var index = 7, fields = TaggedFields()
+        while index + 3 <= payload.count {
+            let tag = payload[index], count = Int(payload[index + 1]) * 32 + Int(payload[index + 2]); index += 3
+            guard index + count <= payload.count else { return nil }
+            let data = Array(payload[index..<(index + count)]); index += count
+            if tag == 1, let raw = bytes(data), raw.count == 32 { fields.hash = raw.map { String(format: "%02x", $0) }.joined() }
+            if tag == 23, let raw = bytes(data), raw.count == 32 { fields.descriptionHash = raw.map { String(format: "%02x", $0) }.joined() }
+            if tag == 13, let raw = bytes(data) { fields.description = String(bytes: raw, encoding: .utf8) }
+            if tag == 6 { guard data.count <= 12 else { return nil }; fields.expiry = data.reduce(0) { $0 * 32 + UInt64($1) } }
+        }
+        return index == payload.count ? fields : nil
     }
     /// A BOLT12 offer's `offer_description` (TLV 10). Offers are bech32 without a checksum.
     static func offerDescription(_ offer: String) -> String? {
@@ -126,7 +144,7 @@ enum PaymentEncoding {
         func bigSize() -> UInt64? {
             guard index < stream.count else { return nil }
             let first = stream[index]; index += 1
-            let width = first == 0xff ? 8 : first == 0xfe ? 4 : first == 0xfd ? 2 : 0
+            let width = first == 0xFF ? 8 : first == 0xFE ? 4 : first == 0xFD ? 2 : 0
             guard width > 0 else { return UInt64(first) }
             guard index + width <= stream.count else { return nil }
             defer { index += width }

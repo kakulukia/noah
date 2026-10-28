@@ -1,9 +1,9 @@
 import BackgroundTasks
 import BarkBoltFFI
 import Foundation
+@testable import Noah
 import Synchronization
 import Testing
-@testable import Noah
 
 @MainActor struct BackgroundTaskTests {
     @MainActor final class SchedulerHarness {
@@ -26,8 +26,9 @@ import Testing
         #expect(h.requests.count == 2)
         let refresh = try #require(h.requests.first { $0 is BGAppRefreshTaskRequest })
         let maintenance = try #require(h.requests.first { $0 is BGProcessingTaskRequest } as? BGProcessingTaskRequest)
-        #expect(refresh.identifier == Bundle.main.bundleIdentifier! + ".refresh")
-        #expect(maintenance.identifier == Bundle.main.bundleIdentifier! + ".maintenance")
+        let bundleID = try #require(Bundle.main.bundleIdentifier)
+        #expect(refresh.identifier == bundleID + ".refresh")
+        #expect(maintenance.identifier == bundleID + ".maintenance")
         #expect(refresh.earliestBeginDate == h.now.addingTimeInterval(3_600))
         #expect(maintenance.earliestBeginDate == h.now.addingTimeInterval(21_600))
         #expect(maintenance.requiresNetworkConnectivity)
@@ -38,7 +39,7 @@ import Testing
         #expect(Set(h.cancelled) == Set(BackgroundScheduler.Kind.allCases.map(\.identifier)))
     }
 
-    @Test(arguments: [true, false]) func launchRechecksForegroundAndWalletEligibility(foreground: Bool) async throws {
+    @Test(arguments: [true, false]) func launchRechecksForegroundAndWalletEligibility(foreground: Bool) async {
         let h = SchedulerHarness()
         h.foreground = foreground; h.eligible = !foreground ? false : true
         let done = await withCheckedContinuation { continuation in
@@ -66,6 +67,7 @@ import Testing
 
     @Test func expiryRevokesInheritedBudgetBeforeShieldedWorkSettles() async throws {
         let gate = RecurringReservationTests.Gate()
+        // swiftlint:disable:next discouraged_optional_boolean - nil until the shielded work reads the budget
         var complete: [Bool] = [], available: Bool?
         let execution = BackgroundExecution(timeout: .seconds(5), completion: { complete.append($0) }) {
             await Task { await gate.wait() }.value
@@ -92,10 +94,7 @@ import Testing
         let execution = BackgroundExecution(completion: { completed.append($0) }) {
             await Task {
                 await gate.wait()
-                do {
-                    try BackgroundExecution.checkActive()
-                    recorder.add("later")
-                } catch {}
+                if (try? BackgroundExecution.checkActive()) != nil { recorder.add("later") }
             }.value
             recorder.add("settled")
         }
@@ -109,9 +108,10 @@ import Testing
         #expect(completed == [false])
     }
 
-    @Test func deadlineRevokesSubmission() async throws {
+    @Test func deadlineRevokesSubmission() async {
         do {
             let gate = RecurringReservationTests.Gate()
+            // swiftlint:disable:next discouraged_optional_boolean - nil until the shielded work reads the budget
             var complete: [Bool] = [], available: Bool?
             _ = BackgroundExecution(timeout: .milliseconds(20), completion: { complete.append($0) }) {
                 await Task { await gate.wait() }.value
@@ -132,7 +132,7 @@ import Testing
         defer { try? FileManager.default.removeItem(at: h.directory) }
         var release: CheckedContinuation<Void, Never>?
         h.preflight = { await withCheckedContinuation { release = $0 } }
-        var completed: Bool?, settled = false
+        var completed: Bool?, settled = false // swiftlint:disable:this discouraged_optional_boolean - nil until the task completes
         let execution = BackgroundExecution(completion: { completed = $0 }) {
             await h.executor.execute()
             await MainActor.run { settled = true }
@@ -161,8 +161,8 @@ import Testing
         let recorder = PushJobsTests.Recorder()
         try await BackgroundScheduler.run(kind, Self.stages(recorder))
         #expect(recorder.all == (kind == .maintenance
-            ? ["open", "sync", "maintenance", "recurring", "backup", "widget", "exits"]
-            : ["open", "sync", "recurring", "widget", "exits"]))
+                ? ["open", "sync", "maintenance", "recurring", "backup", "widget", "exits"]
+                : ["open", "sync", "recurring", "widget", "exits"]))
     }
 
     @Test func taskSkipsExitProgressOnceItsBudgetIsGone() async throws {
@@ -206,7 +206,7 @@ import Testing
         let episode = try #require(parked.parkedEpisode)
         let pending = finished + [ExitVtxo(vtxoId: "v", amountSats: 31_000, state: .start(tipHeight: 100), isClaimable: false)]
         let short = ExitProgressStatus(vtxoId: "v", state: .processing(tipHeight: 101, transactions: []),
-            error: BarkError(message: "private", code: .exitInsufficientConfirmedFunds, neededSats: 1_215, availableSats: 310))
+                                       error: BarkError(message: "private", code: .exitInsufficientConfirmedFunds, neededSats: 1_215, availableSats: 310))
         #expect(try await session.progressPendingExits(access: Self.exitAccess(calls, pending, statuses: [short], models: [parked])))
         #expect(calls.rates == [nil])
         let check = try #require(await session.exitChecks["w"])

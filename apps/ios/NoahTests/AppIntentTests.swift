@@ -1,7 +1,7 @@
 import AppIntents
 import Foundation
-import Testing
 @testable import Noah
+import Testing
 
 @MainActor struct AppIntentTests {
     @Test func identifiersMatchRNTypesAndParameters() throws {
@@ -17,7 +17,8 @@ import Testing
             #expect(CopyNoahLightningInvoiceIntent.persistentIdentifier == "CopyNoahLightningInvoiceIntent")
         }
         // Source contract catches a renamed parameter or Siri phrase, including hidden snippets.
-        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
         let rn = try String(contentsOf: repo.appending(path: "client/ios/SharedAppIntents/NoahAppIntents.swift"), encoding: .utf8)
         let native = try String(contentsOf: repo.appending(path: "apps/ios/Noah/Services/AppIntents/NoahAppIntents.swift"), encoding: .utf8)
         func contract(_ text: String) -> [String] {
@@ -31,9 +32,10 @@ import Testing
 
     @Test(arguments: [0, -1]) func invoiceRejectsInvalidAmountsBeforeWalletAccess(amount: Int) async {
         let wallet = NoahIntentWallet(newAddress: { Issue.record("Unexpected address access"); return "" },
-                                     bolt11Invoice: { _, _ in Issue.record("Unexpected wallet access"); return .init(paymentRequest: "") }, refreshBalance: { 0 })
+                                      bolt11Invoice: { _, _ in Issue.record("Unexpected wallet access"); return .init(paymentRequest: "") },
+                                      refreshBalance: { 0 })
         await NoahIntentWallet.$current.withValue(wallet) {
-            var intent = CreateNoahLightningInvoiceIntent(); intent.amountSats = amount
+            let intent = CreateNoahLightningInvoiceIntent(); intent.amountSats = amount
             await #expect(throws: (any Error).self) { _ = try await intent.perform() }
         }
     }
@@ -44,11 +46,11 @@ import Testing
             return .init(paymentRequest: "ln-invoice")
         }, refreshBalance: { 0 })
         try await NoahIntentWallet.$current.withValue(wallet) {
-            var intent = CreateNoahLightningInvoiceIntent(); intent.amountSats = 42; intent.invoiceDescription = "  memo\n"
+            let intent = CreateNoahLightningInvoiceIntent(); intent.amountSats = 42; intent.invoiceDescription = "  memo\n"
             let result = try await intent.perform()
             #expect(result.value == "ln-invoice")
             if #available(iOS 26.0, *) {
-                var snippet = CreateNoahLightningInvoiceWithSnippetIntent(); snippet.amountSats = 42; snippet.invoiceDescription = "memo"
+                let snippet = CreateNoahLightningInvoiceWithSnippetIntent(); snippet.amountSats = 42; snippet.invoiceDescription = "memo"
                 #expect(try await snippet.perform().value == "ln-invoice")
             }
             intent.invoiceDescription = String(repeating: "🪙", count: 320)
@@ -58,7 +60,7 @@ import Testing
 
     @Test func balanceRejectsOverflowAndHidesUnderlyingErrors() async {
         let wallet = NoahIntentWallet(newAddress: { throw CocoaError(.fileReadUnknown) },
-                                     bolt11Invoice: { _, _ in throw CocoaError(.fileReadUnknown) }, refreshBalance: { .max })
+                                      bolt11Invoice: { _, _ in throw CocoaError(.fileReadUnknown) }, refreshBalance: { .max })
         await NoahIntentWallet.$current.withValue(wallet) {
             await #expect(throws: (any Error).self) { _ = try await GetNoahBalanceIntent().perform() }
             await #expect(throws: (any Error).self) { _ = try await CreateNoahArkAddressIntent().perform() }

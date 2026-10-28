@@ -7,8 +7,6 @@ import com.noahwallet.services.server.ServerClient
 import com.noahwallet.services.storage.*
 import com.noahwallet.services.wallet.*
 import io.github.niteshbalusu11.bark.*
-import java.io.File
-import java.util.UUID
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.*
@@ -16,6 +14,8 @@ import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class CrossPlatformBackupTest {
@@ -80,19 +80,33 @@ class CrossPlatformBackupTest {
         try {
             // Loopback serves the exact committed file; production download/validation/transaction/opener run.
             FixtureServer(encrypted).use { server ->
-            val restorer = WalletRestorer("regtest", session, location, seed,
-                makeClient = { ServerClient.make(server.url) })
-            val outcome = restorer.restore(input["mnemonic"]!!.jsonPrimitive.content)
-            assertEquals("ios", outcome.backupId); assertFalse(outcome.cleanupPending)
-            assertTrue(seed.value == input["mnemonic"]!!.jsonPrimitive.content); assertFalse(location.restorePending)
-            session.ensureOpen(seed.value!!, false, "cross-backup")
-            val summary = session.summary()!!
-            assertEquals(expected["fingerprint"]!!.jsonPrimitive.content, summary.fingerprint)
-            assertEquals(expected["movements"]!!.jsonPrimitive.int, summary.movementCount)
-            assertTrue(session.withOpen { it.history() }.isEmpty())
-            assertEquals(expected["balance"], Json.encodeToJsonElement(ListSerializer(WalletBalance.Detail.serializer()), summary.balance.details))
+                val restorer = WalletRestorer("regtest", session, location, seed,
+                    makeClient = { ServerClient.make(server.url) })
+                val outcome = restorer.restore(input["mnemonic"]!!.jsonPrimitive.content)
+                assertEquals("ios", outcome.backupId); assertFalse(outcome.cleanupPending)
+                assertTrue(seed.value == input["mnemonic"]!!.jsonPrimitive.content); assertFalse(location.restorePending)
+                session.ensureOpen(seed.value!!, false, "cross-backup")
+                val summary = session.summary()!!
+                assertEquals(expected["fingerprint"]!!.jsonPrimitive.content, summary.fingerprint)
+                assertEquals(expected["movements"]!!.jsonPrimitive.int, summary.movementCount)
+                assertTrue(session.withOpen { it.history() }.isEmpty())
+                assertEquals(expected["balance"], Json.encodeToJsonElement(ListSerializer(WalletBalance.Detail.serializer()), summary.balance.details))
             }
         } finally { session.close(); root.deleteRecursively() }
+    }
+
+    /** Reseals [encrypted] as a newer backup: a future manifest format, or a future bark schema in its snapshot. */
+    private fun reseal(encrypted: File, root: File, kind: String) {
+        val opened = BackupArchive.open(encrypted, phrase, File(root, "unpacked"))
+        val manifest = if (kind == "manifest") opened.manifest.copy(formatVersion = 3) else {
+            android.database.sqlite.SQLiteDatabase.openDatabase(opened.snapshot.path, null,
+                android.database.sqlite.SQLiteDatabase.OPEN_READWRITE).use {
+                it.execSQL("INSERT INTO migrations(value) VALUES(9999)")
+            }
+            opened.manifest.copy(barkSchemaVersion = 9999, snapshotSha256 = BackupArchive.sha256(opened.snapshot))
+        }
+        check(encrypted.delete())
+        BackupArchive.seal(opened.snapshot, manifest, phrase, encrypted, root)
     }
 
     private suspend fun refuseNewer(kind: String): Exception {
@@ -109,18 +123,7 @@ class CrossPlatformBackupTest {
             }
             if (kind == "envelope") {
                 val bytes = encrypted.readBytes(); bytes[0] = 3; encrypted.writeBytes(bytes)
-            } else if (kind == "manifest" || kind == "schema") {
-                val opened = BackupArchive.open(encrypted, phrase, File(root, "unpacked"))
-                val manifest = if (kind == "manifest") opened.manifest.copy(formatVersion = 3) else {
-                    android.database.sqlite.SQLiteDatabase.openDatabase(opened.snapshot.path, null,
-                        android.database.sqlite.SQLiteDatabase.OPEN_READWRITE).use {
-                        it.execSQL("INSERT INTO migrations(value) VALUES(9999)")
-                    }
-                    opened.manifest.copy(barkSchemaVersion = 9999, snapshotSha256 = BackupArchive.sha256(opened.snapshot))
-                }
-                check(encrypted.delete())
-                BackupArchive.seal(opened.snapshot, manifest, phrase, encrypted, root)
-            }
+            } else if (kind == "manifest" || kind == "schema") reseal(encrypted, root, kind)
             location.directory.mkdirs(); location.database.writeText("previous wallet bytes")
             val before = location.database.readBytes()
             val failure = FixtureServer(encrypted, if (kind == "list") 3 else 2).use { server ->
@@ -161,7 +164,9 @@ class CrossPlatformBackupTest {
         private val listener = java.net.ServerSocket(0, 8, java.net.InetAddress.getByName("127.0.0.1"))
         val url = "http://127.0.0.1:${listener.localPort}"
         private val bytes = file.readBytes()
-        private val info = """{"backup_id":"ios","created_at":"2026-10-20T00:00:00Z","encrypted_sha256":"${BackupArchive.sha256(bytes)}","encrypted_size":${bytes.size},"format_version":$format}"""
+        private val info =
+            """{"backup_id":"ios","created_at":"2026-10-20T00:00:00Z","encrypted_sha256":"${BackupArchive.sha256(bytes)}",""" +
+                """"encrypted_size":${bytes.size},"format_version":$format}"""
         private val thread = Thread {
             while (!listener.isClosed) {
                 val socket = try { listener.accept() } catch (_: java.net.SocketException) { break }
@@ -169,19 +174,19 @@ class CrossPlatformBackupTest {
                     it.soTimeout = 5000
                     val reader = it.getInputStream().bufferedReader()
                     val path = reader.readLine().split(' ')[1]
-                    while (!reader.readLine().isNullOrEmpty()) { }
+                    do { val header = reader.readLine() } while (!header.isNullOrEmpty())
                     val response = when (path) {
                         "/v0/backup/v2/list" -> "[$info]".toByteArray()
                         "/v0/backup/v2/download" -> """{"backup":$info,"download_url":"$url/file"}""".toByteArray()
                         "/file" -> bytes
                         else -> error("Unexpected fixture route")
                     }
-                    it.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${response.size}\r\nConnection: close\r\n\r\n").toByteArray())
+                    it.getOutputStream().write(("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${response.size}\r\nConnection: " +
+                        "close\r\n\r\n").toByteArray())
                     it.getOutputStream().write(response)
                 }
             }
         }.apply { isDaemon = true; start() }
         override fun close() { listener.close(); thread.join(6000); check(!thread.isAlive) }
     }
-
 }

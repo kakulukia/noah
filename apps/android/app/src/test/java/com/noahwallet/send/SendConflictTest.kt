@@ -14,7 +14,8 @@ class SendConflictTest {
     private fun original() = transaction().copy(txHex = hex())
     private fun competing(confirmed: Boolean = true) = transaction("replacement", confirmed).copy(txHex = hex())
     private fun quote() = chainQuote.copy(prepared = chainQuote.prepared!!.copy(inputs = listOf(point)))
-    private fun roundTrip(value: SendAttempt) = Json.decodeFromString<SendAttempt>(Json { encodeDefaults = true }.encodeToString(value))
+    private val withDefaults = Json { encodeDefaults = true }
+    private fun roundTrip(value: SendAttempt) = Json.decodeFromString<SendAttempt>(withDefaults.encodeToString(value))
 
     @Test fun confirmedCompetingInputSurvivesEvictionRestartRefreshAndRequiresOverride() = runBlocking {
         for (evicted in listOf(false, true)) for (hasReceipt in listOf(false, true)) {
@@ -97,7 +98,8 @@ class SendConflictTest {
     @Test fun legacyQuotesCanUseCachedOriginalButNeverOtherInputIndexes() {
         val saved = SendAttempt(payment = chainPayment, broadcastingTxid = "exact", quote = chainQuote)
         assertEquals("replacement", (SendReconciliation.onchain(saved, listOf(original(), competing())) as SendResolution.Paid).receipt.confirmedConflictTxid)
-        assertNull((SendReconciliation.onchain(saved, listOf(original(), competing().copy(txHex = hex(vout = "79563412")))) as SendResolution.Paid).receipt.confirmedConflictTxid)
+        assertNull((SendReconciliation.onchain(saved,
+            listOf(original(), competing().copy(txHex = hex(vout = "79563412")))) as SendResolution.Paid).receipt.confirmedConflictTxid)
     }
     @Test fun consensusInputsUseReversedTxidAndUnsignedIndexForWitnessAndLegacy() {
         for (witness in listOf(false, true)) assertEquals(listOf(point), SendTransaction.parse(hex(witness)).inputs)
@@ -126,7 +128,10 @@ class SendConflictTest {
                 receipt = SendReceipt(1000, txid = "exact", proof = SendReceipt.Proof.preparedTxid, broadcastRetryPending = true))
             journal.attempt = original; journal.fail = true
             var reads = 0
-            val subject = SendController(SendController.Dependencies(read = { check(++reads == 1); journal.attempt }, write = journal::write) { it(wallet) }, this)
+            val subject = SendController(SendController.Dependencies(read = {
+                check(++reads == 1)
+                journal.attempt
+            }, write = journal::write) { it(wallet) }, this)
             subject.reloadForWalletChange()
             assertEquals(SendController.State.storageBlocked, subject.state)
             assertEquals(original, subject.attempt); assertEquals(original, journal.attempt); assertTrue(subject.canOverride)

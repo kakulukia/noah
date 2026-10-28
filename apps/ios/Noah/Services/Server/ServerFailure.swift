@@ -6,11 +6,11 @@ import OpenAPIRuntime
 /// ClientError description (which contains authorization headers and inputs).
 struct ServerFailure: Error, Sendable {
     let message: String
-    var statusCode: Int? = nil
-    var code: String? = nil
+    var statusCode: Int?
+    var code: String?
 
     static func message(for error: Error, fallback: String) -> String {
-        if let error = error as? ServerFailure { return error.message }
+        if let error = error as? Self { return error.message }
         if let error = error as? IdentityValidationError { return error.errorDescription ?? fallback }
         if let error = error as? ClientError { return message(for: error.underlyingError, fallback: fallback) }
         return fallback
@@ -19,9 +19,8 @@ struct ServerFailure: Error, Sendable {
 
 struct ServerFailureMiddleware: ClientMiddleware {
     func intercept(
-        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID: String,
-        next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)
-    ) async throws -> (HTTPResponse, HTTPBody?) {
+        _ request: HTTPRequest, body: HTTPBody?, baseURL: URL, operationID _: String,
+        next: @Sendable (HTTPRequest, HTTPBody?, URL) async throws -> (HTTPResponse, HTTPBody?)) async throws -> (HTTPResponse, HTTPBody?) {
         let (response, body) = try await next(request, body, baseURL)
         guard response.status.code >= 400, let body else { return (response, body) }
         let data = try await Data(collecting: body, upTo: 64 * 1024)
